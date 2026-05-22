@@ -76,7 +76,7 @@ _ndas_1_unlock:
 _ndas_2_vic4_ctrl:
         lda #$02
         sta BORDERCOL
-        lda #%00000101
+        lda #%00010101          ; SEAM/FCLRHI, CHR16, and H640 sprite X
         sta VIC4_CTRL
         rts
 
@@ -119,7 +119,7 @@ _ndas_6_reassert_ctrl:
         lda #$07
         sta BORDERCOL
         lda VIC4_CTRL
-        ora #%00000101
+        ora #%00010101          ; keep H640 sprite X enabled
         sta VIC4_CTRL
         rts
 
@@ -174,7 +174,7 @@ _ssm_fcm_init:
         lda #$80
         trb $D05D               ; disable hot registers
 
-        lda #%00000101          ; SEAM/FCLRHI plus CHR16 for NCM characters
+        lda #%00010101          ; SEAM/FCLRHI, CHR16, and H640 sprite X
         sta VIC4_CTRL
 
         jsr ssm_screen_off
@@ -209,7 +209,7 @@ _ssm_ncm40:
         sta VIC4_TEXTYPOS
 
         lda VIC4_CTRL
-        ora #%00000101
+        ora #%00010101          ; keep H640 sprite X enabled
         sta VIC4_CTRL
 
         jsr ssm_setup_pointers

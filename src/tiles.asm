@@ -26,7 +26,7 @@ tiles_init_palette:
         #SET_COLOR 9, 12, 6, 1      ; industrial orange
         #SET_COLOR 10, 15, 14, 2    ; power / prompt
         #SET_COLOR 11, 3, 3, 3      ; dark gray
-        #SET_COLOR 12, 15, 15, 14   ; light
+        #SET_COLOR 12, 13, 13, 13   ; light gray UI panel
         #SET_COLOR 13, 14, 2, 2     ; red
         #SET_COLOR 14, 2, 14, 15    ; cyan
         #SET_COLOR 15, 15, 15, 15   ; white

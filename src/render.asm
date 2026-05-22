@@ -52,7 +52,7 @@ render_ui:
         ldy #1
         jsr render_fill_rect
 
-        lda #UI_TILE_STATUS_DARK
+        lda #UI_TILE_STATUS_LIGHT
         ldx #0
         ldy #2
         jsr render_fill_rect
@@ -66,6 +66,40 @@ render_ui:
         ldx #0
         ldy #4
         jsr render_fill_rect
+
+        ; Centered title on the top menu bar.
+        lda #UI_TEXT_M
+        ldx #36
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_E
+        ldx #37
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_G
+        ldx #38
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_A
+        ldx #39
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_C
+        ldx #40
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_I
+        ldx #41
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_T
+        ldx #42
+        ldy #0
+        jsr set_ncm_char
+        lda #UI_TEXT_Y
+        ldx #43
+        ldy #0
+        jsr set_ncm_char
 
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS

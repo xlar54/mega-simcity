@@ -308,8 +308,13 @@ mouse_update_hover:
         jsr mouse_scroll_view_from_edge
         jsr mouse_pointer_inside_viewport
         bcs _muh_main
-        lda mouse_edge_active
-        beq _muh_pointer
+
+_muh_freeze_cursor:
+        ; Outside the playable map area, leave the square cursor on its last
+        ; valid tile. The pointer can still scroll at the edge or click UI.
+        jsr mouse_use_pointer_shape
+        jsr mouse_position_pointer_sprite
+        jmp mouse_handle_ui_click
 
 _muh_main:
         lda #1
@@ -327,36 +332,29 @@ _muh_main:
 _muh_done:
         rts
 
-_muh_pointer:
-        stz mouse_over_main
-        stz mouse_scroll_tick
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_sprite
-        jmp mouse_handle_ui_click
-
 mouse_pointer_inside_viewport:
         lda mouse_y+1
         bne _mpiv_no
         lda mouse_y
-        cmp #MAIN_PIXEL_Y
+        cmp #CURSOR_PIXEL_Y
         bcc _mpiv_no
-        cmp #MAIN_PIXEL_BOTTOM
+        cmp #CURSOR_PIXEL_BOTTOM
         bcs _mpiv_no
 
         lda mouse_x+1
         bmi _mpiv_no
         bne _mpiv_check_right
         lda mouse_x
-        cmp #MAIN_PIXEL_X
+        cmp #CURSOR_PIXEL_X
         bcc _mpiv_no
 
 _mpiv_check_right:
         lda mouse_x+1
-        cmp #>MAIN_PIXEL_RIGHT
+        cmp #>CURSOR_PIXEL_RIGHT
         bcc _mpiv_yes
         bne _mpiv_no
         lda mouse_x
-        cmp #<MAIN_PIXEL_RIGHT
+        cmp #<CURSOR_PIXEL_RIGHT
         bcc _mpiv_yes
 
 _mpiv_no:
@@ -450,7 +448,7 @@ _mctc_y:
         bmi _mctc_y_min
         bne _mctc_y_max
         lda mouse_y
-        cmp #MAIN_PIXEL_Y
+        cmp #CURSOR_PIXEL_Y
         bcc _mctc_y_min
         cmp #MAIN_PIXEL_BOTTOM
         bcs _mctc_y_max
@@ -472,7 +470,8 @@ _mctc_y_shift:
         rts
 
 _mctc_y_min:
-        stz mouse_tile_y
+        lda #CURSOR_TILE_MIN_Y
+        sta mouse_tile_y
         rts
 
 _mctc_y_max:
@@ -483,27 +482,24 @@ _mctc_y_max:
 mouse_scroll_view_from_edge:
         stz mouse_edge_active
 
-        lda mouse_scroll_bits
-        and #MOUSE_SCROLL_LEFT
-        bne _msv_mark_left
+        ; Scroll only at the actual screen edges. The square cursor may freeze
+        ; over UI chrome, but map scrolling is controlled by the pointer itself.
         lda mouse_x+1
-        bpl _msv_right_check
+        bne _msv_right_check
+        lda mouse_x
+        bne _msv_right_check
 _msv_mark_left:
         lda mouse_edge_active
         ora #MOUSE_SCROLL_LEFT
         sta mouse_edge_active
 
 _msv_right_check:
-        lda mouse_scroll_bits
-        and #MOUSE_SCROLL_RIGHT
-        bne _msv_mark_right
         lda mouse_x+1
-        bmi _msv_up_check
-        cmp #>(MOUSE_MAX_X + 1)
+        cmp #>MOUSE_POINTER_MAX_X
         bcc _msv_up_check
         bne _msv_mark_right
         lda mouse_x
-        cmp #<(MOUSE_MAX_X + 1)
+        cmp #<MOUSE_POINTER_MAX_X
         bcc _msv_up_check
 _msv_mark_right:
         lda mouse_edge_active
@@ -513,9 +509,11 @@ _msv_mark_right:
 _msv_up_check:
         lda mouse_scroll_bits
         and #MOUSE_SCROLL_UP
-        bne _msv_mark_up
+        beq _msv_down_check
         lda mouse_y+1
-        bpl _msv_down_check
+        bne _msv_down_check
+        lda mouse_y
+        bne _msv_down_check
 _msv_mark_up:
         lda mouse_edge_active
         ora #MOUSE_SCROLL_UP
@@ -525,11 +523,22 @@ _msv_down_check:
         lda mouse_scroll_bits
         and #MOUSE_SCROLL_DOWN
         beq _msv_maybe_scroll
+        lda mouse_y+1
+        bne _msv_mark_down
+        lda mouse_y
+        ; Trigger when the pointer top-left reaches the logical bottom screen
+        ; row. At the clamp, fresh POT deltas are not guaranteed every frame.
+        cmp #MOUSE_MAX_Y
+        bcc _msv_maybe_scroll
+_msv_mark_down:
         lda mouse_edge_active
         ora #MOUSE_SCROLL_DOWN
         sta mouse_edge_active
 
 _msv_maybe_scroll:
+        ; Keep scrolling while the pointer remains in an edge band. At the
+        ; physical edges the mouse can stop producing fresh deltas, so gating
+        ; this on per-frame motion can make scrolling stall.
         lda mouse_edge_active
         bne _msv_count
         stz mouse_scroll_tick
@@ -680,6 +689,27 @@ mouse_position_pointer_sprite:
         lda mouse_x+1
         sta mouse_sprite_x+1
 
+        lda mouse_sprite_x+1
+        bmi _mpps_min_x
+        cmp #>MOUSE_POINTER_MAX_X
+        bcc _mpps_add_screen_x
+        bne _mpps_cap_x
+        lda mouse_sprite_x
+        cmp #<(MOUSE_POINTER_MAX_X + 1)
+        bcc _mpps_add_screen_x
+
+_mpps_cap_x:
+        lda #<MOUSE_POINTER_MAX_X
+        sta mouse_sprite_x
+        lda #>MOUSE_POINTER_MAX_X
+        sta mouse_sprite_x+1
+        bra _mpps_add_screen_x
+
+_mpps_min_x:
+        stz mouse_sprite_x
+        stz mouse_sprite_x+1
+
+_mpps_add_screen_x:
         clc
         lda mouse_sprite_x
         adc #<SPRITE_SCREEN_X
@@ -688,27 +718,22 @@ mouse_position_pointer_sprite:
         adc #>SPRITE_SCREEN_X
         sta mouse_sprite_x+1
 
-        lda mouse_sprite_x+1
-        bpl _mpps_y
-        stz mouse_sprite_x
-        stz mouse_sprite_x+1
-
 _mpps_y:
         lda mouse_y+1
-        bmi _mpps_top
+        bmi _mpps_min_y
         beq _mpps_check_y_max
-        lda #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y)
+        lda #MOUSE_MAX_Y
         bra _mpps_store_y
 
 _mpps_check_y_max:
         lda mouse_y
-        cmp #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y + 1)
+        cmp #(MOUSE_MAX_Y + 1)
         bcc _mpps_store_y
-        lda #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y)
+        lda #MOUSE_MAX_Y
         bra _mpps_store_y
 
-_mpps_top:
-        lda #(256 - SPRITE_SCREEN_Y)
+_mpps_min_y:
+        lda #0
 _mpps_store_y:
         clc
         adc #SPRITE_SCREEN_Y
@@ -921,6 +946,34 @@ mouse_use_block_shape:
         rts
 
 mouse_apply_delta_x:
+        ; Clamp the incoming signed delta (X:A) to +/-MOUSE_MAX_DELTA, then add
+        ; it to mouse_x. Capping the per-frame step means a noisy POT sample
+        ; can't produce a wrap-sized jump, so the old wrap-rejection (which
+        ; trapped mouse_x against the right edge and blocked leftward motion)
+        ; is removed -- mirroring the mouse_apply_delta_y fix.
+        cpx #0
+        bne _madx_clamp_neg
+        ; positive delta = rightward motion this frame
+        pha
+        lda mouse_scroll_bits
+        ora #MOUSE_SCROLL_RIGHT
+        sta mouse_scroll_bits
+        pla
+        cmp #(MOUSE_MAX_DELTA + 1)
+        bcc _madx_have_delta
+        lda #MOUSE_MAX_DELTA
+        bra _madx_have_delta
+_madx_clamp_neg:
+        ; negative delta = leftward motion this frame
+        pha
+        lda mouse_scroll_bits
+        ora #MOUSE_SCROLL_LEFT
+        sta mouse_scroll_bits
+        pla
+        cmp #(256 - MOUSE_MAX_DELTA)
+        bcs _madx_have_delta
+        lda #(256 - MOUSE_MAX_DELTA)
+_madx_have_delta:
         sta mouse_delta
         stx mouse_delta+1
 
@@ -932,73 +985,32 @@ mouse_apply_delta_x:
         adc mouse_delta+1
         sta mouse_next+1
 
-        lda mouse_x+1
-        bmi _madx_bounds
-        lda mouse_x+1
-        bne _madx_check_right_wrap
-        lda mouse_x
-        cmp #MOUSE_WRAP_LOW_X
-        bcs _madx_check_right_wrap
-        lda mouse_next+1
-        bmi _madx_bounds
-        cmp #>MOUSE_WRAP_HIGH_X
-        bcc _madx_bounds
-        bne _madx_done
-        lda mouse_next
-        cmp #<MOUSE_WRAP_HIGH_X
-        bcs _madx_done
-
-_madx_check_right_wrap:
-        lda mouse_x+1
-        cmp #>MOUSE_WRAP_HIGH_X
-        bcc _madx_bounds
-        bne _madx_check_right_next
-        lda mouse_x
-        cmp #<MOUSE_WRAP_HIGH_X
-        bcc _madx_bounds
-
-_madx_check_right_next:
-        lda mouse_next+1
-        bne _madx_bounds
-        lda mouse_next
-        cmp #MOUSE_WRAP_LOW_X
-        bcc _madx_done
-
 _madx_bounds:
         lda mouse_next+1
-        bmi _madx_negative_bounds
-        cmp #>MOUSE_MAX_X_OFFSCREEN
+        bmi _madx_min
+        cmp #>MOUSE_POINTER_MAX_X
         bcc _madx_store
         bne _madx_max
         lda mouse_next
-        cmp #<(MOUSE_MAX_X_OFFSCREEN + 1)
+        cmp #<(MOUSE_POINTER_MAX_X + 1)
         bcc _madx_store
 
 _madx_max:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_RIGHT
         sta mouse_scroll_bits
-        lda #<MOUSE_MAX_X_OFFSCREEN
+        lda #<MOUSE_POINTER_MAX_X
         sta mouse_x
-        lda #>MOUSE_MAX_X_OFFSCREEN
+        lda #>MOUSE_POINTER_MAX_X
         sta mouse_x+1
         rts
-
-_madx_negative_bounds:
-        cmp #$FF
-        bne _madx_min
-        lda mouse_next
-        cmp #MOUSE_MIN_X_OFFSCREEN_LO
-        bcs _madx_store
 
 _madx_min:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_LEFT
         sta mouse_scroll_bits
-        lda #MOUSE_MIN_X_OFFSCREEN_LO
-        sta mouse_x
-        lda #$FF
-        sta mouse_x+1
+        stz mouse_x
+        stz mouse_x+1
         rts
 
 _madx_store:
@@ -1017,11 +1029,23 @@ mouse_apply_delta_y:
         ; wrap-rejection that trapped mouse_y against the bottom edge.
         cpx #0
         bne _mady_clamp_neg
+        ; positive delta = upward motion this frame (mouse_y decreases)
+        pha
+        lda mouse_scroll_bits
+        ora #MOUSE_SCROLL_UP
+        sta mouse_scroll_bits
+        pla
         cmp #(MOUSE_MAX_Y_STEP + 1)
         bcc _mady_have_delta
         lda #MOUSE_MAX_Y_STEP
         bra _mady_have_delta
 _mady_clamp_neg:
+        ; negative delta = downward motion this frame (mouse_y increases)
+        pha
+        lda mouse_scroll_bits
+        ora #MOUSE_SCROLL_DOWN
+        sta mouse_scroll_bits
+        pla
         cmp #(256 - MOUSE_MAX_Y_STEP)
         bcs _mady_have_delta
         lda #(256 - MOUSE_MAX_Y_STEP)
@@ -1037,39 +1061,28 @@ _mady_have_delta:
         sbc mouse_delta+1
         sta mouse_next+1
 
-        ; Let the pointer move a little above the visible screen, but clamp at
-        ; the bottom until we wire sprite Y MSBs for lower offscreen motion.
         lda mouse_next+1
-        bmi _mady_negative_bounds
+        bmi _mady_min
         bne _mady_max
         lda mouse_next
-        cmp #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y + 1)
+        cmp #(MOUSE_MAX_Y + 1)
         bcc _mady_store
 
 _mady_max:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_DOWN
         sta mouse_scroll_bits
-        lda #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y)
+        lda #MOUSE_MAX_Y
         sta mouse_y
         stz mouse_y+1
         rts
-
-_mady_negative_bounds:
-        cmp #$FF
-        bne _mady_min
-        lda mouse_next
-        cmp #MOUSE_MIN_Y_OFFSCREEN_LO
-        bcs _mady_store
 
 _mady_min:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_UP
         sta mouse_scroll_bits
-        lda #MOUSE_MIN_Y_OFFSCREEN_LO
-        sta mouse_y
-        lda #$FF
-        sta mouse_y+1
+        stz mouse_y
+        stz mouse_y+1
         rts
 
 _mady_store:
