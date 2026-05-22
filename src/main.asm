@@ -54,6 +54,7 @@ app_init:
         jsr enable_40mhz
 
         jsr boot_load_tileset
+        jsr boot_load_ui_tiles
 
         lda #MODE_NCM40
         jsr set_screen_mode
@@ -103,6 +104,7 @@ _wf_wait_top:
         .include "graphics/ncm_core.asm"
         .include "assets.asm"
         .include "tiles.asm"
+UI_TILE_ASSET_BUILD = 0
         .include "ui.asm"
         .include "city.asm"
         .include "render.asm"

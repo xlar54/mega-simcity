@@ -10,7 +10,7 @@ Build
 
 Run `build.bat` from this directory. It assembles `src/main.asm` with 64tass and
 creates `target/mega-simcity.d81`. The build also assembles `src/assets/tileset.asm`
-as a separate disk file named `tileset`.
+and `src/assets/ui_tiles.asm` as separate disk files named `tileset` and `uitiles`.
 
 Run
 ---
@@ -39,9 +39,10 @@ Architecture
 
 The graphics layer is intentionally small. It vendors only the MEGA65 FCM/NCM
 screen setup and NCM character helpers derived from `C:\Users\scott\repos\m65-fcm`.
-At boot, `tileset` is loaded from disk into a chip-RAM staging buffer, DMA-copied
-to Attic RAM, then DMA-copied into VIC-visible NCM character RAM for rendering.
-The top bar and left tool rail are static; the main 17x10 tile viewport scrolls
+At boot, `tileset` and `uitiles` are loaded from disk into a chip-RAM staging
+buffer, DMA-copied to Attic RAM, then DMA-copied into VIC-visible NCM character
+RAM for rendering.
+The top bar and left tool rail are static; the main 35x12 tile viewport scrolls
 over a larger city map.
 
 See `docs/PLAN.md` for the build-out plan.

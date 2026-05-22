@@ -1,12 +1,12 @@
 ;=======================================================================================
-; Minimal MEGA65 screen setup for NCM 640x200 diagnostic.
+; Minimal MEGA65 screen setup for NCM 320x200 diagnostic.
 ;
 ; Derived from the local m65-fcm screen setup, trimmed to the only mode this
 ; project currently needs: 320x200 NCM.
 ;=======================================================================================
 
 screen_mode:
-        .byte 0                 ; m65-fcm helper value; 40 means 80 screen positions
+        .byte 0                 ; m65-fcm helper value; 20 means 40 screen positions
 
 ssm_mode:
         .byte 0
@@ -76,14 +76,14 @@ _ndas_1_unlock:
 _ndas_2_vic4_ctrl:
         lda #$02
         sta BORDERCOL
-        lda #%00010101          ; SEAM/FCLRHI, CHR16, and H640 sprite X
+        lda #%00000101          ; FCLRHI and CHR16, H320 sprite X
         sta VIC4_CTRL
         rts
 
 _ndas_3_screen_mode:
         lda #$05
         sta BORDERCOL
-        lda #40
+        lda #20
         sta screen_mode
         rts
 
@@ -92,18 +92,18 @@ _ndas_4_vic3_attr:
         sta BORDERCOL
         lda VIC3_CTRL
         and #%01011111
-        ora #%10100000
+        ora #%00100000          ; attribute mode, H320
         sta VIC3_CTRL
         rts
 
 _ndas_5_geometry:
         lda #$03
         sta BORDERCOL
-        lda #160
+        lda #80
         sta VIC4_LINESTPLSB
         lda #0
         sta VIC4_LINESTPMSB
-        lda #80
+        lda #40
         sta VIC4_CHRCOUNT
         lda #VIEW_ROWS
         sta VIC4_DISPROWS
@@ -119,7 +119,8 @@ _ndas_6_reassert_ctrl:
         lda #$07
         sta BORDERCOL
         lda VIC4_CTRL
-        ora #%00010101          ; keep H640 sprite X enabled
+        and #%11101111          ; keep SPRH640 off in 320px mode
+        ora #%00000101          ; keep FCLRHI and CHR16 enabled
         sta VIC4_CTRL
         rts
 
@@ -174,28 +175,28 @@ _ssm_fcm_init:
         lda #$80
         trb $D05D               ; disable hot registers
 
-        lda #%00010101          ; SEAM/FCLRHI, CHR16, and H640 sprite X
+        lda #%00000101          ; FCLRHI and CHR16, H320 sprite X
         sta VIC4_CTRL
 
         jsr ssm_screen_off
 
 _ssm_ncm40:
-        lda #40                 ; screen_mode * 2 = 80 screen positions.
+        lda #20                 ; screen_mode * 2 = 40 screen positions.
         sta screen_mode
 
         lda VIC3_CTRL
         and #%01011111
         sta VIC3_CTRL
         lda VIC3_CTRL
-        ora #%10100000          ; enable H640 and attribute mode
+        ora #%00100000          ; enable attribute mode in H320
         sta VIC3_CTRL
 
-        lda #160                ; 80 screen positions * 2 bytes
+        lda #80                 ; 40 screen positions * 2 bytes
         sta VIC4_LINESTPLSB
         lda #0
         sta VIC4_LINESTPMSB
 
-        lda #80
+        lda #40
         sta VIC4_CHRCOUNT
 
         lda #VIEW_ROWS
@@ -209,7 +210,8 @@ _ssm_ncm40:
         sta VIC4_TEXTYPOS
 
         lda VIC4_CTRL
-        ora #%00010101          ; keep H640 sprite X enabled
+        and #%11101111          ; keep SPRH640 off in 320px mode
+        ora #%00000101          ; keep FCLRHI and CHR16 enabled
         sta VIC4_CTRL
 
         jsr ssm_setup_pointers

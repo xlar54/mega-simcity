@@ -10,11 +10,15 @@ del target\*.lst 2>nul
 del target\*.lbl 2>nul
 del target\mega-simcity 2>nul
 del target\tileset 2>nul
+del target\uitiles 2>nul
 
 .\64tass.exe --cbm-prg -a src\main.asm -l target\mega-simcity.lbl -L target\mega-simcity.lst -o target\mega-simcity
 if errorlevel 1 exit /b 1
 
 .\64tass.exe --cbm-prg -a src\assets\tileset.asm -l target\tileset.lbl -L target\tileset.lst -o target\tileset
+if errorlevel 1 exit /b 1
+
+.\64tass.exe --cbm-prg -a src\assets\ui_tiles.asm -l target\uitiles.lbl -L target\uitiles.lst -o target\uitiles
 if errorlevel 1 exit /b 1
 
 cd target
@@ -23,6 +27,8 @@ if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write mega-simcity mega-simcity
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write tileset tileset
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write uitiles uitiles
 if errorlevel 1 exit /b 1
 cd ..
 

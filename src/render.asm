@@ -69,35 +69,35 @@ render_ui:
 
         ; Centered title on the top menu bar.
         lda #UI_TEXT_M
-        ldx #36
+        ldx #16
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_E
-        ldx #37
+        ldx #17
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_G
-        ldx #38
+        ldx #18
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_A
-        ldx #39
+        ldx #19
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_C
-        ldx #40
+        ldx #20
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_I
-        ldx #41
+        ldx #21
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_T
-        ldx #42
+        ldx #22
         ldy #0
         jsr set_ncm_char
         lda #UI_TEXT_Y
-        ldx #43
+        ldx #23
         ldy #0
         jsr set_ncm_char
 
@@ -131,35 +131,63 @@ render_ui:
         jsr render_fill_rect
 
         ; Tool buttons.
-        lda #UI_TILE_TOOL_ROAD
-        ldx #0
-        ldy #5
-        jsr set_ncm_char
+        ldx #UI_TOOL_COL_LEFT
+        ldy #UI_TOOL_ROW_TOP
+        jsr render_draw_road_icon
         lda #UI_TILE_TOOL_RES
-        ldx #2
-        ldy #5
+        ldx #UI_TOOL_COL_RIGHT
+        ldy #UI_TOOL_ROW_TOP
         jsr set_ncm_char
         lda #UI_TILE_TOOL_COM
-        ldx #0
-        ldy #7
+        ldx #UI_TOOL_COL_LEFT
+        ldy #UI_TOOL_ROW_MID
         jsr set_ncm_char
         lda #UI_TILE_TOOL_IND
-        ldx #2
-        ldy #7
+        ldx #UI_TOOL_COL_RIGHT
+        ldy #UI_TOOL_ROW_MID
         jsr set_ncm_char
         lda #UI_TILE_TOOL_POWER
-        ldx #0
-        ldy #9
+        ldx #UI_TOOL_COL_LEFT
+        ldy #UI_TOOL_ROW_BOTTOM
         jsr set_ncm_char
         lda #UI_TILE_TOOL_WATER
-        ldx #2
-        ldy #9
+        ldx #UI_TOOL_COL_RIGHT
+        ldy #UI_TOOL_ROW_BOTTOM
         jsr set_ncm_char
         lda #UI_TILE_HELP
         ldx #2
         ldy #22
         jsr set_ncm_char
 
+        rts
+
+render_draw_road_icon:
+        stx render_icon_left
+        sty render_icon_top
+
+        lda #UI_TILE_TOOL_ROAD
+        ldx render_icon_left
+        ldy render_icon_top
+        jsr set_ncm_char
+
+        lda #UI_TILE_TOOL_ROAD+1
+        ldx render_icon_left
+        inx
+        ldy render_icon_top
+        jsr set_ncm_char
+
+        lda #UI_TILE_TOOL_ROAD+2
+        ldx render_icon_left
+        ldy render_icon_top
+        iny
+        jsr set_ncm_char
+
+        lda #UI_TILE_TOOL_ROAD+3
+        ldx render_icon_left
+        inx
+        ldy render_icon_top
+        iny
+        jsr set_ncm_char
         rts
 
 render_fill_rect:
@@ -349,6 +377,16 @@ render_screen_col:
 render_screen_row:
         .byte 0
 render_fill_tile:
+        .byte 0
+render_icon_left:
+        .byte 0
+render_icon_top:
+        .byte 0
+render_icon_col:
+        .byte 0
+render_icon_row:
+        .byte 0
+render_icon_tile:
         .byte 0
 render_fill_left:
         .byte 0

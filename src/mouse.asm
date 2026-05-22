@@ -531,9 +531,11 @@ mouse_scroll_view_from_edge:
 
         ; Scroll only at the actual screen edges. The square cursor may freeze
         ; over UI chrome, but map scrolling is controlled by the pointer itself.
-        lda mouse_x+1
-        bne _msv_right_check
         lda mouse_x
+        cmp #<MOUSE_MIN_X
+        bne _msv_right_check
+        lda mouse_x+1
+        cmp #>MOUSE_MIN_X
         bne _msv_right_check
 _msv_mark_left:
         lda mouse_edge_active
@@ -542,6 +544,7 @@ _msv_mark_left:
 
 _msv_right_check:
         lda mouse_x+1
+        bmi _msv_up_check
         cmp #>MOUSE_MAX_X
         bcc _msv_up_check
         bne _msv_mark_right
@@ -674,36 +677,54 @@ mouse_handle_ui_click:
         bcs _mhu_done
 
         lda mouse_ui_row
-        cmp #5
+        cmp #UI_TOOL_ROW_TOP
         bcc _mhu_done
-        cmp #7
-        bcc _mhu_zone
-        cmp #9
-        bcc _mhu_zone_ci
-        cmp #11
-        bcc _mhu_zone_pw
+        cmp #UI_TOOL_ROW_TOP + 2
+        bcc _mhu_zone_top
+        cmp #UI_TOOL_ROW_MID
+        bcc _mhu_done
+        cmp #UI_TOOL_ROW_MID + 2
+        bcc _mhu_zone_mid
+        cmp #UI_TOOL_ROW_BOTTOM
+        bcc _mhu_done
+        cmp #UI_TOOL_ROW_BOTTOM + 2
+        bcc _mhu_zone_bottom
         rts
 
-_mhu_zone:
+_mhu_zone_top:
         lda mouse_ui_col
-        cmp #2
+        cmp #UI_TOOL_COL_LEFT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_LEFT + UI_ROAD_ICON_CELLS_X
         bcc _mhu_road
-        lda #TILE_RESIDENTIAL
-        sta selected_tile
+        cmp #UI_TOOL_COL_RIGHT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_RIGHT + 2
+        bcc _mhu_residential
         rts
 
-_mhu_zone_ci:
+_mhu_zone_mid:
         lda mouse_ui_col
-        cmp #2
+        cmp #UI_TOOL_COL_LEFT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_LEFT + 2
         bcc _mhu_commercial
-        lda #TILE_INDUSTRIAL
-        sta selected_tile
+        cmp #UI_TOOL_COL_RIGHT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_RIGHT + 2
+        bcc _mhu_industrial
         rts
 
-_mhu_zone_pw:
+_mhu_zone_bottom:
         lda mouse_ui_col
-        cmp #2
+        cmp #UI_TOOL_COL_LEFT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_LEFT + 2
         bcc _mhu_power
+        cmp #UI_TOOL_COL_RIGHT
+        bcc _mhu_done
+        cmp #UI_TOOL_COL_RIGHT + 2
+        bcs _mhu_done
         lda #TILE_WATER
         sta selected_tile
         rts
@@ -713,8 +734,18 @@ _mhu_road:
         sta selected_tile
         rts
 
+_mhu_residential:
+        lda #TILE_RESIDENTIAL
+        sta selected_tile
+        rts
+
 _mhu_commercial:
         lda #TILE_COMMERCIAL
+        sta selected_tile
+        rts
+
+_mhu_industrial:
+        lda #TILE_INDUSTRIAL
         sta selected_tile
         rts
 
@@ -731,7 +762,7 @@ mouse_position_pointer_sprite:
         sta mouse_sprite_x+1
 
         lda mouse_sprite_x+1
-        bmi _mpps_min_x
+        bmi _mpps_check_min_x
         cmp #>MOUSE_MAX_X
         bcc _mpps_add_screen_x
         bne _mpps_cap_x
@@ -746,9 +777,18 @@ _mpps_cap_x:
         sta mouse_sprite_x+1
         bra _mpps_add_screen_x
 
+_mpps_check_min_x:
+        cmp #>MOUSE_MIN_X
+        bne _mpps_min_x
+        lda mouse_sprite_x
+        cmp #<MOUSE_MIN_X
+        bcs _mpps_add_screen_x
+
 _mpps_min_x:
-        stz mouse_sprite_x
-        stz mouse_sprite_x+1
+        lda #<MOUSE_MIN_X
+        sta mouse_sprite_x
+        lda #>MOUSE_MIN_X
+        sta mouse_sprite_x+1
 
 _mpps_add_screen_x:
         clc
@@ -1090,7 +1130,7 @@ _madx_have_delta:
 
 _madx_bounds:
         lda mouse_next+1
-        bmi _madx_min
+        bmi _madx_check_min
         cmp #>MOUSE_MAX_X
         bcc _madx_store
         bne _madx_max
@@ -1108,12 +1148,21 @@ _madx_max:
         sta mouse_x+1
         rts
 
+_madx_check_min:
+        cmp #>MOUSE_MIN_X
+        bne _madx_min
+        lda mouse_next
+        cmp #<MOUSE_MIN_X
+        bcs _madx_store
+
 _madx_min:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_LEFT
         sta mouse_scroll_bits
-        stz mouse_x
-        stz mouse_x+1
+        lda #<MOUSE_MIN_X
+        sta mouse_x
+        lda #>MOUSE_MIN_X
+        sta mouse_x+1
         rts
 
 _madx_store:
