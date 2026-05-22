@@ -1,0 +1,8 @@
+*.lbl
+*.lst
+target/
+.claude/
+target/
+*.lst
+*.lbl
+*.d81
