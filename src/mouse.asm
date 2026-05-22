@@ -10,15 +10,7 @@ MOUSE_SPRITE_POINTER    = 0
 MOUSE_SPRITE_BLOCK      = 1
 
 mouse_test_init:
-        lda #<160
-        sta mouse_x
-        lda #>160
-        sta mouse_x+1
-        lda #100
-        sta mouse_y
-        stz mouse_y+1
-        lda #(100 + SPRITE_SCREEN_Y)
-        sta mouse_drawn_sprite_y
+        jsr mouse_center_pointer
         lda #SPRITE_SCREEN_Y
         sta mouse_anim_y
         lda #1
@@ -48,16 +40,6 @@ mouse_test_poll:
         jmp mouse_position_pointer_sprite
 
 mouse_init:
-        lda #<160
-        sta mouse_x
-        lda #>160
-        sta mouse_x+1
-        lda #100
-        sta mouse_y
-        stz mouse_y+1
-        lda #(100 + SPRITE_SCREEN_Y)
-        sta mouse_drawn_sprite_y
-
         stz mouse_buttons
         stz mouse_prev_buttons
         stz mouse_left_click
@@ -68,14 +50,48 @@ mouse_init:
         sta mouse_sprite_mode
 
         jsr mouse_seed_pot_baseline
+        jsr mouse_center_pointer
         jsr mouse_sprite_init
-        jsr mouse_update_hover
+        jsr mouse_use_pointer_shape
+        jsr mouse_position_pointer_on_cursor_sprite
+        jsr mouse_use_block_shape
+        jsr mouse_position_block_sprite
+        jsr mouse_use_pointer_shape
+        rts
+
+mouse_center_pointer:
+        lda #<MOUSE_START_X
+        sta mouse_x
+        lda #>MOUSE_START_X
+        sta mouse_x+1
+        lda #MOUSE_START_Y
+        sta mouse_y
+        stz mouse_y+1
+        lda #(MOUSE_START_Y + SPRITE_SCREEN_Y)
+        sta mouse_drawn_sprite_y
+        stz mouse_scroll_tick
+        stz mouse_scroll_bits
+        stz mouse_edge_active
+        lda #1
+        sta mouse_over_main
+        lda #MOUSE_START_TILE_X
+        sta mouse_tile_x
+        lda #MOUSE_START_TILE_Y
+        sta mouse_tile_y
+        jsr mouse_update_city_cursor
         rts
 
 mouse_poll:
         stz mouse_left_click
         stz mouse_scroll_bits
         jsr mouse_read_motion
+        lda mouse_over_main
+        beq _mp_read_buttons
+        lda mouse_y+1
+        beq _mp_read_buttons
+        jsr mouse_sync_pointer_to_cursor
+
+_mp_read_buttons:
         jsr mouse_read_buttons
         jsr mouse_update_click
         jsr mouse_update_hover
@@ -85,6 +101,7 @@ mouse_refresh_sprite:
         jsr mouse_use_pointer_shape
         jsr mouse_position_pointer_sprite
 
+_mrs_block:
         lda mouse_over_main
         beq _mrs_hide_block
         jsr mouse_use_block_shape
@@ -100,6 +117,23 @@ mouse_shutdown:
         rts
 
 mouse_sprite_init:
+        lda SPRITE_X_MSB
+        and #%11111100
+        sta SPRITE_X_MSB
+        lda VIC4_SPRXMSB9
+        and #%11111100
+        sta VIC4_SPRXMSB9
+        lda VIC4_SPRYMSB8
+        and #%11111100
+        sta VIC4_SPRYMSB8
+        lda VIC4_SPRYMSB9
+        and #%11111100
+        sta VIC4_SPRYMSB9
+        stz SPRITE0_X
+        stz SPRITE0_Y
+        stz SPRITE1_X
+        stz SPRITE1_Y
+
         lda #<mouse_sprite_ptrs
         sta VIC4_SPRPTRADRLSB
         lda #>mouse_sprite_ptrs
@@ -171,6 +205,19 @@ mouse_read_motion:
         jsr mouse_move_check
         sty mouse_old_pot_y
         bcc _mrm_done_y
+        ; NCM display fetches make POTY wobble by one 1351 tick. The samples
+        ; are masked with #$7E, so one tick is usually +/-2, not +/-1.
+        ; Treat that as noise so a stationary pointer at the top edge does not
+        ; scroll back up.
+        cpx #0
+        bne _mrm_check_y_neg_noise
+        cmp #3
+        bcc _mrm_done_y
+        bra _mrm_apply_y
+_mrm_check_y_neg_noise:
+        cmp #$FE
+        bcs _mrm_done_y
+_mrm_apply_y:
         jsr mouse_double_delta
         jsr mouse_apply_delta_y
 _mrm_done_y:
@@ -495,11 +542,11 @@ _msv_mark_left:
 
 _msv_right_check:
         lda mouse_x+1
-        cmp #>MOUSE_POINTER_MAX_X
+        cmp #>MOUSE_MAX_X
         bcc _msv_up_check
         bne _msv_mark_right
         lda mouse_x
-        cmp #<MOUSE_POINTER_MAX_X
+        cmp #<MOUSE_MAX_X
         bcc _msv_up_check
 _msv_mark_right:
         lda mouse_edge_active
@@ -507,9 +554,6 @@ _msv_mark_right:
         sta mouse_edge_active
 
 _msv_up_check:
-        lda mouse_scroll_bits
-        and #MOUSE_SCROLL_UP
-        beq _msv_down_check
         lda mouse_y+1
         bne _msv_down_check
         lda mouse_y
@@ -520,9 +564,6 @@ _msv_mark_up:
         sta mouse_edge_active
 
 _msv_down_check:
-        lda mouse_scroll_bits
-        and #MOUSE_SCROLL_DOWN
-        beq _msv_maybe_scroll
         lda mouse_y+1
         bne _msv_mark_down
         lda mouse_y
@@ -691,17 +732,17 @@ mouse_position_pointer_sprite:
 
         lda mouse_sprite_x+1
         bmi _mpps_min_x
-        cmp #>MOUSE_POINTER_MAX_X
+        cmp #>MOUSE_MAX_X
         bcc _mpps_add_screen_x
         bne _mpps_cap_x
         lda mouse_sprite_x
-        cmp #<(MOUSE_POINTER_MAX_X + 1)
+        cmp #<(MOUSE_MAX_X + 1)
         bcc _mpps_add_screen_x
 
 _mpps_cap_x:
-        lda #<MOUSE_POINTER_MAX_X
+        lda #<MOUSE_MAX_X
         sta mouse_sprite_x
-        lda #>MOUSE_POINTER_MAX_X
+        lda #>MOUSE_MAX_X
         sta mouse_sprite_x+1
         bra _mpps_add_screen_x
 
@@ -739,6 +780,68 @@ _mpps_store_y:
         adc #SPRITE_SCREEN_Y
         sta mouse_sprite_y
         jmp mouse_set_sprite_position
+
+mouse_position_pointer_on_cursor_sprite:
+        lda mouse_over_main
+        beq mouse_position_pointer_sprite
+
+        lda mouse_tile_x
+        sta mouse_sprite_x
+        stz mouse_sprite_x+1
+        ldx #4
+_mppoc_x_shift:
+        asl mouse_sprite_x
+        rol mouse_sprite_x+1
+        dex
+        bne _mppoc_x_shift
+
+        clc
+        lda mouse_sprite_x
+        adc #<(SPRITE_SCREEN_X + MAIN_PIXEL_X + 2)
+        sta mouse_sprite_x
+        lda mouse_sprite_x+1
+        adc #>(SPRITE_SCREEN_X + MAIN_PIXEL_X + 2)
+        sta mouse_sprite_x+1
+
+        lda mouse_tile_y
+        asl
+        asl
+        asl
+        asl
+        clc
+        adc #(SPRITE_SCREEN_Y + MAIN_PIXEL_Y + 2)
+        sta mouse_sprite_y
+        jmp mouse_set_sprite_position
+
+mouse_sync_pointer_to_cursor:
+        lda mouse_tile_x
+        sta mouse_x
+        stz mouse_x+1
+        ldx #4
+_msptc_x_shift:
+        asl mouse_x
+        rol mouse_x+1
+        dex
+        bne _msptc_x_shift
+
+        clc
+        lda mouse_x
+        adc #<(MAIN_PIXEL_X + 2)
+        sta mouse_x
+        lda mouse_x+1
+        adc #>(MAIN_PIXEL_X + 2)
+        sta mouse_x+1
+
+        lda mouse_tile_y
+        asl
+        asl
+        asl
+        asl
+        clc
+        adc #(MAIN_PIXEL_Y + 2)
+        sta mouse_y
+        stz mouse_y+1
+        rts
 
 mouse_position_test_pointer_sprite:
         lda mouse_x
@@ -988,20 +1091,20 @@ _madx_have_delta:
 _madx_bounds:
         lda mouse_next+1
         bmi _madx_min
-        cmp #>MOUSE_POINTER_MAX_X
+        cmp #>MOUSE_MAX_X
         bcc _madx_store
         bne _madx_max
         lda mouse_next
-        cmp #<(MOUSE_POINTER_MAX_X + 1)
+        cmp #<(MOUSE_MAX_X + 1)
         bcc _madx_store
 
 _madx_max:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_RIGHT
         sta mouse_scroll_bits
-        lda #<MOUSE_POINTER_MAX_X
+        lda #<MOUSE_MAX_X
         sta mouse_x
-        lda #>MOUSE_POINTER_MAX_X
+        lda #>MOUSE_MAX_X
         sta mouse_x+1
         rts
 

@@ -133,8 +133,11 @@ city_set_seed_tile:
 game_apply_input:
         lda input_action
         beq _gai_done
+        ; Keyboard cursor scrolling is disabled; mouse edge-scroll handles
+        ; upward movement directly. Ignore stray queued INPUT_MOVE_UP events
+        ; so they cannot fight test/down scrolling.
         cmp #INPUT_MOVE_UP
-        beq _gai_up
+        beq _gai_done
         cmp #INPUT_MOVE_DOWN
         beq _gai_down
         cmp #INPUT_MOVE_LEFT

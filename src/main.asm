@@ -62,10 +62,11 @@ app_init:
         jsr tiles_load
         jsr ui_load
         jsr city_init
-        jsr render_init
-        sei
 
         jsr mouse_init
+        jsr render_init
+        jsr mouse_refresh_sprite
+        sei
         rts
 
 enable_40mhz:

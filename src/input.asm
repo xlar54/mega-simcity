@@ -6,6 +6,15 @@ input_poll:
         stz input_action
         jsr mouse_poll
 
+        jsr input_space_held
+        bcc _ip_check_mouse
+        lda #0
+        sta MEGA_KEYQUEUE
+        lda #INPUT_MOVE_DOWN
+        sta input_action
+        rts
+
+_ip_check_mouse:
         lda mouse_buttons
         beq _ip_keyboard
         lda #0
@@ -125,7 +134,52 @@ _ip_power:
         sta selected_tile
         jmp _ip_paint
 
+input_space_held:
+        php
+        sei
+        lda CIA1_PORT_A
+        sta input_saved_pra
+        lda CIA1_DDRA
+        sta input_saved_ddra
+        lda CIA1_DDRB
+        sta input_saved_ddrb
+
+        lda #$FF
+        sta CIA1_DDRA
+        lda #$00
+        sta CIA1_DDRB
+        lda #$7F
+        sta CIA1_PORT_A
+        lda CIA1_PORT_B
+        sta input_space_row
+
+        lda input_saved_pra
+        sta CIA1_PORT_A
+        lda input_saved_ddra
+        sta CIA1_DDRA
+        lda input_saved_ddrb
+        sta CIA1_DDRB
+        plp
+
+        lda input_space_row
+        and #$10
+        beq _ish_down
+        clc
+        rts
+
+_ish_down:
+        sec
+        rts
+
 input_action:
         .byte INPUT_NONE
 input_key:
+        .byte 0
+input_saved_pra:
+        .byte 0
+input_saved_ddra:
+        .byte 0
+input_saved_ddrb:
+        .byte 0
+input_space_row:
         .byte 0
