@@ -635,46 +635,514 @@ ui_btn_road:
         .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
 
 ui_btn_rail:
-        #PLACEHOLDER_BOX
+        ; Top-down railroad track running left-to-right: $05 ballast bed,
+        ; $04 wooden cross-ties, two $0F steel rails (rows 5 and 10) spanning
+        ; the full width, on the $0C panel background.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05   ; bl
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $05,$04,$04,$05,$05,$04,$04,$05   ; br
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $05,$04,$04,$05,$05,$04,$04,$05
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_power:
-        #PLACEHOLDER_BOX
+        ; Three utility poles on a couple rows of grass. Left pole tallest with
+        ; two cross-arms, middle shorter with one, right shortest with none.
+        ; $0C sky (panel background), $04 poles, $02 grass.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$04,$04,$04,$04,$04,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$04,$04,$04,$04,$04,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$04,$04
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $04,$04,$04,$0C,$0C,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C   ; bl
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$0C,$0C,$0C,$0C
+        .byte $02,$02,$02,$04,$02,$02,$02,$02
+        .byte $02,$02,$02,$04,$02,$02,$02,$02
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C   ; br
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C
+        .byte $04,$0C,$0C,$0C,$04,$0C,$0C,$0C
+        .byte $04,$02,$02,$02,$04,$02,$02,$02
+        .byte $04,$02,$02,$02,$04,$02,$02,$02
 
 ui_btn_park:
-        #PLACEHOLDER_BOX
+        ; A tree (dark-green $03 outline, bright $07 foliage, $04 trunk) with a
+        ; park bench ($04) beside it, on a couple rows of $02 grass. $0C sky.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$03,$03,$03,$0C,$0C
+        .byte $0C,$0C,$03,$07,$07,$07,$03,$0C
+        .byte $0C,$03,$07,$07,$07,$07,$07,$03
+        .byte $0C,$03,$07,$07,$07,$07,$07,$03
+        .byte $0C,$0C,$03,$07,$07,$07,$03,$0C
+        .byte $0C,$0C,$0C,$03,$03,$03,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C   ; bl
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $0C,$0C,$04,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$04,$04,$04,$04,$0C
+        .byte $0C,$0C,$04,$0C,$0C,$0C,$04,$0C
+        .byte $0C,$0C,$04,$0C,$0C,$0C,$04,$0C
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
 
 ui_btn_residential:
-        #PLACEHOLDER_BOX
+        ; House with a red roof, white walls and blue windows, an "R" in the
+        ; top-right, on a couple rows of grass. $0C sky, $0D roof, $0F walls,
+        ; $08 windows, $00 letter, $02 grass.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$00,$00,$00,$0C
+        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$00,$00,$00,$0C
+        .byte $0D,$0C,$0C,$0C,$00,$0C,$00,$0C
+        .byte $0D,$0D,$0C,$0C,$00,$0C,$0C,$00
+        .byte $0D,$0D,$0D,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0F,$0F,$0F,$0F   ; bl
+        .byte $0C,$0C,$0C,$0C,$0F,$08,$08,$0F
+        .byte $0C,$0C,$0C,$0C,$0F,$08,$08,$0F
+        .byte $0C,$0C,$0C,$0C,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0F,$08,$08,$0F
+        .byte $0C,$0C,$0C,$0C,$0F,$08,$08,$0F
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $0F,$0F,$0F,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $08,$08,$0F,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$08,$0F,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$0F,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$08,$0F,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$08,$0F,$0C,$0C,$0C,$0C,$0C
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
 
 ui_btn_commercial:
-        #PLACEHOLDER_BOX
+        ; Two blue office buildings (taller left, shorter right) with white
+        ; windows and a "C" in the top-right. $0C sky, $08 buildings, $0F
+        ; windows, $00 letter.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$0F,$08,$0F,$08,$0F,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$0F,$08,$0F,$08,$0F,$08
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08   ; bl
+        .byte $0C,$08,$0F,$08,$0F,$08,$0F,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$0F,$08,$0F,$08,$0F,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$0F,$08,$0F,$08,$0F,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$08,$08,$08,$08,$08,$08
+        .byte $0C,$08,$08,$08,$08,$08,$0C,$0C   ; br
+        .byte $0C,$08,$08,$08,$08,$08,$0C,$0C
+        .byte $0C,$08,$0F,$08,$0F,$08,$0C,$0C
+        .byte $0C,$08,$08,$08,$08,$08,$0C,$0C
+        .byte $0C,$08,$0F,$08,$0F,$08,$0C,$0C
+        .byte $0C,$08,$08,$08,$08,$08,$0C,$0C
+        .byte $0C,$08,$0F,$08,$0F,$08,$0C,$0C
+        .byte $0C,$08,$08,$08,$08,$08,$0C,$0C
 
 ui_btn_industrial:
-        #PLACEHOLDER_BOX
+        ; Factory: dark-blue building ($01) with a red band ($0D) and lit yellow
+        ; windows ($0A), a brown smokestack ($04) puffing gray smoke ($0B), and
+        ; an "I" ($00) in the top-right. $0C sky.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0B,$0B,$0C,$0C
+        .byte $0C,$0C,$0C,$0B,$0B,$0B,$0C,$0C
+        .byte $0C,$0C,$0C,$0B,$0B,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$00,$00,$00,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$00,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$00,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$00,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$00,$00,$00,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$04,$04,$0C,$0C,$0C   ; bl
+        .byte $0C,$01,$01,$04,$04,$01,$01,$01
+        .byte $0C,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$01,$01,$01,$01,$01,$01,$01
+        .byte $0C,$01,$0A,$0A,$01,$0A,$0A,$01
+        .byte $0C,$01,$0A,$0A,$01,$0A,$0A,$01
+        .byte $0C,$01,$01,$01,$01,$01,$01,$01
+        .byte $0C,$01,$01,$01,$01,$01,$01,$01
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $01,$01,$01,$01,$01,$01,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0C,$0C
+        .byte $01,$01,$01,$01,$01,$01,$0C,$0C
+        .byte $0A,$0A,$01,$0A,$0A,$01,$0C,$0C
+        .byte $0A,$0A,$01,$0A,$0A,$01,$0C,$0C
+        .byte $01,$01,$01,$01,$01,$01,$0C,$0C
+        .byte $01,$01,$01,$01,$01,$01,$0C,$0C
 
 ui_btn_police:
-        #PLACEHOLDER_BOX
+        ; Sheriff/police badge: gold 5-pointed star ($0A) with black "PD" ($00)
+        ; and a black shadow along the right edge for a 3D effect. $0C bg.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0A   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0A
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0A,$0A
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0A,$0A
+        .byte $0C,$0C,$0C,$0C,$0C,$0A,$0A,$0A
+        .byte $0C,$0C,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0C,$0A,$0A,$0A,$00,$00,$00,$0A
+        .byte $0A,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0A,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0A,$0A,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0A,$0A,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0A,$0A,$0A,$0C,$0C,$0C,$0C,$0C
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0C,$0C
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$00
+        .byte $0A,$00,$00,$0A,$0A,$0A,$00,$0C
+        .byte $0C,$0C,$0A,$0A,$00,$0A,$00,$0A   ; bl
+        .byte $0C,$0C,$0C,$0A,$00,$00,$00,$0A
+        .byte $0C,$0C,$0C,$0A,$00,$0A,$0A,$0A
+        .byte $0C,$0C,$0A,$0A,$0A,$0A,$0A,$0C
+        .byte $0C,$0A,$0A,$0A,$0A,$0C,$0C,$0C
+        .byte $0C,$0A,$0A,$0A,$0C,$0C,$0C,$0C
+        .byte $0A,$0A,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0A,$00,$0A,$00,$0A,$00,$0C,$0C   ; br
+        .byte $0A,$00,$0A,$00,$00,$0C,$0C,$0C
+        .byte $0A,$00,$00,$0A,$00,$0C,$0C,$0C
+        .byte $0C,$0A,$0A,$0A,$0A,$00,$0C,$0C
+        .byte $0C,$0C,$0C,$0A,$0A,$0A,$00,$0C
+        .byte $0C,$0C,$0C,$0C,$0A,$0A,$00,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0A,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_fire:
-        #PLACEHOLDER_BOX
+        ; Red fire extinguisher ($0D) with a black valve/handle and horn ($00),
+        ; white "FD" ($0F) on the body. $0C background.
+        .byte $0C,$0C,$0C,$00,$00,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$00,$00,$00,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0D,$0D,$0F,$0F,$0F   ; bl
+        .byte $0C,$0C,$0C,$0D,$0D,$0F,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0F,$0F,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0F,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0F,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0F,$0F,$0D,$0D,$0C,$0C,$0C   ; br
+        .byte $0D,$0F,$0D,$0F,$0D,$0C,$0C,$0C
+        .byte $0D,$0F,$0D,$0F,$0D,$0C,$0C,$0C
+        .byte $0D,$0F,$0D,$0F,$0D,$0C,$0C,$0C
+        .byte $0D,$0F,$0F,$0D,$0D,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_sport:
-        #PLACEHOLDER_BOX
+        ; Football helmet facing left: red shell ($0D), white stripe ($0F), gray
+        ; facemask curving around the front ($05), darker shading at the back
+        ; ($04). $0C background.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0D,$0D,$0D,$0D,$0F
+        .byte $0C,$0C,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0C,$0C,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$05,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$05,$05,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0D,$0D,$0D,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0C,$0C,$0C
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0C,$0C
+        .byte $0F,$0F,$0D,$0D,$0D,$0D,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$04,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$04,$04,$0C
+        .byte $05,$05,$0C,$0D,$0D,$0D,$0D,$0D   ; bl
+        .byte $05,$0C,$0C,$0D,$0D,$0D,$0D,$0D
+        .byte $05,$0C,$0C,$0C,$0D,$0D,$0D,$0D
+        .byte $05,$05,$0C,$0C,$0D,$0D,$0D,$0D
+        .byte $0C,$05,$05,$05,$05,$0D,$0D,$0D
+        .byte $0C,$0C,$0C,$05,$05,$05,$0D,$0D
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$04,$04,$0C   ; br
+        .byte $0D,$0D,$0D,$0D,$0D,$04,$04,$0C
+        .byte $0D,$0D,$0D,$0D,$04,$04,$0C,$0C
+        .byte $0D,$0D,$0D,$04,$04,$0C,$0C,$0C
+        .byte $0D,$0D,$04,$04,$0C,$0C,$0C,$0C
+        .byte $0D,$04,$04,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_sea:
-        #PLACEHOLDER_BOX
+        ; Ship's anchor ($08): ring at top, horizontal stock, vertical shank,
+        ; and curved arms/flukes at the bottom. $0C background.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$08,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$08,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08
+        .byte $0C,$0C,$08,$08,$08,$08,$08,$08
+        .byte $0C,$0C,$08,$08,$08,$08,$08,$08
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$08,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$08,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$08,$08,$08,$08,$08,$0C,$0C
+        .byte $08,$08,$08,$08,$08,$08,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08   ; bl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$08
+        .byte $0C,$0C,$08,$0C,$0C,$0C,$0C,$08
+        .byte $0C,$0C,$08,$08,$0C,$0C,$0C,$08
+        .byte $0C,$0C,$0C,$08,$08,$0C,$0C,$08
+        .byte $0C,$0C,$0C,$0C,$08,$08,$0C,$08
+        .byte $0C,$0C,$0C,$0C,$08,$08,$08,$08
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$0C,$08,$0C,$0C
+        .byte $08,$0C,$0C,$0C,$08,$08,$0C,$0C
+        .byte $08,$0C,$0C,$08,$08,$0C,$0C,$0C
+        .byte $08,$0C,$08,$08,$0C,$0C,$0C,$0C
+        .byte $08,$08,$08,$08,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_coalpp:
-        #PLACEHOLDER_BOX
+        ; Coal power plant: red building ($0D) with brown roof/base and three
+        ; brown smokestacks ($04) puffing gray smoke ($0B), lit windows ($0A),
+        ; on green grass ($02). $0C sky.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0B,$0C,$0C,$0C,$0B,$0C
+        .byte $0C,$0C,$0B,$0B,$0C,$0C,$0B,$0B
+        .byte $0C,$0C,$0C,$0B,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$04,$04,$0C,$0C,$04,$04
+        .byte $0C,$0C,$04,$04,$0C,$0C,$04,$04
+        .byte $0C,$0C,$04,$04,$0C,$0C,$04,$04
+        .byte $0C,$0C,$04,$04,$0C,$0C,$04,$04
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0B,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0B,$0B,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0B,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$04,$04,$0C,$0C,$0C,$0C
+        .byte $0C,$04,$04,$04,$04,$04,$04,$04   ; bl
+        .byte $0C,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$0D,$0D,$0A,$0D,$0D,$0A,$0D
+        .byte $0C,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0C,$04,$04,$04,$04,$04,$04,$04
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $04,$04,$04,$04,$04,$04,$04,$0C   ; br
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0C
+        .byte $0D,$0A,$0D,$0D,$0A,$0D,$0D,$0C
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0C
+        .byte $04,$04,$04,$04,$04,$04,$04,$0C
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
 
 ui_btn_nuclearpp:
-        #PLACEHOLDER_BOX
+        ; Nuclear plant: white cooling tower ($0F) with $0B outline puffing gray
+        ; steam ($0B), a small brown reactor building ($04) with a lit window
+        ; ($0A), on green grass ($02). $0C sky.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0B,$0B,$0B
+        .byte $0C,$0C,$0C,$0C,$0B,$0B,$0B,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0B,$0B,$0B
+        .byte $0C,$0C,$0C,$0C,$0B,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0B,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0B,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0B,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0B,$0F,$0F,$0F   ; bl
+        .byte $0C,$0C,$0C,$0C,$0B,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0B,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0B,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0B,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0B,$0F,$0F,$0F,$0F
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $0F,$0B,$0C,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $0F,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$0B,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$0B,$0C,$04,$04,$04,$0C
+        .byte $0F,$0F,$0B,$0C,$04,$0A,$04,$0C
+        .byte $0F,$0F,$0B,$0C,$04,$04,$04,$0C
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
 
 ui_btn_air:
-        #PLACEHOLDER_BOX
+        ; Airport: top-down white airplane ($0F) on a dark-blue tarmac ($01).
+        .byte $01,$01,$01,$01,$01,$01,$01,$01   ; tl
+        .byte $01,$01,$01,$01,$01,$01,$01,$0F
+        .byte $01,$01,$01,$01,$01,$01,$01,$0F
+        .byte $01,$01,$01,$01,$01,$01,$0F,$0F
+        .byte $01,$01,$01,$01,$01,$01,$0F,$0F
+        .byte $01,$01,$01,$01,$01,$01,$0F,$0F
+        .byte $01,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $01,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $01,$01,$01,$01,$01,$01,$01,$01   ; tr
+        .byte $0F,$01,$01,$01,$01,$01,$01,$01
+        .byte $0F,$01,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$01
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$01
+        .byte $01,$01,$01,$01,$01,$01,$0F,$0F   ; bl
+        .byte $01,$01,$01,$01,$01,$01,$01,$0F
+        .byte $01,$01,$01,$01,$01,$01,$01,$0F
+        .byte $01,$01,$01,$01,$0F,$0F,$0F,$0F
+        .byte $01,$01,$01,$01,$0F,$0F,$0F,$0F
+        .byte $01,$01,$01,$01,$01,$01,$01,$0F
+        .byte $01,$01,$01,$01,$01,$01,$01,$01
+        .byte $01,$01,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$01,$01,$01,$01,$01,$01   ; br
+        .byte $0F,$01,$01,$01,$01,$01,$01,$01
+        .byte $0F,$01,$01,$01,$01,$01,$01,$01
+        .byte $0F,$0F,$0F,$0F,$01,$01,$01,$01
+        .byte $0F,$0F,$0F,$0F,$01,$01,$01,$01
+        .byte $0F,$01,$01,$01,$01,$01,$01,$01
+        .byte $01,$01,$01,$01,$01,$01,$01,$01
+        .byte $01,$01,$01,$01,$01,$01,$01,$01
 
 ui_btn_special:
-        #PLACEHOLDER_BOX
+        ; Special: a dark-gray question mark ($0B) on the $0C panel background.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0B,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0B,$0B,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0B,$0B,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0B,$0B,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B   ; bl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; br
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_tiles_end:
         .cerror ui_tiles_end - ui_tiles_start != UI_TILE_ASSET_SIZE, "UI tile asset size mismatch"
