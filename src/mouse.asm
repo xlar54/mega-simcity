@@ -637,81 +637,36 @@ mouse_handle_ui_click:
         cmp #UI_LEFT_COLS
         bcs _mhu_done
 
+        ; Toolbar grid: 8 button-rows of two 2x2 buttons. Map the click to a
+        ; slot 0..15, then act on the assigned ones (placeholders do nothing).
         lda mouse_ui_row
         cmp #UI_TOOL_ROW_TOP
         bcc _mhu_done
-        cmp #UI_TOOL_ROW_TOP + 2
-        bcc _mhu_zone_top
-        cmp #UI_TOOL_ROW_MID
-        bcc _mhu_done
-        cmp #UI_TOOL_ROW_MID + 2
-        bcc _mhu_zone_mid
-        cmp #UI_TOOL_ROW_BOTTOM
-        bcc _mhu_done
-        cmp #UI_TOOL_ROW_BOTTOM + 2
-        bcc _mhu_zone_bottom
-        rts
-
-_mhu_zone_top:
-        lda mouse_ui_col
-        cmp #UI_TOOL_COL_LEFT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_LEFT + 2
-        bcc _mhu_residential
-        cmp #UI_TOOL_COL_RIGHT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_RIGHT + UI_ROAD_ICON_CELLS_X
-        bcc _mhu_road
-        rts
-
-_mhu_zone_mid:
-        lda mouse_ui_col
-        cmp #UI_TOOL_COL_LEFT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_LEFT + 2
-        bcc _mhu_commercial
-        cmp #UI_TOOL_COL_RIGHT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_RIGHT + 2
-        bcc _mhu_industrial
-        rts
-
-_mhu_zone_bottom:
-        lda mouse_ui_col
-        cmp #UI_TOOL_COL_LEFT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_LEFT + 2
-        bcc _mhu_power
-        cmp #UI_TOOL_COL_RIGHT
-        bcc _mhu_done
-        cmp #UI_TOOL_COL_RIGHT + 2
+        cmp #UI_TOOL_ROW_TOP + 16
         bcs _mhu_done
-        lda #TILE_WATER
-        sta selected_tile
-        rts
+
+        sec
+        sbc #UI_TOOL_ROW_TOP        ; 0..15 within the grid
+        and #$FE                    ; button row * 2 = the row's left slot
+        tax
+        lda mouse_ui_col
+        cmp #UI_TOOL_COL_RIGHT
+        bcc +
+        inx                         ; right column -> +1
++
+        txa
+        beq _mhu_bulldoze           ; slot 0
+        cmp #1
+        beq _mhu_road               ; slot 1
+        rts                         ; slots 2-15: placeholder, no tool yet
 
 _mhu_road:
         lda #TILE_ROAD
         sta selected_tile
         rts
 
-_mhu_residential:
-        lda #TILE_RESIDENTIAL
-        sta selected_tile
-        rts
-
-_mhu_commercial:
-        lda #TILE_COMMERCIAL
-        sta selected_tile
-        rts
-
-_mhu_industrial:
-        lda #TILE_INDUSTRIAL
-        sta selected_tile
-        rts
-
-_mhu_power:
-        lda #TILE_POWER
+_mhu_bulldoze:
+        lda #TILE_GRASS
         sta selected_tile
 _mhu_done:
         rts

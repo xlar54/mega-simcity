@@ -187,11 +187,9 @@ ATTIC_TILE_MB           = $80
 ATTIC_TILE_BANK         = $00
 ATTIC_TILE_ADDR         = $0000
 
-UI_TOOL_COL_LEFT        = 0
-UI_TOOL_COL_RIGHT       = 2
-UI_TOOL_ROW_TOP         = 3
-UI_TOOL_ROW_MID         = 8
-UI_TOOL_ROW_BOTTOM      = 11
+UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
+UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)
+UI_TOOL_ROW_TOP         = 3      ; top of the 2x8 toolbar grid (8 rows of 2x2)
 
 INPUT_NONE              = 0
 INPUT_MOVE_UP           = 1

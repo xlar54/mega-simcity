@@ -1,33 +1,27 @@
 ;=======================================================================================
 ; Shared UI tile definitions and asset layout.
 ;
-; Single source of truth for the UI tile/glyph set: tile IDs, the bitmap-font
-; enum, asset sizing, attic load addresses, and the byte offset of every tile
-; inside the loadable `uitiles` asset. Self-contained (no platform.asm deps).
+; Single source of truth for the UI tile/glyph set: chrome tile IDs, the
+; bitmap-font enum, the 16 toolbar button IDs, asset sizing, attic load
+; addresses, and the byte offset of every tile inside the loadable `uitiles`
+; asset. Self-contained (no platform.asm deps).
 ;
 ; Shared by assets/ui_tiles.asm (lays the payload down at these offsets),
-; tileloader.asm (DMAs from them), assets.asm (loads the asset from disk) and
+; assets.asm (loads the asset from disk and DMAs each tile into char RAM) and
 ; render.asm (draws the tiles). Pulled in once via main.asm for the main
 ; program, and directly by the standalone assets/ui_tiles.asm build.
 ;=======================================================================================
 
-; --- Tile and glyph IDs (NCM screen codes) ---
+; --- Chrome tile IDs (1x1 NCM chars) ---
 UI_TILE_PANEL           = 64
 UI_TILE_MENU            = 65
 UI_TILE_STATUS_LIGHT    = 66
 UI_TILE_STATUS_DARK     = 67
 UI_TILE_FRAME           = 68
 UI_TILE_BOTTOM          = 69
-UI_TILE_TOOL_ROAD       = 70
-UI_TILE_TOOL_ROAD_CHARS = 4
-UI_TILE_TOOL_RES        = UI_TILE_TOOL_ROAD + UI_TILE_TOOL_ROAD_CHARS
-UI_TILE_TOOL_COM        = UI_TILE_TOOL_RES + 1
-UI_TILE_TOOL_IND        = UI_TILE_TOOL_COM + 1
-UI_TILE_TOOL_POWER      = UI_TILE_TOOL_IND + 1
-UI_TILE_TOOL_WATER      = UI_TILE_TOOL_POWER + 1
-UI_TILE_HELP            = UI_TILE_TOOL_WATER + 1
-UI_TILE_RCI_PANEL       = UI_TILE_HELP + 1
-UI_TEXT_A               = UI_TILE_RCI_PANEL + 1
+
+; --- Bitmap-font glyph IDs (1x1), contiguous A..colon ---
+UI_TEXT_A               = UI_TILE_BOTTOM + 1
 UI_TEXT_B               = UI_TEXT_A + 1
 UI_TEXT_C               = UI_TEXT_B + 1
 UI_TEXT_D               = UI_TEXT_C + 1
@@ -67,6 +61,15 @@ UI_TEXT_COMMA           = UI_TEXT_9 + 1
 UI_TEXT_DOT             = UI_TEXT_COMMA + 1
 UI_TEXT_DOLLAR          = UI_TEXT_DOT + 1
 UI_TEXT_COLON           = UI_TEXT_DOLLAR + 1
+UI_TEXT_COUNT           = (UI_TEXT_COLON - UI_TEXT_A) + 1
+
+; --- Toolbar buttons (2x2, 4 chars each): one consecutive block of UI_BTN_COUNT.
+; Slot order is defined by the ui_btn_* data blocks in assets/ui_tiles.asm
+; (bulldozer, road, rail, ...). Slot i has char id UI_BTN_BASE + i*4. (Per-button
+; name constants are intentionally omitted: 64tass is case-insensitive, so a
+; UI_BTN_ROAD constant would collide with the ui_btn_road: label.)
+UI_BTN_COUNT            = 16
+UI_BTN_BASE             = UI_TEXT_COLON + 1
 
 ; --- Attic load address + asset sizing ---
 ATTIC_UI_TILE_MB        = $80
@@ -74,12 +77,13 @@ ATTIC_UI_TILE_BANK      = $00
 ATTIC_UI_TILE_ADDR      = $1000
 UI_TILE_CHAR_SIZE       = 64
 UI_TILE_INDEX_ENTRY_SIZE = 8
-UI_TILE_ASSET_COUNT     = 54
+UI_BTN_CELLS_X          = 2
+UI_BTN_CELLS_Y          = 2
+UI_BTN_TILE_SIZE        = UI_BTN_CELLS_X * UI_BTN_CELLS_Y * UI_TILE_CHAR_SIZE
+; 6 chrome + UI_TEXT_COUNT glyphs are 1x1; UI_BTN_COUNT buttons are 2x2.
+UI_TILE_ASSET_COUNT     = 6 + UI_TEXT_COUNT + UI_BTN_COUNT
 UI_TILE_INDEX_SIZE      = UI_TILE_ASSET_COUNT * UI_TILE_INDEX_ENTRY_SIZE
-UI_ROAD_ICON_CELLS_X    = 2
-UI_ROAD_ICON_CELLS_Y    = 2
-UI_ROAD_ICON_SIZE       = UI_ROAD_ICON_CELLS_X * UI_ROAD_ICON_CELLS_Y * UI_TILE_CHAR_SIZE
-UI_TILE_PAYLOAD_SIZE    = ((UI_TILE_ASSET_COUNT - 1) * UI_TILE_CHAR_SIZE) + UI_ROAD_ICON_SIZE
+UI_TILE_PAYLOAD_SIZE    = ((6 + UI_TEXT_COUNT) * UI_TILE_CHAR_SIZE) + (UI_BTN_COUNT * UI_BTN_TILE_SIZE)
 UI_TILE_ASSET_SIZE      = UI_TILE_INDEX_SIZE + UI_TILE_PAYLOAD_SIZE
 
 ; --- Payload byte offsets (producer <-> loader contract) ---
@@ -89,21 +93,7 @@ UI_ASSET_OFF_STATUS_LIGHT   = UI_ASSET_OFF_MENU + UI_TILE_CHAR_SIZE
 UI_ASSET_OFF_STATUS_DARK    = UI_ASSET_OFF_STATUS_LIGHT + UI_TILE_CHAR_SIZE
 UI_ASSET_OFF_FRAME          = UI_ASSET_OFF_STATUS_DARK + UI_TILE_CHAR_SIZE
 UI_ASSET_OFF_BOTTOM         = UI_ASSET_OFF_FRAME + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_TOOL_ROAD      = UI_ASSET_OFF_BOTTOM + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_AFTER_ROAD     = UI_ASSET_OFF_TOOL_ROAD + UI_ROAD_ICON_SIZE
-UI_ASSET_OFF_TOOL_RES       = UI_ASSET_OFF_AFTER_ROAD
-UI_ASSET_OFF_TOOL_COM       = UI_ASSET_OFF_TOOL_RES + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_TOOL_IND       = UI_ASSET_OFF_TOOL_COM + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_TOOL_POWER     = UI_ASSET_OFF_TOOL_IND + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_TOOL_WATER     = UI_ASSET_OFF_TOOL_POWER + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_HELP           = UI_ASSET_OFF_TOOL_WATER + UI_TILE_CHAR_SIZE
-UI_ASSET_OFF_RCI_PANEL      = UI_ASSET_OFF_HELP + UI_TILE_CHAR_SIZE
-
-; The text glyphs (A-Z, 0-9, comma/dot/dollar/colon) are a uniform run of
-; UI_TILE_CHAR_SIZE chars with contiguous tile IDs (UI_TEXT_A..UI_TEXT_COLON,
-; from platform.asm), laid out contiguously in the asset payload. The producer
-; and loader generate their per-glyph entries with .for loops, so the sequence
-; is spelled out only once (the UI_TEXT_* enum) plus the ui_glyph_* data, which
-; MUST stay in the same A..colon order.
-UI_TEXT_OFF_BASE            = UI_ASSET_OFF_RCI_PANEL + UI_TILE_CHAR_SIZE
-UI_TEXT_COUNT               = (UI_TEXT_COLON - UI_TEXT_A) + 1
+; Glyph run, then the 16-button block; both generated by .for loops in the
+; producer and loader, so the sequences live in exactly one place each.
+UI_TEXT_OFF_BASE            = UI_ASSET_OFF_BOTTOM + UI_TILE_CHAR_SIZE
+UI_BTN_OFF_BASE             = UI_TEXT_OFF_BASE + (UI_TEXT_COUNT * UI_TILE_CHAR_SIZE)

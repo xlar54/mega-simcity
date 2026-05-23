@@ -29,29 +29,9 @@ UI_TILE_INDEX_ENTRY .macro index, size, width_cells, height_cells, offset
 
 UI_TEXT_BG = $0E
 UI_TEXT_FG = $08
-UI_ROAD_BG = $0A
-UI_ROAD_BLUE = $08
-UI_ROAD_WHITE = $0F
-UI_ROAD_SHADOW = $00
 
 UI_TEXT_ROW .macro p0, p1, p2, p3, p4
         .byte UI_TEXT_BG, \p0, \p1, \p2, \p3, \p4, UI_TEXT_BG, UI_TEXT_BG
-.endmacro
-
-UI_ROAD_ICON_CELL .macro cell_x, cell_y
-.for py = 0, py < 8, py = py + 1
-.for px = 0, px < 8, px = px + 1
-.if ((\cell_y * 8 + py) >= 7) && ((\cell_y * 8 + py) <= 8) && ((((\cell_x * 8 + px) >= 2) && ((\cell_x * 8 + px) <= 4)) || (((\cell_x * 8 + px) >= 7) && ((\cell_x * 8 + px) <= 9)) || (((\cell_x * 8 + px) >= 12) && ((\cell_x * 8 + px) <= 14)))
-        .byte UI_ROAD_WHITE
-.elsif ((\cell_x * 8 + px) >= 1) && ((\cell_x * 8 + px) <= 14) && ((\cell_y * 8 + py) >= 5) && ((\cell_y * 8 + py) <= 10)
-        .byte UI_ROAD_BLUE
-.elsif ((((\cell_x * 8 + px) >= 2) && ((\cell_x * 8 + px) <= 15) && ((\cell_y * 8 + py) >= 11) && ((\cell_y * 8 + py) <= 12)) || (((\cell_x * 8 + px) >= 14) && ((\cell_y * 8 + py) >= 6) && ((\cell_y * 8 + py) <= 12)))
-        .byte UI_ROAD_SHADOW
-.else
-        .byte UI_ROAD_BG
-.endif
-.next
-.next
 .endmacro
 
 UI_TILE_RECORD .macro index
@@ -64,16 +44,11 @@ ui_tile_index:
         #UI_TILE_INDEX_ENTRY UI_TILE_STATUS_DARK, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_STATUS_DARK
         #UI_TILE_INDEX_ENTRY UI_TILE_FRAME, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_FRAME
         #UI_TILE_INDEX_ENTRY UI_TILE_BOTTOM, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_BOTTOM
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_ROAD, UI_ROAD_ICON_SIZE, UI_ROAD_ICON_CELLS_X, UI_ROAD_ICON_CELLS_Y, UI_ASSET_OFF_TOOL_ROAD
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_RES, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_TOOL_RES
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_COM, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_TOOL_COM
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_IND, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_TOOL_IND
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_POWER, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_TOOL_POWER
-        #UI_TILE_INDEX_ENTRY UI_TILE_TOOL_WATER, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_TOOL_WATER
-        #UI_TILE_INDEX_ENTRY UI_TILE_HELP, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_HELP
-        #UI_TILE_INDEX_ENTRY UI_TILE_RCI_PANEL, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_RCI_PANEL
 .for i = 0, i < UI_TEXT_COUNT, i = i + 1
         #UI_TILE_INDEX_ENTRY (UI_TEXT_A + i), UI_TILE_CHAR_SIZE, 1, 1, UI_TEXT_OFF_BASE + i * UI_TILE_CHAR_SIZE
+.next
+.for i = 0, i < UI_BTN_COUNT, i = i + 1
+        #UI_TILE_INDEX_ENTRY (UI_BTN_BASE + i * 4), UI_BTN_TILE_SIZE, UI_BTN_CELLS_X, UI_BTN_CELLS_Y, UI_BTN_OFF_BASE + i * UI_BTN_TILE_SIZE
 .next
 
 #UI_TILE_RECORD UI_TILE_PANEL
@@ -106,84 +81,6 @@ ui_data_bottom:
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
         .byte $08,$08,$08,$08,$08,$08,$08,$08
-
-#UI_TILE_RECORD UI_TILE_TOOL_ROAD
-ui_data_tool_road:
-.for road_cy = 0, road_cy < UI_ROAD_ICON_CELLS_Y, road_cy = road_cy + 1
-.for road_cx = 0, road_cx < UI_ROAD_ICON_CELLS_X, road_cx = road_cx + 1
-        #UI_ROAD_ICON_CELL road_cx, road_cy
-.next
-.next
-
-#UI_TILE_RECORD UI_TILE_TOOL_RES
-ui_data_tool_res:
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-        .byte $07,$00,$0D,$0D,$0D,$00,$00,$07
-        .byte $07,$0D,$00,$00,$00,$0D,$00,$07
-        .byte $07,$0D,$00,$00,$00,$0D,$00,$07
-        .byte $07,$0D,$0D,$0D,$0D,$00,$00,$07
-        .byte $07,$0D,$00,$0D,$00,$00,$00,$07
-        .byte $07,$0D,$00,$00,$0D,$00,$00,$07
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-
-#UI_TILE_RECORD UI_TILE_TOOL_COM
-ui_data_tool_com:
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-        .byte $07,$00,$08,$08,$08,$08,$00,$07
-        .byte $07,$08,$00,$00,$00,$00,$00,$07
-        .byte $07,$08,$00,$00,$00,$00,$00,$07
-        .byte $07,$08,$00,$00,$00,$00,$00,$07
-        .byte $07,$08,$00,$00,$00,$00,$00,$07
-        .byte $07,$00,$08,$08,$08,$08,$00,$07
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-
-#UI_TILE_RECORD UI_TILE_TOOL_IND
-ui_data_tool_ind:
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-        .byte $07,$00,$09,$09,$09,$00,$00,$07
-        .byte $07,$00,$00,$09,$00,$00,$00,$07
-        .byte $07,$00,$00,$09,$00,$00,$00,$07
-        .byte $07,$00,$00,$09,$00,$00,$00,$07
-        .byte $07,$00,$00,$09,$00,$00,$00,$07
-        .byte $07,$00,$09,$09,$09,$00,$00,$07
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-
-#UI_TILE_RECORD UI_TILE_TOOL_POWER
-ui_data_tool_power:
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-        .byte $07,$00,$00,$0A,$0A,$00,$00,$07
-        .byte $07,$00,$0A,$0A,$00,$00,$00,$07
-        .byte $07,$00,$00,$0A,$0A,$00,$00,$07
-        .byte $07,$00,$00,$00,$0A,$0A,$00,$07
-        .byte $07,$0B,$0B,$0A,$0A,$0B,$0B,$07
-        .byte $07,$0B,$0B,$0B,$0B,$0B,$0B,$07
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-
-#UI_TILE_RECORD UI_TILE_TOOL_WATER
-ui_data_tool_water:
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-        .byte $07,$01,$01,$01,$01,$01,$01,$07
-        .byte $07,$01,$0E,$01,$01,$0E,$01,$07
-        .byte $07,$01,$01,$01,$0E,$01,$01,$07
-        .byte $07,$0E,$01,$01,$01,$01,$01,$07
-        .byte $07,$01,$01,$0E,$01,$01,$0E,$07
-        .byte $07,$01,$01,$01,$01,$01,$01,$07
-        .byte $07,$07,$07,$07,$07,$07,$07,$07
-
-#UI_TILE_RECORD UI_TILE_HELP
-ui_data_help:
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$00,$00,$00,$00,$00,$00,$0A
-        .byte $0A,$00,$0B,$0B,$0B,$00,$00,$0A
-        .byte $0A,$00,$00,$00,$0B,$00,$00,$0A
-        .byte $0A,$00,$00,$0B,$00,$00,$00,$0A
-        .byte $0A,$00,$00,$0B,$00,$00,$00,$0A
-        .byte $0A,$00,$00,$00,$00,$00,$00,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-
-#UI_TILE_RECORD UI_TILE_RCI_PANEL
-ui_data_rci_panel:
-        .fill 64, $0F
 
 #UI_TILE_RECORD UI_TEXT_A
 ui_glyph_a:
@@ -624,6 +521,160 @@ ui_glyph_colon:
         #UI_TEXT_ROW UI_TEXT_BG, UI_TEXT_BG, UI_TEXT_FG, UI_TEXT_BG, UI_TEXT_BG
         #UI_TEXT_ROW UI_TEXT_BG, UI_TEXT_BG, UI_TEXT_FG, UI_TEXT_BG, UI_TEXT_BG
         #UI_TEXT_ROW UI_TEXT_BG, UI_TEXT_BG, UI_TEXT_BG, UI_TEXT_BG, UI_TEXT_BG
+
+;=======================================================================================
+; Toolbar buttons: 16 consecutive 2x2 tiles, each four 8x8 chars in tl, tr, bl,
+; br order. One byte per pixel, low nibble = palette index. bulldozer and road
+; have art; the rest reuse the placeholder box (#PLACEHOLDER_BOX) until drawn.
+; Replace a #PLACEHOLDER_BOX line with explicit .byte rows to give that button a
+; real icon. Order must match the UI_BTN_* enum in shared/ui_tile_layout.asm.
+;=======================================================================================
+
+; A 2x2 button box: $0B border, $05 interior.
+PLACEHOLDER_BOX .macro
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B   ; tl
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B   ; tr
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05   ; bl
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$05,$05,$05,$05,$05,$05,$05
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B   ; br
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $05,$05,$05,$05,$05,$05,$05,$0B
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B
+.endmacro
+
+ui_btn_bulldozer:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$04,$04,$04,$04
+        .byte $0C,$0C,$0C,$04,$04,$04,$04,$04
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0D,$0D,$0C,$0C,$0C,$0C,$0C
+        .byte $0D,$0D,$0D,$0D,$0C,$0C,$0C,$0C
+        .byte $0D,$0F,$0F,$0D,$0C,$0C,$0C,$0C
+        .byte $04,$0D,$0F,$0D,$0C,$0C,$0C,$0C
+        .byte $04,$04,$0D,$0D,$06,$05,$0C,$0C
+        .byte $0C,$0C,$04,$04,$04,$04,$04,$04   ; bl
+        .byte $0C,$04,$04,$04,$04,$04,$04,$04
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$00,$0B,$00,$00,$0B,$00,$00
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $04,$04,$04,$06,$06,$05,$05,$0C   ; br
+        .byte $04,$04,$06,$06,$05,$05,$05,$0C
+        .byte $00,$00,$00,$05,$05,$05,$05,$0C
+        .byte $0B,$00,$00,$05,$05,$05,$0C,$0C
+        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+ui_btn_road:
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A   ; tl
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$08,$08,$08,$08,$08,$08,$08
+        .byte $0A,$08,$08,$08,$08,$08,$08,$08
+        .byte $0A,$08,$0F,$0F,$0F,$08,$08,$0F
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A   ; tr
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $08,$08,$08,$08,$08,$08,$08,$0A
+        .byte $08,$08,$08,$08,$08,$08,$08,$00
+        .byte $0F,$0F,$08,$08,$0F,$0F,$0F,$00
+        .byte $0A,$08,$0F,$0F,$0F,$08,$08,$0F   ; bl
+        .byte $0A,$08,$08,$08,$08,$08,$08,$08
+        .byte $0A,$08,$08,$08,$08,$08,$08,$08
+        .byte $0A,$0A,$00,$00,$00,$00,$00,$00
+        .byte $0A,$0A,$00,$00,$00,$00,$00,$00
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0F,$0F,$08,$08,$0F,$0F,$0F,$00   ; br
+        .byte $08,$08,$08,$08,$08,$08,$08,$00
+        .byte $08,$08,$08,$08,$08,$08,$08,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+
+ui_btn_rail:
+        #PLACEHOLDER_BOX
+
+ui_btn_power:
+        #PLACEHOLDER_BOX
+
+ui_btn_park:
+        #PLACEHOLDER_BOX
+
+ui_btn_residential:
+        #PLACEHOLDER_BOX
+
+ui_btn_commercial:
+        #PLACEHOLDER_BOX
+
+ui_btn_industrial:
+        #PLACEHOLDER_BOX
+
+ui_btn_police:
+        #PLACEHOLDER_BOX
+
+ui_btn_fire:
+        #PLACEHOLDER_BOX
+
+ui_btn_sport:
+        #PLACEHOLDER_BOX
+
+ui_btn_sea:
+        #PLACEHOLDER_BOX
+
+ui_btn_coalpp:
+        #PLACEHOLDER_BOX
+
+ui_btn_nuclearpp:
+        #PLACEHOLDER_BOX
+
+ui_btn_air:
+        #PLACEHOLDER_BOX
+
+ui_btn_special:
+        #PLACEHOLDER_BOX
 
 ui_tiles_end:
         .cerror ui_tiles_end - ui_tiles_start != UI_TILE_ASSET_SIZE, "UI tile asset size mismatch"

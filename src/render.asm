@@ -120,59 +120,80 @@ render_ui:
         ldy #UI_TOP_ROWS
         jsr render_fill_rect
 
-        ; Tool buttons. Road icon (2x2) on the right, R on the left.
-        lda #UI_TILE_TOOL_RES
-        ldx #UI_TOOL_COL_LEFT
-        ldy #UI_TOOL_ROW_TOP
-        jsr set_ncm_char
-        ldx #UI_TOOL_COL_RIGHT
-        ldy #UI_TOOL_ROW_TOP
-        jsr render_draw_road_icon
-        lda #UI_TILE_TOOL_COM
-        ldx #UI_TOOL_COL_LEFT
-        ldy #UI_TOOL_ROW_MID
-        jsr set_ncm_char
-        lda #UI_TILE_TOOL_IND
-        ldx #UI_TOOL_COL_RIGHT
-        ldy #UI_TOOL_ROW_MID
-        jsr set_ncm_char
-        lda #UI_TILE_TOOL_POWER
-        ldx #UI_TOOL_COL_LEFT
-        ldy #UI_TOOL_ROW_BOTTOM
-        jsr set_ncm_char
-        lda #UI_TILE_TOOL_WATER
-        ldx #UI_TOOL_COL_RIGHT
-        ldy #UI_TOOL_ROW_BOTTOM
-        jsr set_ncm_char
-        lda #UI_TILE_HELP
-        ldx #2
-        ldy #22
-        jsr set_ncm_char
-
+        jsr render_toolbar
         rts
 
-render_draw_road_icon:
+; Draw the 16 toolbar buttons (UI_BTN_* block) in a 2x8 grid of 2x2 icons.
+; Slot i: tile = UI_BTN_BASE + i*4, column = LEFT/RIGHT by i's low bit,
+; row = ROW_TOP + (i & ~1).
+render_toolbar:
+        stz render_btn_slot
+_rt_loop:
+        lda render_btn_slot
+        and #$FE
+        clc
+        adc #UI_TOOL_ROW_TOP
+        sta render_btn_row
+        lda render_btn_slot
+        and #1
+        beq _rt_left
+        ldx #UI_TOOL_COL_RIGHT
+        bra _rt_col_done
+_rt_left:
+        ldx #UI_TOOL_COL_LEFT
+_rt_col_done:
+        lda render_btn_slot
+        asl
+        asl
+        clc
+        adc #UI_BTN_BASE
+        ldy render_btn_row
+        jsr render_draw_2x2_icon
+        inc render_btn_slot
+        lda render_btn_slot
+        cmp #UI_BTN_COUNT
+        bne _rt_loop
+
+        ; The very first icon drawn in this loop (slot 0) does not persist on
+        ; screen once later slots are drawn after it; its cells stay the panel
+        ; fill. The cause is unresolved, but redrawing slot 0 here (after the
+        ; rest of the grid) makes it stick. All other slots render correctly.
+        lda #UI_BTN_BASE
+        ldx #UI_TOOL_COL_LEFT
+        ldy #UI_TOOL_ROW_TOP
+        jsr render_draw_2x2_icon
+        rts
+
+; A = base char id of a 2x2 icon (uses base..base+3), X = left col, Y = top row.
+render_draw_2x2_icon:
+        sta render_icon_base
         stx render_icon_left
         sty render_icon_top
 
-        lda #UI_TILE_TOOL_ROAD
+        lda render_icon_base
         ldx render_icon_left
         ldy render_icon_top
         jsr set_ncm_char
 
-        lda #UI_TILE_TOOL_ROAD+1
+        lda render_icon_base
+        clc
+        adc #1
         ldx render_icon_left
         inx
         ldy render_icon_top
         jsr set_ncm_char
 
-        lda #UI_TILE_TOOL_ROAD+2
+        lda render_icon_base
+        clc
+        adc #2
         ldx render_icon_left
         ldy render_icon_top
         iny
         jsr set_ncm_char
 
-        lda #UI_TILE_TOOL_ROAD+3
+        lda render_icon_base
+        clc
+        adc #3
         ldx render_icon_left
         inx
         ldy render_icon_top
@@ -310,6 +331,12 @@ render_screen_col:
 render_screen_row:
         .byte 0
 render_fill_tile:
+        .byte 0
+render_icon_base:
+        .byte 0
+render_btn_slot:
+        .byte 0
+render_btn_row:
         .byte 0
 render_icon_left:
         .byte 0
