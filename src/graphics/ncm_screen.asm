@@ -31,28 +31,28 @@ _ssm_fcm_init:
         lda #$80
         trb $D05D               ; disable hot registers
 
-        lda #%00000101          ; FCLRHI and CHR16, H320 sprite X
+        lda #(%00000101 | VIC_SPRH640_BIT)  ; FCLRHI + CHR16, sprite-X width per VIEW_COLS
         sta VIC4_CTRL
 
         jsr ssm_screen_off
 
 _ssm_ncm40:
-        lda #20                 ; screen_mode * 2 = 40 screen positions.
+        lda #NCM_SCREEN_MODE    ; screen_mode * 2 = VIEW_COLS screen positions
         sta screen_mode
 
         lda VIC3_CTRL
         and #%01011111
         sta VIC3_CTRL
         lda VIC3_CTRL
-        ora #%00100000          ; enable attribute mode in H320
+        ora #(%00100000 | VIC_H640_BIT)     ; attribute mode + H640/H320 per VIEW_COLS
         sta VIC3_CTRL
 
-        lda #80                 ; 40 screen positions * 2 bytes
+        lda #<VIC_LINESTEP      ; VIEW_COLS * 2 bytes per row
         sta VIC4_LINESTPLSB
-        lda #0
+        lda #>VIC_LINESTEP
         sta VIC4_LINESTPMSB
 
-        lda #40
+        lda #VIC_CHRCOUNT
         sta VIC4_CHRCOUNT
 
         lda #VIEW_ROWS
@@ -66,8 +66,8 @@ _ssm_ncm40:
         sta VIC4_TEXTYPOS
 
         lda VIC4_CTRL
-        and #%11101111          ; keep SPRH640 off in 320px mode
-        ora #%00000101          ; keep FCLRHI and CHR16 enabled
+        and #%11101111          ; clear SPRH640, then set it per VIEW_COLS
+        ora #(%00000101 | VIC_SPRH640_BIT) ; FCLRHI + CHR16 + sprite-X width
         sta VIC4_CTRL
 
         jsr ssm_setup_pointers

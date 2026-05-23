@@ -8,7 +8,7 @@
 ;=======================================================================================
 
         .cpu "45gs02"
-        .include "../platform.inc"
+        .include "../platform.asm"
 
 UI_TILE_ASSET_BUILD = 1
 

@@ -82,8 +82,28 @@ PTR                     = $FC
 MODE_BASIC              = 0
 MODE_NCM40              = 5
 
+; *** Changing VIEW_COLS to 80 will automatically switch
+; *** the entire screen to 640x200
 VIEW_COLS               = 40
 VIEW_ROWS               = 25
+
+; VIC-IV NCM screen geometry, derived from VIEW_COLS so the column count lives
+; in exactly one place. screen_mode (loaded from NCM_SCREEN_MODE) drives
+; ncm_core's row stride, which is screen_mode*2 = VIEW_COLS cells per row.
+NCM_SCREEN_MODE         = VIEW_COLS / 2
+VIC_CHRCOUNT            = VIEW_COLS
+VIC_LINESTEP            = VIEW_COLS * 2
+
+; 40 columns runs the display in H320; more than 40 needs H640. These select
+; the matching VIC3_CTRL H640 bit ($D031.7) and VIC4_CTRL sprite-X-in-640 bit
+; ($D054.4) so flipping VIEW_COLS flips the whole display mode in one place.
+.if VIEW_COLS > 40
+VIC_H640_BIT            = %10000000
+VIC_SPRH640_BIT         = %00010000
+.else
+VIC_H640_BIT            = %00000000
+VIC_SPRH640_BIT         = %00000000
+.endif
 
 UI_TOP_ROWS             = 5
 UI_LEFT_COLS            = 4
