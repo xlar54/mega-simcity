@@ -105,7 +105,7 @@ _wf_wait_top:
         .include "assets.asm"
         .include "tiles.asm"
 UI_TILE_ASSET_BUILD = 0
-        .include "ui.asm"
+        .include "tileloader.asm"
         .include "city.asm"
         .include "render.asm"
         .include "mouse.asm"
