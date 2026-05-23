@@ -4,6 +4,7 @@
 
         .cpu "45gs02"
         .include "platform.asm"
+        .include "shared/ui_tile_layout.asm"
 
 ;=======================================================================================
 ; BASIC stub - BANK 0 : SYS 8210 ($2012)

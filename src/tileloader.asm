@@ -4,10 +4,9 @@
 ; Copies the UI tiles/glyphs from the `uitiles` asset (loaded into attic RAM at
 ; boot) into char RAM via DMA. The per-tile source offsets come from the shared
 ; layout that the asset producer (assets/ui_tiles.asm) also uses, so the two
-; never drift. platform.asm is already included by main.asm before this module.
+; never drift. platform.asm and shared/ui_tile_layout.asm are already included by
+; main.asm before this module.
 ;=======================================================================================
-
-        .include "shared/ui_tile_layout.asm"
 
 UI_TILE_DMA .macro index, size, offset
         lda #$00
