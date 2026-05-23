@@ -34,20 +34,8 @@ _ip_keyboard:
         cmp #'q'
         beq _ip_quit
 
-        ; Cursor-key viewport scrolling is disabled while the mouse owns
-        ; scrolling by moving offscreen.
-        ;cmp #KEY_CRSR_UP
-        ;beq _ip_move_up
-        ;cmp #KEY_CRSR_UP_ALT
-        ;beq _ip_move_up
-        ;cmp #KEY_CRSR_DOWN
-        ;beq _ip_move_down
-        ;cmp #KEY_CRSR_LEFT
-        ;beq _ip_move_left
-        ;cmp #KEY_CRSR_LEFT_ALT
-        ;beq _ip_move_left
-        ;cmp #KEY_CRSR_RIGHT
-        ;beq _ip_move_right
+        ; Cursor-key viewport scrolling is disabled; the mouse owns scrolling
+        ; by moving to a screen edge.
 
         cmp #' '
         beq _ip_paint
@@ -71,26 +59,6 @@ _ip_done:
 
 _ip_quit:
         lda #INPUT_QUIT
-        sta input_action
-        rts
-
-_ip_move_up:
-        lda #INPUT_MOVE_UP
-        sta input_action
-        rts
-
-_ip_move_down:
-        lda #INPUT_MOVE_DOWN
-        sta input_action
-        rts
-
-_ip_move_left:
-        lda #INPUT_MOVE_LEFT
-        sta input_action
-        rts
-
-_ip_move_right:
-        lda #INPUT_MOVE_RIGHT
         sta input_action
         rts
 

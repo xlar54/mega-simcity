@@ -9,36 +9,6 @@
 MOUSE_SPRITE_POINTER    = 0
 MOUSE_SPRITE_BLOCK      = 1
 
-mouse_test_init:
-        jsr mouse_center_pointer
-        lda #SPRITE_SCREEN_Y
-        sta mouse_anim_y
-        lda #1
-        sta mouse_anim_dir
-
-        stz mouse_buttons
-        stz mouse_prev_buttons
-        stz mouse_left_click
-        stz mouse_over_main
-        stz mouse_scroll_tick
-        stz mouse_scroll_bits
-        lda #$FF
-        sta mouse_sprite_mode
-
-        jsr mouse_seed_pot_baseline
-
-        jsr mouse_sprite_init
-        jsr mouse_use_pointer_shape
-        jmp mouse_position_pointer_sprite
-
-mouse_test_poll:
-        stz mouse_left_click
-        jsr mouse_read_motion
-        jsr mouse_read_buttons
-        jsr mouse_update_click
-        jsr mouse_use_pointer_shape
-        jmp mouse_position_pointer_sprite
-
 mouse_init:
         stz mouse_buttons
         stz mouse_prev_buttons
@@ -67,8 +37,6 @@ mouse_center_pointer:
         lda #MOUSE_START_Y
         sta mouse_y
         stz mouse_y+1
-        lda #(MOUSE_START_Y + SPRITE_SCREEN_Y)
-        sta mouse_drawn_sprite_y
         stz mouse_scroll_tick
         stz mouse_scroll_bits
         stz mouse_edge_active
@@ -247,8 +215,6 @@ mouse_seed_pot_baseline:
         sta mouse_old_pot_x
         jsr mouse_read_pot_y
         sta mouse_old_pot_y
-        jsr mouse_read_pot_b_y
-        sta mouse_old_pot_b_y
 
         lda mouse_saved_pra
         sta CIA1_PORT_A
@@ -295,20 +261,6 @@ mouse_read_pot_y:
         lda M65_POT_PORT_A_Y
         cmp M65_POT_PORT_A_Y
         bne mouse_read_pot_y
-        and #$7E
-        rts
-
-mouse_read_pot_y_raw:
-        lda M65_POT_PORT_A_Y
-        cmp M65_POT_PORT_A_Y
-        bne mouse_read_pot_y_raw
-        and #$7F
-        rts
-
-mouse_read_pot_b_y:
-        lda M65_POT_PORT_B_Y
-        cmp M65_POT_PORT_B_Y
-        bne mouse_read_pot_b_y
         and #$7E
         rts
 
@@ -883,86 +835,6 @@ _msptc_x_shift:
         stz mouse_y+1
         rts
 
-mouse_position_test_pointer_sprite:
-        lda mouse_x
-        sta mouse_sprite_x
-        lda mouse_x+1
-        sta mouse_sprite_x+1
-
-        lda mouse_y
-        sta mouse_sprite_y
-        jmp mouse_set_sprite_position
-
-mouse_test_animate_sprite_y:
-        ; Final-step diagnostic: ignore mouse_y for the sprite and drive
-        ; SPRITE0_Y directly. If this still sticks, the issue is VIC sprite
-        ; display state under active NCM, not mouse accumulation.
-        lda mouse_x
-        sta mouse_sprite_x
-        lda mouse_x+1
-        sta mouse_sprite_x+1
-
-        lda mouse_sprite_x+1
-        cmp #>MOUSE_POINTER_MAX_X
-        bcc _mtasy_add_screen_x
-        bne _mtasy_cap_x
-        lda mouse_sprite_x
-        cmp #<(MOUSE_POINTER_MAX_X + 1)
-        bcc _mtasy_add_screen_x
-
-_mtasy_cap_x:
-        lda #<MOUSE_POINTER_MAX_X
-        sta mouse_sprite_x
-        lda #>MOUSE_POINTER_MAX_X
-        sta mouse_sprite_x+1
-
-_mtasy_add_screen_x:
-        clc
-        lda mouse_sprite_x
-        adc #<SPRITE_SCREEN_X
-        sta mouse_sprite_x
-        lda mouse_sprite_x+1
-        adc #>SPRITE_SCREEN_X
-        sta mouse_sprite_x+1
-
-        ; DEBUG: force a FIXED sprite Y (60, near the top). If the sprite
-        ; parks near the top, $D001 controls sprite Y and the bounce is the
-        ; problem. If it still falls/sticks at the bottom, $D001 does NOT drive
-        ; the sprite Y in this mode and something else does.
-        jsr mouse_advance_anim_y        ; keep advancing so the border heartbeat sweeps
-        lda #60
-        sta mouse_sprite_y
-        jmp mouse_set_sprite_position
-
-mouse_advance_anim_y:
-        lda mouse_anim_dir
-        beq _may_up
-
-        lda mouse_anim_y
-        cmp #MOUSE_SPRITE_MAX_Y
-        bcs _may_turn_up
-        inc mouse_anim_y
-        rts
-
-_may_turn_up:
-        stz mouse_anim_dir
-        dec mouse_anim_y
-        rts
-
-_may_up:
-        lda mouse_anim_y
-        cmp #SPRITE_SCREEN_Y
-        beq _may_turn_down
-        bcc _may_turn_down
-        dec mouse_anim_y
-        rts
-
-_may_turn_down:
-        lda #1
-        sta mouse_anim_dir
-        inc mouse_anim_y
-        rts
-
 mouse_position_block_sprite:
         lda mouse_tile_x
         sta mouse_sprite_x
@@ -1245,193 +1117,6 @@ _mady_store:
 _mady_done:
         rts
 
-; mouse_apply_y_clamped: A = signed 8-bit pot diff (new - old). Treats any
-; non-zero diff as motion. Clamps |delta| to 8 to keep one frame from
-; slamming mouse_y to a clamp. Inverts sign for screen-Y convention (mouse
-; up = +pot = decrease mouse_y).
-mouse_apply_y_clamped:
-        cmp #0
-        beq _mayc_done                ; no change
-        bpl _mayc_positive            ; A in $01..$7F
-
-        ; A in $80..$FF → negative diff. Clamp magnitude to 8.
-        cmp #$F8                      ; -8 = $F8
-        bcs _mayc_apply_neg_keep
-        lda #$F8                      ; clamp to -8
-_mayc_apply_neg_keep:
-        ; mouse_y -= signed_delta. For negative A, mouse_y -= (-|delta|) = mouse_y + |delta|.
-        ; 8-bit signed value in A; sign-extend high byte.
-        ldx #$FF
-        jmp _mayc_apply
-
-_mayc_positive:
-        ; A in $01..$7F → positive diff. Clamp magnitude to 8.
-        cmp #$08
-        bcc _mayc_apply_pos_keep
-        lda #$08
-_mayc_apply_pos_keep:
-        ldx #0
-_mayc_apply:
-        sta mouse_delta
-        stx mouse_delta+1
-        sec
-        lda mouse_y
-        sbc mouse_delta
-        sta mouse_next
-        lda mouse_y+1
-        sbc mouse_delta+1
-        sta mouse_next+1
-
-        lda mouse_next+1
-        bmi _mayc_clamp_zero
-        bne _mayc_clamp_max
-        lda mouse_next
-        cmp #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y + 1)
-        bcc _mayc_store
-_mayc_clamp_max:
-        lda #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y)
-        sta mouse_y
-        stz mouse_y+1
-        rts
-_mayc_clamp_zero:
-        stz mouse_y
-        stz mouse_y+1
-        rts
-_mayc_store:
-        lda mouse_next
-        sta mouse_y
-        lda mouse_next+1
-        sta mouse_y+1
-_mayc_done:
-        rts
-
-; Legacy diagnostic absolute-Y routine. Do not use for gameplay mouse motion:
-; it maps raw POTY directly to screen Y and is fragile once NCM fetches begin.
-mouse_apply_absolute_y:
-        sta mouse_raw_y
-
-        lda mouse_old_pot_y
-        cmp #MOUSE_RAW_WRAP_HIGH_Y
-        bcc _maay_check_raw_bottom
-        lda mouse_raw_y
-        cmp #MOUSE_RAW_WRAP_LOW_Y
-        bcc _maay_reject_top_wrap
-
-_maay_check_raw_bottom:
-        lda mouse_old_pot_y
-        cmp #MOUSE_RAW_WRAP_LOW_Y
-        bcs _maay_scale_raw
-        lda mouse_raw_y
-        cmp #MOUSE_RAW_WRAP_HIGH_Y
-        bcs _maay_reject_bottom_wrap
-
-_maay_scale_raw:
-        lda mouse_raw_y
-        lsr
-        sta mouse_abs_y
-
-        lda mouse_raw_y
-        clc
-        adc mouse_abs_y
-        sta mouse_abs_y
-
-        lda mouse_raw_y
-        lsr
-        lsr
-        lsr
-        lsr
-        clc
-        adc mouse_abs_y
-        cmp #MOUSE_MAX_Y+1
-        bcc +
-        lda #MOUSE_MAX_Y
-+       sta mouse_abs_y
-
-        sec
-        lda #MOUSE_MAX_Y
-        sbc mouse_abs_y
-        sta mouse_abs_y
-
-        lda mouse_y+1
-        bne _maay_store
-
-        ; Guard in VIC sprite coordinates so the visible pointer never wraps
-        ; from one vertical edge to the other.
-        clc
-        lda mouse_abs_y
-        adc #SPRITE_SCREEN_Y
-        sta mouse_candidate_sprite_y
-
-        cmp #MOUSE_SPRITE_MIN_Y
-        bcc _maay_reject
-        cmp #(MOUSE_SPRITE_MAX_Y + 1)
-        bcs _maay_reject
-
-        clc
-        lda mouse_y
-        adc #SPRITE_SCREEN_Y
-        sta mouse_current_sprite_y
-
-        lda mouse_current_sprite_y
-        cmp #(MOUSE_SPRITE_MIN_Y + MOUSE_SPRITE_WRAP_Y)
-        bcs _maay_check_bottom_sprite_wrap
-        lda mouse_candidate_sprite_y
-        cmp #(MOUSE_SPRITE_MAX_Y - MOUSE_SPRITE_WRAP_Y)
-        bcs _maay_reject
-
-_maay_check_bottom_sprite_wrap:
-        lda mouse_current_sprite_y
-        cmp #(MOUSE_SPRITE_MAX_Y - MOUSE_SPRITE_WRAP_Y)
-        bcc _maay_delta_check
-        lda mouse_candidate_sprite_y
-        cmp #(MOUSE_SPRITE_MIN_Y + MOUSE_SPRITE_WRAP_Y)
-        bcc _maay_reject
-
-_maay_delta_check:
-        sec
-        lda mouse_abs_y
-        sbc mouse_y
-        beq _maay_done
-        cmp #1
-        beq _maay_done
-        cmp #$FF
-        beq _maay_done
-        cmp #$60
-        bcc _maay_store
-        cmp #$A0
-        bcs _maay_store
-        jmp _maay_update_raw_done
-
-_maay_store:
-        lda mouse_abs_y
-        sta mouse_y
-        stz mouse_y+1
-_maay_update_raw_done:
-        lda mouse_raw_y
-        sta mouse_old_pot_y
-_maay_done:
-        rts
-
-_maay_reject:
-        lda mouse_raw_y
-        sta mouse_old_pot_y
-        rts
-
-_maay_reject_top_wrap:
-        stz mouse_y
-        stz mouse_y+1
-        lda mouse_raw_y
-        sta mouse_old_pot_y
-        rts
-
-_maay_reject_bottom_wrap:
-        lda #(MOUSE_SPRITE_MAX_Y - SPRITE_SCREEN_Y)
-        sta mouse_y
-        stz mouse_y+1
-        lda mouse_raw_y
-        sta mouse_old_pot_y
-        rts
-
 mouse_double_delta:
         asl
         pha
@@ -1470,36 +1155,6 @@ _mmc_no_move:
         clc
         rts
 
-mouse_move_check_raw7:
-        sty mouse_old_value
-        sta mouse_new_value
-        ldx #0
-
-        sec
-        sbc mouse_old_value
-        and #$7F
-        beq _mmc7_no_move
-        cmp #$40
-        bcs _mmc7_negative
-
-        ldy mouse_new_value
-        ldx #0
-        sec
-        rts
-
-_mmc7_negative:
-        ora #$80
-        ldy mouse_new_value
-        ldx #$FF
-        sec
-        rts
-
-_mmc7_no_move:
-        ldy mouse_new_value
-        txa
-        clc
-        rts
-
 mouse_x:
         .word 0
 mouse_y:
@@ -1510,10 +1165,6 @@ mouse_delta:
         .word 0
 mouse_rel:
         .word 0
-mouse_raw_y:
-        .byte 0
-mouse_abs_y:
-        .byte 0
 mouse_potx_sample:
         .byte 0
 mouse_poty_sample:
@@ -1522,21 +1173,9 @@ mouse_sprite_x:
         .word 0
 mouse_sprite_y:
         .byte 0
-mouse_anim_y:
-        .byte 0
-mouse_anim_dir:
-        .byte 0
-mouse_drawn_sprite_y:
-        .byte 0
-mouse_current_sprite_y:
-        .byte 0
-mouse_candidate_sprite_y:
-        .byte 0
 mouse_old_pot_x:
         .byte 0
 mouse_old_pot_y:
-        .byte 0
-mouse_old_pot_b_y:
         .byte 0
 mouse_old_value:
         .byte 0

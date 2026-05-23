@@ -303,63 +303,6 @@ render_draw_16x16_tile:
         jsr set_ncm_char
         rts
 
-render_cursor:
-        lda cursor_x
-        cmp view_x
-        bcc _rc_done
-        sec
-        sbc view_x
-        cmp #MAIN_TILE_COLS
-        bcs _rc_done
-        sta render_tile_x
-
-        lda cursor_y
-        cmp view_y
-        bcc _rc_done
-        sec
-        sbc view_y
-        cmp #MAIN_TILE_ROWS
-        bcs _rc_done
-        sta render_tile_y
-
-        lda render_tile_x
-        asl
-        clc
-        adc #MAIN_COL
-        sta render_screen_col
-
-        lda render_tile_y
-        asl
-        clc
-        adc #MAIN_ROW
-        sta render_screen_row
-
-        lda #CITY_CHAR_CURSOR
-        ldx render_screen_col
-        ldy render_screen_row
-        jsr set_ncm_char
-
-        lda #CITY_CHAR_CURSOR+1
-        ldx render_screen_col
-        inx
-        ldy render_screen_row
-        jsr set_ncm_char
-
-        lda #CITY_CHAR_CURSOR+2
-        ldx render_screen_col
-        ldy render_screen_row
-        iny
-        jsr set_ncm_char
-
-        lda #CITY_CHAR_CURSOR+3
-        ldx render_screen_col
-        inx
-        ldy render_screen_row
-        iny
-        jsr set_ncm_char
-_rc_done:
-        rts
-
 render_col:
         .byte 0
 render_row:

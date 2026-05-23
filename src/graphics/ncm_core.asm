@@ -67,61 +67,6 @@ _in_cnt:
 _in_counts:
         .word 1000, 2000
 
-init_ncm_20x25:
-        lda #<SCREEN_RAM
-        sta PTR
-        lda #>SCREEN_RAM
-        sta PTR+1
-        lda #`SCREEN_RAM
-        sta PTR+2
-        lda #0
-        sta PTR+3
-
-        lda #<CHAR_CODE_BASE
-        sta _in20_code
-        lda #>CHAR_CODE_BASE
-        sta _in20_code+1
-
-        lda #<500
-        sta _in20_cnt
-        lda #>500
-        sta _in20_cnt+1
-
-_in20_loop:
-        ldz #0
-        lda _in20_code
-        sta [PTR],z
-        inz
-        lda _in20_code+1
-        sta [PTR],z
-
-        inc _in20_code
-        bne +
-        inc _in20_code+1
-+
-        clc
-        lda PTR
-        adc #2
-        sta PTR
-        bcc +
-        inc PTR+1
-        bne +
-        inc PTR+2
-+
-        lda _in20_cnt
-        bne +
-        dec _in20_cnt+1
-+       dec _in20_cnt
-        lda _in20_cnt
-        ora _in20_cnt+1
-        bne _in20_loop
-        rts
-
-_in20_code:
-        .word 0
-_in20_cnt:
-        .word 0
-
 clear_ncm:
         and #$0F
         sta _cn_nibble
