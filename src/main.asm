@@ -105,7 +105,6 @@ _wf_wait_top:
         .include "graphics/ncm_core.asm"
         .include "assets.asm"
         .include "tiles.asm"
-UI_TILE_ASSET_BUILD = 0
         .include "tileloader.asm"
         .include "city.asm"
         .include "render.asm"
