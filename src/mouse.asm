@@ -1,9 +1,18 @@
 ;=======================================================================================
 ; Mouse pointer and map cursor.
 ;
-; Reads a 1351-compatible mouse from control port 1, keeps a 320x200 logical
-; mouse position, and displays sprite 0 as either a pointer or a snapped
-; 16x16 map cursor.
+; Reads a 1351-compatible mouse from control port 1, tracks a logical pointer
+; position, and displays sprite 0 as a pointer plus sprite 1 as a snapped 16x16
+; map cursor.
+;
+; Coordinate systems used below:
+;   logical pixel  mouse_x/mouse_y, 0..MOUSE_MAX_X / 0..MOUSE_MAX_Y (sized from
+;                  VIEW_COLS/VIEW_ROWS). mouse_x can reach MOUSE_MIN_X for the
+;                  offscreen-left clamp. This is the source of truth for input.
+;   sprite         VIC sprite coords = logical + SPRITE_SCREEN_X/Y (mouse_sprite_x/y).
+;   viewport tile  mouse_tile_x/y, the 16x16 tile under the pointer within the
+;                  visible map (0..MAIN_TILE_COLS-1 / 0..MAIN_TILE_ROWS-1).
+;   city tile      cursor_x/y = view_x/view_y + tile, the absolute map cell.
 ;=======================================================================================
 
 MOUSE_SPRITE_POINTER    = 0

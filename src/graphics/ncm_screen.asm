@@ -1,8 +1,9 @@
 ;=======================================================================================
-; Minimal MEGA65 screen setup for NCM 320x200 diagnostic.
+; MEGA65 NCM screen setup.
 ;
-; Derived from the local m65-fcm screen setup, trimmed to the only mode this
-; project currently needs: 320x200 NCM.
+; Derived from the local m65-fcm screen setup. set_screen_mode brings up the NCM
+; display whose width follows VIEW_COLS (H320 at 40 columns, H640 above) and
+; restores the default screen on exit.
 ;=======================================================================================
 
 screen_mode:
