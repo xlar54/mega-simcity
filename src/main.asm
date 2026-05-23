@@ -104,8 +104,6 @@ _wf_wait_top:
         .include "graphics/ncm_screen.asm"
         .include "graphics/ncm_core.asm"
         .include "assets.asm"
-        .include "tiles.asm"
-        .include "tileloader.asm"
         .include "city.asm"
         .include "render.asm"
         .include "mouse.asm"
