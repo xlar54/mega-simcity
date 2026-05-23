@@ -656,12 +656,12 @@ _mhu_zone_top:
         lda mouse_ui_col
         cmp #UI_TOOL_COL_LEFT
         bcc _mhu_done
-        cmp #UI_TOOL_COL_LEFT + UI_ROAD_ICON_CELLS_X
-        bcc _mhu_road
+        cmp #UI_TOOL_COL_LEFT + 2
+        bcc _mhu_residential
         cmp #UI_TOOL_COL_RIGHT
         bcc _mhu_done
-        cmp #UI_TOOL_COL_RIGHT + 2
-        bcc _mhu_residential
+        cmp #UI_TOOL_COL_RIGHT + UI_ROAD_ICON_CELLS_X
+        bcc _mhu_road
         rts
 
 _mhu_zone_mid:

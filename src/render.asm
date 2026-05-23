@@ -120,24 +120,14 @@ render_ui:
         ldy #UI_TOP_ROWS
         jsr render_fill_rect
 
-        ; RCI meter stub in the lower left rail.
-        lda #UI_LEFT_COLS
-        sta render_fill_w
-        lda #4
-        sta render_fill_h
-        lda #UI_TILE_RCI_PANEL
-        ldx #0
-        ldy #18
-        jsr render_fill_rect
-
-        ; Tool buttons.
+        ; Tool buttons. Road icon (2x2) on the right, R on the left.
+        lda #UI_TILE_TOOL_RES
         ldx #UI_TOOL_COL_LEFT
         ldy #UI_TOOL_ROW_TOP
-        jsr render_draw_road_icon
-        lda #UI_TILE_TOOL_RES
+        jsr set_ncm_char
         ldx #UI_TOOL_COL_RIGHT
         ldy #UI_TOOL_ROW_TOP
-        jsr set_ncm_char
+        jsr render_draw_road_icon
         lda #UI_TILE_TOOL_COM
         ldx #UI_TOOL_COL_LEFT
         ldy #UI_TOOL_ROW_MID

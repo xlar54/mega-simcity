@@ -189,7 +189,7 @@ ATTIC_TILE_ADDR         = $0000
 
 UI_TOOL_COL_LEFT        = 0
 UI_TOOL_COL_RIGHT       = 2
-UI_TOOL_ROW_TOP         = 5
+UI_TOOL_ROW_TOP         = 3
 UI_TOOL_ROW_MID         = 8
 UI_TOOL_ROW_BOTTOM      = 11
 
