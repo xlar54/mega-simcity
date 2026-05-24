@@ -47,6 +47,8 @@ SPRITE0_X               = $D000
 SPRITE0_Y               = $D001
 SPRITE1_X               = $D002
 SPRITE1_Y               = $D003
+SPRITE2_X               = $D004
+SPRITE2_Y               = $D005
 SPRITE_X_MSB            = $D010
 SPRITE_ENABLE           = $D015
 SPRITE_Y_EXPAND         = $D017
@@ -55,6 +57,7 @@ SPRITE_MULTICOLOR       = $D01C
 SPRITE_X_EXPAND         = $D01D
 SPRITE0_COLOR           = $D027
 SPRITE1_COLOR           = $D028
+SPRITE2_COLOR           = $D029
 
 MULTINA                 = $D770
 MULTINB                 = $D774
@@ -190,6 +193,10 @@ ATTIC_TILE_ADDR         = $0000
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)
 UI_TOOL_ROW_TOP         = 3      ; top of the 2x8 toolbar grid (8 rows of 2x2)
+UI_TOOL_PIXEL_RIGHT     = UI_LEFT_COLS * NCM_CELL_PIXELS
+UI_TOOL_SELECTOR_X      = $08    ; sprite 2 X for the first toolbox icon
+UI_TOOL_SELECTOR_Y      = $5A    ; sprite 2 Y for the first toolbox icon
+CURSOR_TOOL_FREEZE_X    = 0      ; first visible map tile against the toolbar
 
 INPUT_NONE              = 0
 INPUT_MOVE_UP           = 1

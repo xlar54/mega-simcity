@@ -22,6 +22,7 @@ mouse_init:
         stz mouse_buttons
         stz mouse_prev_buttons
         stz mouse_left_click
+        stz mouse_left_debounce
         stz mouse_over_main
         stz mouse_scroll_tick
         stz mouse_scroll_bits
@@ -89,27 +90,29 @@ _mrs_hide_block:
 
 mouse_shutdown:
         lda SPRITE_ENABLE
-        and #%11111100
+        and #%11111000
         sta SPRITE_ENABLE
         rts
 
 mouse_sprite_init:
         lda SPRITE_X_MSB
-        and #%11111100
+        and #%11111000
         sta SPRITE_X_MSB
         lda VIC4_SPRXMSB9
-        and #%11111100
+        and #%11111000
         sta VIC4_SPRXMSB9
         lda VIC4_SPRYMSB8
-        and #%11111100
+        and #%11111000
         sta VIC4_SPRYMSB8
         lda VIC4_SPRYMSB9
-        and #%11111100
+        and #%11111000
         sta VIC4_SPRYMSB9
         stz SPRITE0_X
         stz SPRITE0_Y
         stz SPRITE1_X
         stz SPRITE1_Y
+        stz SPRITE2_X
+        stz SPRITE2_Y
 
         lda #<mouse_sprite_ptrs
         sta VIC4_SPRPTRADRLSB
@@ -122,24 +125,33 @@ mouse_sprite_init:
         sta SPRITE0_COLOR
         lda #$0A
         sta SPRITE1_COLOR
+        lda #$0E
+        sta SPRITE2_COLOR
 
         lda SPRITE_MULTICOLOR
-        and #%11111100
+        and #%11111000
         sta SPRITE_MULTICOLOR
         lda SPRITE_X_EXPAND
-        and #%11111100
+        and #%11111000
         sta SPRITE_X_EXPAND
         lda SPRITE_Y_EXPAND
-        and #%11111100
+        and #%11111000
         sta SPRITE_Y_EXPAND
         lda SPRITE_PRIORITY
-        and #%11111100
+        and #%11111000
         sta SPRITE_PRIORITY
 
         lda SPRITE_ENABLE
-        ora #$01
-        and #%11111101
+        and #%11110000
+        ora #%00000101          ; sprite 0 (pointer) + sprite 2 (tool selector)
         sta SPRITE_ENABLE
+
+        ; Sprite 2: tool selector box over the currently selected toolbar slot.
+        lda #<(mouse_block_sprite / 64)
+        sta mouse_sprite_ptrs+4
+        lda #>(mouse_block_sprite / 64)
+        sta mouse_sprite_ptrs+5
+        jsr mouse_position_tool_sprite
 
         jsr mouse_use_pointer_shape
         jmp mouse_use_block_shape
@@ -301,9 +313,14 @@ mouse_read_buttons:
 mouse_update_click:
         lda mouse_buttons
         and #MOUSE_BUTTON_LEFT
-        beq _muc_store
-        lda mouse_prev_buttons
-        and #MOUSE_BUTTON_LEFT
+        beq _muc_release
+
+        lda mouse_left_debounce
+        cmp #2
+        bcs _muc_store
+        inc mouse_left_debounce
+        lda mouse_left_debounce
+        cmp #2
         bne _muc_store
         lda #1
         sta mouse_left_click
@@ -312,8 +329,36 @@ _muc_store:
         sta mouse_prev_buttons
         rts
 
+_muc_release:
+        stz mouse_left_debounce
+        bra _muc_store
+
 mouse_update_hover:
         jsr mouse_scroll_view_from_edge
+
+        ; The left UI_LEFT_COLS columns are the toolbar, drawn in front of the
+        ; map. Treat that whole band as UI: hide the map cursor, never paint,
+        ; and route left-clicks to tool selection.
+        lda mouse_x+1
+        bmi _muh_toolbar
+        bne _muh_viewport
+        lda mouse_x
+        cmp #UI_TOOL_PIXEL_RIGHT
+        bcs _muh_viewport
+_muh_toolbar:
+        ; Toolbar band: keep the yellow map cursor on the first visible map
+        ; tile to the right of the toolbox, and do not let it track the pointer
+        ; around the UI.
+        lda #1
+        sta mouse_over_main
+        lda #CURSOR_TOOL_FREEZE_X
+        sta mouse_tile_x
+        jsr mouse_update_city_cursor
+        jsr mouse_use_pointer_shape
+        jsr mouse_position_pointer_sprite
+        jmp mouse_handle_ui_click
+
+_muh_viewport:
         jsr mouse_pointer_inside_viewport
         bcs _muh_main
 
@@ -613,20 +658,28 @@ mouse_update_city_cursor:
 mouse_handle_ui_click:
         lda mouse_left_click
         beq _mhu_done
+
         lda mouse_x+1
+        bmi _mhu_col0
         bne _mhu_done
         lda mouse_x
-        cmp #MAIN_PIXEL_X
+        cmp #UI_TOOL_PIXEL_RIGHT
         bcs _mhu_done
-        lda mouse_y
-        cmp #MAIN_PIXEL_Y
-        bcc _mhu_done
-
         lda mouse_x
         lsr
         lsr
         lsr
         sta mouse_ui_col
+        bra _mhu_row
+
+_mhu_col0:
+        stz mouse_ui_col
+
+_mhu_row:
+        lda mouse_y
+        cmp #MAIN_PIXEL_Y
+        bcc _mhu_done
+
         lda mouse_y
         lsr
         lsr
@@ -654,11 +707,15 @@ mouse_handle_ui_click:
         bcc +
         inx                         ; right column -> +1
 +
-        txa
-        beq _mhu_bulldoze           ; slot 0
+        txa                         ; A = clicked slot 0..15
+        sta selected_tool
+        jsr mouse_position_tool_sprite
+
+        lda selected_tool
+        beq _mhu_bulldoze           ; slot 0 -> bulldozer
         cmp #1
-        beq _mhu_road               ; slot 1
-        rts                         ; slots 2-15: placeholder, no tool yet
+        beq _mhu_road               ; slot 1 -> road
+        rts                         ; slots 2-15: selected, no paint tile yet
 
 _mhu_road:
         lda #TILE_ROAD
@@ -906,6 +963,49 @@ mouse_hide_block_sprite:
         sta SPRITE_ENABLE
         rts
 
+mouse_position_tool_sprite:
+        ; Place sprite 2 (cyan selector box) over selected_tool's toolbar slot.
+        ; Column: even slots -> left, odd -> right. Row pair advances by 16
+        ; pixels per toolbar row. This sprite uses toolbox sprite coordinates,
+        ; not the general mouse/map pointer screen offset.
+        lda selected_tool
+        cmp #UI_BTN_COUNT
+        bcc +
+        stz selected_tool
++
+        lda selected_tool
+        and #1
+        beq _mpt_left
+        lda #(UI_TOOL_SELECTOR_X + ((UI_TOOL_COL_RIGHT - UI_TOOL_COL_LEFT) * NCM_CELL_PIXELS))
+        bra _mpt_x_done
+_mpt_left:
+        lda #UI_TOOL_SELECTOR_X
+_mpt_x_done:
+        sta SPRITE2_X
+
+        lda selected_tool
+        and #$FE
+        asl
+        asl
+        asl
+        clc
+        adc #UI_TOOL_SELECTOR_Y
+        sta SPRITE2_Y
+
+        lda SPRITE_X_MSB
+        and #%11111011
+        sta SPRITE_X_MSB
+        lda VIC4_SPRXMSB9
+        and #%11111011
+        sta VIC4_SPRXMSB9
+        lda VIC4_SPRYMSB8
+        and #%11111011
+        sta VIC4_SPRYMSB8
+        lda VIC4_SPRYMSB9
+        and #%11111011
+        sta VIC4_SPRYMSB9
+        rts
+
 mouse_use_pointer_shape:
         lda #MOUSE_SPRITE_POINTER
         sta mouse_sprite_mode
@@ -1150,6 +1250,8 @@ mouse_buttons:
 mouse_prev_buttons:
         .byte 0
 mouse_left_click:
+        .byte 0
+mouse_left_debounce:
         .byte 0
 mouse_over_main:
         .byte 0

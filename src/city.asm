@@ -11,7 +11,8 @@ city_init:
         sta cursor_x
         lda #14
         sta cursor_y
-        lda #TILE_ROAD
+        stz selected_tool           ; bulldozer (slot 0) is the starting tool
+        lda #TILE_GRASS
         sta selected_tile
         stz sim_tick
         stz sim_tick+1
@@ -284,6 +285,8 @@ view_x:
 view_y:
         .byte 0
 selected_tile:
+        .byte 0
+selected_tool:
         .byte 0
 sim_tick:
         .word 0
