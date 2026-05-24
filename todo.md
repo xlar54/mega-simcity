@@ -5,11 +5,10 @@ Tracking known issues. Severity from the code review; line numbers are on
 
 ## High
 
-- [ ] **POT read can spin forever.** `mouse_read_pot_x` / `mouse_read_pot_y`
-      (`src/mouse.asm` ~line 274 and ~281) loop until two identical POT reads
-      agree. If the mouse is unplugged, noisy, in the wrong mode, or jitters
-      under NCM load, the game can lock inside an `sei` section.
-      *Fix:* add a retry cap and fall back to the previous sample on timeout.
+- [x] **POT read spin-forever fixed.** `mouse_read_pot_x` / `mouse_read_pot_y`
+      now cap the stable-read retries at `MOUSE_POT_READ_TRIES` ($20) and fall
+      back to the previous sample (that axis registers no movement) instead of
+      looping forever inside the `sei` section.
 
 ## Medium
 

@@ -186,17 +186,32 @@ _msp_inner:
         bne _msp_outer
         rts
 
+; Read a POT axis, retrying until two back-to-back reads agree. Capped so a
+; noisy/unplugged/wrong-mode pot can't wedge the machine inside this sei
+; section; on giving up, reuse the previous sample (axis registers no movement).
 mouse_read_pot_x:
+        ldy #MOUSE_POT_READ_TRIES
+_mrpx_loop:
         lda M65_POT_PORT_A_X
         cmp M65_POT_PORT_A_X
-        bne mouse_read_pot_x
+        beq _mrpx_done
+        dey
+        bne _mrpx_loop
+        lda mouse_old_pot_x
+_mrpx_done:
         and #$7E
         rts
 
 mouse_read_pot_y:
+        ldy #MOUSE_POT_READ_TRIES
+_mrpy_loop:
         lda M65_POT_PORT_A_Y
         cmp M65_POT_PORT_A_Y
-        bne mouse_read_pot_y
+        beq _mrpy_done
+        dey
+        bne _mrpy_loop
+        lda mouse_old_pot_y
+_mrpy_done:
         and #$7E
         rts
 

@@ -161,6 +161,7 @@ MOUSE_SPRITE_MAX_Y      = 249
 MOUSE_BUTTON_LEFT       = $10
 MOUSE_BUTTON_SETTLE     = $40    ; busy-wait after DDR->input before reading
                                  ; PORT_B (R5 CIA settle for reliable reads)
+MOUSE_POT_READ_TRIES    = $20    ; cap on POT stable-read retries (anti-wedge)
 MOUSE_SCROLL_DELAY      = 2
 MOUSE_SCROLL_LEFT       = $01
 MOUSE_SCROLL_RIGHT      = $02
