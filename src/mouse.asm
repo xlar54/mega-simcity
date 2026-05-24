@@ -19,24 +19,17 @@ MOUSE_SPRITE_POINTER    = 0
 MOUSE_SPRITE_BLOCK      = 1
 
 mouse_init:
-        stz mouse_buttons
-        stz mouse_prev_buttons
-        stz mouse_left_click
-        stz mouse_left_debounce
-        stz mouse_over_main
-        stz mouse_scroll_tick
-        stz mouse_scroll_bits
-        lda #$FF
-        sta mouse_sprite_mode
+        lda #0
+        sta mouse_buttons
+        sta mouse_prev_buttons
+        sta mouse_left_click
+        sta mouse_left_debounce
+        sta mouse_over_main
+        sta mouse_scroll_tick
+        sta mouse_scroll_bits
 
         jsr mouse_seed_pot_baseline
         jsr mouse_center_pointer
-        jsr mouse_sprite_init
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_on_cursor_sprite
-        jsr mouse_use_block_shape
-        jsr mouse_position_block_sprite
-        jsr mouse_use_pointer_shape
         rts
 
 mouse_center_pointer:
@@ -46,10 +39,11 @@ mouse_center_pointer:
         sta mouse_x+1
         lda #MOUSE_START_Y
         sta mouse_y
-        stz mouse_y+1
-        stz mouse_scroll_tick
-        stz mouse_scroll_bits
-        stz mouse_edge_active
+        lda #0
+        sta mouse_y+1
+        sta mouse_scroll_tick
+        sta mouse_scroll_bits
+        sta mouse_edge_active
         lda #1
         sta mouse_over_main
         lda #MOUSE_START_TILE_X
@@ -60,8 +54,11 @@ mouse_center_pointer:
         rts
 
 mouse_poll:
-        stz mouse_left_click
-        stz mouse_scroll_bits
+        ; NOTE: on the 45GS02, STZ stores the Z register, not a literal zero.
+        ; These must be explicit zero stores or the click edge never clears.
+        lda #0
+        sta mouse_left_click
+        sta mouse_scroll_bits
         jsr mouse_read_motion
         lda mouse_over_main
         beq _mp_read_buttons
@@ -72,89 +69,7 @@ mouse_poll:
 _mp_read_buttons:
         jsr mouse_read_buttons
         jsr mouse_update_click
-        jsr mouse_update_hover
         rts
-
-mouse_refresh_sprite:
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_sprite
-
-_mrs_block:
-        lda mouse_over_main
-        beq _mrs_hide_block
-        jsr mouse_use_block_shape
-        jmp mouse_position_block_sprite
-
-_mrs_hide_block:
-        jmp mouse_hide_block_sprite
-
-mouse_shutdown:
-        lda SPRITE_ENABLE
-        and #%11111000
-        sta SPRITE_ENABLE
-        rts
-
-mouse_sprite_init:
-        lda SPRITE_X_MSB
-        and #%11111000
-        sta SPRITE_X_MSB
-        lda VIC4_SPRXMSB9
-        and #%11111000
-        sta VIC4_SPRXMSB9
-        lda VIC4_SPRYMSB8
-        and #%11111000
-        sta VIC4_SPRYMSB8
-        lda VIC4_SPRYMSB9
-        and #%11111000
-        sta VIC4_SPRYMSB9
-        stz SPRITE0_X
-        stz SPRITE0_Y
-        stz SPRITE1_X
-        stz SPRITE1_Y
-        stz SPRITE2_X
-        stz SPRITE2_Y
-
-        lda #<mouse_sprite_ptrs
-        sta VIC4_SPRPTRADRLSB
-        lda #>mouse_sprite_ptrs
-        sta VIC4_SPRPTRADRMSB
-        lda #$80
-        sta VIC4_SPRPTRBNK
-
-        lda #$0F
-        sta SPRITE0_COLOR
-        lda #$0A
-        sta SPRITE1_COLOR
-        lda #$0E
-        sta SPRITE2_COLOR
-
-        lda SPRITE_MULTICOLOR
-        and #%11111000
-        sta SPRITE_MULTICOLOR
-        lda SPRITE_X_EXPAND
-        and #%11111000
-        sta SPRITE_X_EXPAND
-        lda SPRITE_Y_EXPAND
-        and #%11111000
-        sta SPRITE_Y_EXPAND
-        lda SPRITE_PRIORITY
-        and #%11111000
-        sta SPRITE_PRIORITY
-
-        lda SPRITE_ENABLE
-        and #%11110000
-        ora #%00000101          ; sprite 0 (pointer) + sprite 2 (tool selector)
-        sta SPRITE_ENABLE
-
-        ; Sprite 2: tool selector box over the currently selected toolbar slot.
-        lda #<(mouse_block_sprite / 64)
-        sta mouse_sprite_ptrs+4
-        lda #>(mouse_block_sprite / 64)
-        sta mouse_sprite_ptrs+5
-        jsr mouse_position_tool_sprite
-
-        jsr mouse_use_pointer_shape
-        jmp mouse_use_block_shape
 
 mouse_read_motion:
         ldz #$00
@@ -296,9 +211,15 @@ mouse_read_buttons:
         sta mouse_saved_ddrb
 
         jsr mouse_prepare_1351_read
+        ; R5 CIA takes several cycles to settle after DDR output->input before
+        ; PORT_B reads reliably (esp. bit 0 = 1351 right button). Busy-wait.
+        ldx #MOUSE_BUTTON_SETTLE
+_mrb_settle:
+        dex
+        bne _mrb_settle
         lda CIA1_PORT_B
         eor #$FF
-        and #$1F
+        and #MOUSE_BUTTON_LEFT      ; left button only; right (bit 0) unused
         sta mouse_buttons
 
         lda mouse_saved_pra
@@ -330,506 +251,16 @@ _muc_store:
         rts
 
 _muc_release:
-        stz mouse_left_debounce
+        lda #0                  ; STZ stores Z on 45GS02; force a real zero
+        sta mouse_left_debounce
         bra _muc_store
 
-mouse_update_hover:
-        jsr mouse_scroll_view_from_edge
-
-        ; The left UI_LEFT_COLS columns are the toolbar, drawn in front of the
-        ; map. Treat that whole band as UI: hide the map cursor, never paint,
-        ; and route left-clicks to tool selection.
-        lda mouse_x+1
-        bmi _muh_toolbar
-        bne _muh_viewport
-        lda mouse_x
-        cmp #UI_TOOL_PIXEL_RIGHT
-        bcs _muh_viewport
-_muh_toolbar:
-        ; Toolbar band: keep the yellow map cursor on the first visible map
-        ; tile to the right of the toolbox, and do not let it track the pointer
-        ; around the UI.
-        lda #1
-        sta mouse_over_main
-        lda #CURSOR_TOOL_FREEZE_X
-        sta mouse_tile_x
-        jsr mouse_update_city_cursor
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_sprite
-        jmp mouse_handle_ui_click
-
-_muh_viewport:
-        jsr mouse_pointer_inside_viewport
-        bcs _muh_main
-
-_muh_freeze_cursor:
-        ; Outside the playable map area, leave the square cursor on its last
-        ; valid tile. The pointer can still scroll at the edge or click UI.
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_sprite
-        jmp mouse_handle_ui_click
-
-_muh_main:
-        lda #1
-        sta mouse_over_main
-        jsr mouse_compute_tile_clamped
-        jsr mouse_update_city_cursor
-        jsr mouse_use_pointer_shape
-        jsr mouse_position_pointer_sprite
-
-        lda mouse_buttons
-        and #MOUSE_BUTTON_LEFT
-        beq _muh_done
-        lda #INPUT_PAINT
-        sta input_action
-_muh_done:
-        rts
-
-mouse_pointer_inside_viewport:
-        lda mouse_y+1
-        bne _mpiv_no
-        lda mouse_y
-        cmp #CURSOR_PIXEL_Y
-        bcc _mpiv_no
-        cmp #CURSOR_PIXEL_BOTTOM
-        bcs _mpiv_no
-
-        lda mouse_x+1
-        bmi _mpiv_no
-        bne _mpiv_check_right
-        lda mouse_x
-        cmp #CURSOR_PIXEL_X
-        bcc _mpiv_no
-
-_mpiv_check_right:
-        lda mouse_x+1
-        cmp #>CURSOR_PIXEL_RIGHT
-        bcc _mpiv_yes
-        bne _mpiv_no
-        lda mouse_x
-        cmp #<CURSOR_PIXEL_RIGHT
-        bcc _mpiv_yes
-
-_mpiv_no:
-        clc
-        rts
-
-_mpiv_yes:
-        sec
-        rts
-
-mouse_compute_tile:
-        sec
-        lda mouse_x
-        sbc #<MAIN_PIXEL_X
-        sta mouse_rel
-        lda mouse_x+1
-        sbc #>MAIN_PIXEL_X
-        sta mouse_rel+1
-
-        ldx #4
-_mct_x_shift:
-        lsr mouse_rel+1
-        ror mouse_rel
-        dex
-        bne _mct_x_shift
-        lda mouse_rel
-        sta mouse_tile_x
-
-        sec
-        lda mouse_y
-        sbc #MAIN_PIXEL_Y
-        sta mouse_rel
-        stz mouse_rel+1
-
-        ldx #4
-_mct_y_shift:
-        lsr mouse_rel+1
-        ror mouse_rel
-        dex
-        bne _mct_y_shift
-        lda mouse_rel
-        sta mouse_tile_y
-        rts
-
-mouse_compute_tile_clamped:
-        lda mouse_x+1
-        bmi _mctc_x_min
-        bne _mctc_x_check_right
-        lda mouse_x
-        cmp #MAIN_PIXEL_X
-        bcc _mctc_x_min
-
-_mctc_x_check_right:
-        lda mouse_x+1
-        cmp #>MAIN_PIXEL_RIGHT
-        bcc _mctc_x_compute
-        bne _mctc_x_max
-        lda mouse_x
-        cmp #<MAIN_PIXEL_RIGHT
-        bcc _mctc_x_compute
-
-_mctc_x_max:
-        lda #MAIN_TILE_COLS-1
-        sta mouse_tile_x
-        bra _mctc_y
-
-_mctc_x_min:
-        stz mouse_tile_x
-        bra _mctc_y
-
-_mctc_x_compute:
-        sec
-        lda mouse_x
-        sbc #<MAIN_PIXEL_X
-        sta mouse_rel
-        lda mouse_x+1
-        sbc #>MAIN_PIXEL_X
-        sta mouse_rel+1
-
-        ldx #4
-_mctc_x_shift:
-        lsr mouse_rel+1
-        ror mouse_rel
-        dex
-        bne _mctc_x_shift
-        lda mouse_rel
-        sta mouse_tile_x
-
-_mctc_y:
-        lda mouse_y+1
-        bmi _mctc_y_min
-        bne _mctc_y_max
-        lda mouse_y
-        cmp #CURSOR_PIXEL_Y
-        bcc _mctc_y_min
-        cmp #MAIN_PIXEL_BOTTOM
-        bcs _mctc_y_max
-
-        sec
-        lda mouse_y
-        sbc #MAIN_PIXEL_Y
-        sta mouse_rel
-        stz mouse_rel+1
-
-        ldx #4
-_mctc_y_shift:
-        lsr mouse_rel+1
-        ror mouse_rel
-        dex
-        bne _mctc_y_shift
-        lda mouse_rel
-        sta mouse_tile_y
-        rts
-
-_mctc_y_min:
-        lda #CURSOR_TILE_MIN_Y
-        sta mouse_tile_y
-        rts
-
-_mctc_y_max:
-        lda #MAIN_TILE_ROWS-1
-        sta mouse_tile_y
-        rts
-
-mouse_scroll_view_from_edge:
-        stz mouse_edge_active
-
-        ; Scroll only at the actual screen edges. The square cursor may freeze
-        ; over UI chrome, but map scrolling is controlled by the pointer itself.
-        lda mouse_x
-        cmp #<MOUSE_MIN_X
-        bne _msv_right_check
-        lda mouse_x+1
-        cmp #>MOUSE_MIN_X
-        bne _msv_right_check
-_msv_mark_left:
-        lda mouse_edge_active
-        ora #MOUSE_SCROLL_LEFT
-        sta mouse_edge_active
-
-_msv_right_check:
-        lda mouse_x+1
-        bmi _msv_up_check
-        cmp #>MOUSE_MAX_X
-        bcc _msv_up_check
-        bne _msv_mark_right
-        lda mouse_x
-        cmp #<MOUSE_MAX_X
-        bcc _msv_up_check
-_msv_mark_right:
-        lda mouse_edge_active
-        ora #MOUSE_SCROLL_RIGHT
-        sta mouse_edge_active
-
-_msv_up_check:
-        lda mouse_y+1
-        bne _msv_down_check
-        lda mouse_y
-        bne _msv_down_check
-_msv_mark_up:
-        lda mouse_edge_active
-        ora #MOUSE_SCROLL_UP
-        sta mouse_edge_active
-
-_msv_down_check:
-        lda mouse_y+1
-        bne _msv_mark_down
-        lda mouse_y
-        ; Trigger when the pointer top-left reaches the logical bottom screen
-        ; row. At the clamp, fresh POT deltas are not guaranteed every frame.
-        cmp #MOUSE_MAX_Y
-        bcc _msv_maybe_scroll
-_msv_mark_down:
-        lda mouse_edge_active
-        ora #MOUSE_SCROLL_DOWN
-        sta mouse_edge_active
-
-_msv_maybe_scroll:
-        ; Keep scrolling while the pointer remains in an edge band. At the
-        ; physical edges the mouse can stop producing fresh deltas, so gating
-        ; this on per-frame motion can make scrolling stall.
-        lda mouse_edge_active
-        bne _msv_count
-        stz mouse_scroll_tick
-        rts
-
-_msv_count:
-        inc mouse_scroll_tick
-        lda mouse_scroll_tick
-        cmp #MOUSE_SCROLL_DELAY
-        bcs _msv_do_scroll
-        rts
-
-_msv_do_scroll:
-        stz mouse_scroll_tick
-
-        lda mouse_edge_active
-        and #MOUSE_SCROLL_LEFT
-        beq _msv_do_right
-        lda view_x
-        beq _msv_do_right
-        dec view_x
-        jsr render_mark_view_dirty
-
-_msv_do_right:
-        lda mouse_edge_active
-        and #MOUSE_SCROLL_RIGHT
-        beq _msv_do_up
-        lda view_x
-        cmp #CITY_VIEW_MAX_X
-        bcs _msv_do_up
-        inc view_x
-        jsr render_mark_view_dirty
-
-_msv_do_up:
-        lda mouse_edge_active
-        and #MOUSE_SCROLL_UP
-        beq _msv_do_down
-        lda view_y
-        beq _msv_do_down
-        dec view_y
-        jsr render_mark_view_dirty
-
-_msv_do_down:
-        lda mouse_edge_active
-        and #MOUSE_SCROLL_DOWN
-        beq _msv_done
-        lda view_y
-        cmp #CITY_VIEW_MAX_Y
-        bcs _msv_done
-        inc view_y
-        jsr render_mark_view_dirty
-_msv_done:
-        rts
-
-mouse_update_city_cursor:
-        clc
-        lda view_x
-        adc mouse_tile_x
-        sta cursor_x
-
-        clc
-        lda view_y
-        adc mouse_tile_y
-        sta cursor_y
-        rts
-
-mouse_handle_ui_click:
-        lda mouse_left_click
-        beq _mhu_done
-
-        lda mouse_x+1
-        bmi _mhu_col0
-        bne _mhu_done
-        lda mouse_x
-        cmp #UI_TOOL_PIXEL_RIGHT
-        bcs _mhu_done
-        lda mouse_x
-        lsr
-        lsr
-        lsr
-        sta mouse_ui_col
-        bra _mhu_row
-
-_mhu_col0:
-        stz mouse_ui_col
-
-_mhu_row:
-        lda mouse_y
-        cmp #MAIN_PIXEL_Y
-        bcc _mhu_done
-
-        lda mouse_y
-        lsr
-        lsr
-        lsr
-        sta mouse_ui_row
-
-        lda mouse_ui_col
-        cmp #UI_LEFT_COLS
-        bcs _mhu_done
-
-        ; Toolbar grid: 8 button-rows of two 2x2 buttons. Map the click to a
-        ; slot 0..15, then act on the assigned ones (placeholders do nothing).
-        lda mouse_ui_row
-        cmp #UI_TOOL_ROW_TOP
-        bcc _mhu_done
-        cmp #UI_TOOL_ROW_TOP + 16
-        bcs _mhu_done
-
-        sec
-        sbc #UI_TOOL_ROW_TOP        ; 0..15 within the grid
-        and #$FE                    ; button row * 2 = the row's left slot
-        tax
-        lda mouse_ui_col
-        cmp #UI_TOOL_COL_RIGHT
-        bcc +
-        inx                         ; right column -> +1
-+
-        txa                         ; A = clicked slot 0..15
-        sta selected_tool
-        jsr mouse_position_tool_sprite
-
-        lda selected_tool
-        beq _mhu_bulldoze           ; slot 0 -> bulldozer
-        cmp #1
-        beq _mhu_road               ; slot 1 -> road
-        rts                         ; slots 2-15: selected, no paint tile yet
-
-_mhu_road:
-        lda #TILE_ROAD
-        sta selected_tile
-        rts
-
-_mhu_bulldoze:
-        lda #TILE_GRASS
-        sta selected_tile
-_mhu_done:
-        rts
-
-mouse_position_pointer_sprite:
-        lda mouse_x
-        sta mouse_sprite_x
-        lda mouse_x+1
-        sta mouse_sprite_x+1
-
-        lda mouse_sprite_x+1
-        bmi _mpps_check_min_x
-        cmp #>MOUSE_MAX_X
-        bcc _mpps_add_screen_x
-        bne _mpps_cap_x
-        lda mouse_sprite_x
-        cmp #<(MOUSE_MAX_X + 1)
-        bcc _mpps_add_screen_x
-
-_mpps_cap_x:
-        lda #<MOUSE_MAX_X
-        sta mouse_sprite_x
-        lda #>MOUSE_MAX_X
-        sta mouse_sprite_x+1
-        bra _mpps_add_screen_x
-
-_mpps_check_min_x:
-        cmp #>MOUSE_MIN_X
-        bne _mpps_min_x
-        lda mouse_sprite_x
-        cmp #<MOUSE_MIN_X
-        bcs _mpps_add_screen_x
-
-_mpps_min_x:
-        lda #<MOUSE_MIN_X
-        sta mouse_sprite_x
-        lda #>MOUSE_MIN_X
-        sta mouse_sprite_x+1
-
-_mpps_add_screen_x:
-        clc
-        lda mouse_sprite_x
-        adc #<SPRITE_SCREEN_X
-        sta mouse_sprite_x
-        lda mouse_sprite_x+1
-        adc #>SPRITE_SCREEN_X
-        sta mouse_sprite_x+1
-
-_mpps_y:
-        lda mouse_y+1
-        bmi _mpps_min_y
-        beq _mpps_check_y_max
-        lda #MOUSE_MAX_Y
-        bra _mpps_store_y
-
-_mpps_check_y_max:
-        lda mouse_y
-        cmp #(MOUSE_MAX_Y + 1)
-        bcc _mpps_store_y
-        lda #MOUSE_MAX_Y
-        bra _mpps_store_y
-
-_mpps_min_y:
-        lda #0
-_mpps_store_y:
-        clc
-        adc #SPRITE_SCREEN_Y
-        sta mouse_sprite_y
-        jmp mouse_set_sprite_position
-
-mouse_position_pointer_on_cursor_sprite:
-        lda mouse_over_main
-        beq mouse_position_pointer_sprite
-
-        lda mouse_tile_x
-        sta mouse_sprite_x
-        stz mouse_sprite_x+1
-        ldx #4
-_mppoc_x_shift:
-        asl mouse_sprite_x
-        rol mouse_sprite_x+1
-        dex
-        bne _mppoc_x_shift
-
-        clc
-        lda mouse_sprite_x
-        adc #<(SPRITE_SCREEN_X + MAIN_PIXEL_X + 2)
-        sta mouse_sprite_x
-        lda mouse_sprite_x+1
-        adc #>(SPRITE_SCREEN_X + MAIN_PIXEL_X + 2)
-        sta mouse_sprite_x+1
-
-        lda mouse_tile_y
-        asl
-        asl
-        asl
-        asl
-        clc
-        adc #(SPRITE_SCREEN_Y + MAIN_PIXEL_Y + 2)
-        sta mouse_sprite_y
-        jmp mouse_set_sprite_position
 
 mouse_sync_pointer_to_cursor:
         lda mouse_tile_x
         sta mouse_x
-        stz mouse_x+1
+        lda #0
+        sta mouse_x+1
         ldx #4
 _msptc_x_shift:
         asl mouse_x
@@ -853,175 +284,8 @@ _msptc_x_shift:
         clc
         adc #(MAIN_PIXEL_Y + 2)
         sta mouse_y
-        stz mouse_y+1
-        rts
-
-mouse_position_block_sprite:
-        lda mouse_tile_x
-        sta mouse_sprite_x
-        stz mouse_sprite_x+1
-        ldx #4
-_mpb_x_shift:
-        asl mouse_sprite_x
-        rol mouse_sprite_x+1
-        dex
-        bne _mpb_x_shift
-
-        clc
-        lda mouse_sprite_x
-        adc #<(SPRITE_SCREEN_X + MAIN_PIXEL_X)
-        sta mouse_sprite_x
-        lda mouse_sprite_x+1
-        adc #>(SPRITE_SCREEN_X + MAIN_PIXEL_X)
-        sta mouse_sprite_x+1
-
-        lda mouse_tile_y
-        asl
-        asl
-        asl
-        asl
-        clc
-        adc #(SPRITE_SCREEN_Y + MAIN_PIXEL_Y)
-        sta mouse_sprite_y
-        jmp mouse_set_block_sprite_position
-
-mouse_set_sprite_position:
-        lda SPRITE_X_MSB
-        and #$FE
-        sta SPRITE_X_MSB
-        lda mouse_sprite_x+1
-        and #$01
-        beq +
-        lda SPRITE_X_MSB
-        ora #$01
-        sta SPRITE_X_MSB
-+
-        lda VIC4_SPRXMSB9
-        and #$FE
-        sta VIC4_SPRXMSB9
-        lda mouse_sprite_x+1
-        and #$02
-        beq +
-        lda VIC4_SPRXMSB9
-        ora #$01
-        sta VIC4_SPRXMSB9
-+
-        lda VIC4_SPRYMSB8
-        and #$FE
-        sta VIC4_SPRYMSB8
-        lda VIC4_SPRYMSB9
-        and #$FE
-        sta VIC4_SPRYMSB9
-
-        lda mouse_sprite_x
-        sta SPRITE0_X
-        lda mouse_sprite_y
-        sta SPRITE0_Y
-        rts
-
-mouse_set_block_sprite_position:
-        lda SPRITE_X_MSB
-        and #%11111101
-        sta SPRITE_X_MSB
-        lda mouse_sprite_x+1
-        and #$01
-        beq +
-        lda SPRITE_X_MSB
-        ora #%00000010
-        sta SPRITE_X_MSB
-+
-        lda VIC4_SPRXMSB9
-        and #%11111101
-        sta VIC4_SPRXMSB9
-        lda mouse_sprite_x+1
-        and #$02
-        beq +
-        lda VIC4_SPRXMSB9
-        ora #%00000010
-        sta VIC4_SPRXMSB9
-+
-        lda VIC4_SPRYMSB8
-        and #%11111101
-        sta VIC4_SPRYMSB8
-        lda VIC4_SPRYMSB9
-        and #%11111101
-        sta VIC4_SPRYMSB9
-
-        lda mouse_sprite_x
-        sta SPRITE1_X
-        lda mouse_sprite_y
-        sta SPRITE1_Y
-
-        lda SPRITE_ENABLE
-        ora #%00000010
-        sta SPRITE_ENABLE
-        rts
-
-mouse_hide_block_sprite:
-        lda SPRITE_ENABLE
-        and #%11111101
-        sta SPRITE_ENABLE
-        rts
-
-mouse_position_tool_sprite:
-        ; Place sprite 2 (cyan selector box) over selected_tool's toolbar slot.
-        ; Column: even slots -> left, odd -> right. Row pair advances by 16
-        ; pixels per toolbar row. This sprite uses toolbox sprite coordinates,
-        ; not the general mouse/map pointer screen offset.
-        lda selected_tool
-        cmp #UI_BTN_COUNT
-        bcc +
-        stz selected_tool
-+
-        lda selected_tool
-        and #1
-        beq _mpt_left
-        lda #(UI_TOOL_SELECTOR_X + ((UI_TOOL_COL_RIGHT - UI_TOOL_COL_LEFT) * NCM_CELL_PIXELS))
-        bra _mpt_x_done
-_mpt_left:
-        lda #UI_TOOL_SELECTOR_X
-_mpt_x_done:
-        sta SPRITE2_X
-
-        lda selected_tool
-        and #$FE
-        asl
-        asl
-        asl
-        clc
-        adc #UI_TOOL_SELECTOR_Y
-        sta SPRITE2_Y
-
-        lda SPRITE_X_MSB
-        and #%11111011
-        sta SPRITE_X_MSB
-        lda VIC4_SPRXMSB9
-        and #%11111011
-        sta VIC4_SPRXMSB9
-        lda VIC4_SPRYMSB8
-        and #%11111011
-        sta VIC4_SPRYMSB8
-        lda VIC4_SPRYMSB9
-        and #%11111011
-        sta VIC4_SPRYMSB9
-        rts
-
-mouse_use_pointer_shape:
-        lda #MOUSE_SPRITE_POINTER
-        sta mouse_sprite_mode
-        lda #<(mouse_pointer_sprite / 64)
-        sta mouse_sprite_ptrs
-        lda #>(mouse_pointer_sprite / 64)
-        sta mouse_sprite_ptrs+1
-        rts
-
-mouse_use_block_shape:
-        lda #MOUSE_SPRITE_BLOCK
-        sta mouse_sprite_mode
-        lda #<(mouse_block_sprite / 64)
-        sta mouse_sprite_ptrs+2
-        lda #>(mouse_block_sprite / 64)
-        sta mouse_sprite_ptrs+3
+        lda #0
+        sta mouse_y+1
         rts
 
 mouse_apply_delta_x:
@@ -1162,15 +426,17 @@ _mady_max:
         sta mouse_scroll_bits
         lda #MOUSE_MAX_Y
         sta mouse_y
-        stz mouse_y+1
+        lda #0
+        sta mouse_y+1
         rts
 
 _mady_min:
         lda mouse_scroll_bits
         ora #MOUSE_SCROLL_UP
         sta mouse_scroll_bits
-        stz mouse_y
-        stz mouse_y+1
+        lda #0
+        sta mouse_y
+        sta mouse_y+1
         rts
 
 _mady_store:
@@ -1233,10 +499,6 @@ mouse_potx_sample:
         .byte 0
 mouse_poty_sample:
         .byte 0
-mouse_sprite_x:
-        .word 0
-mouse_sprite_y:
-        .byte 0
 mouse_old_pot_x:
         .byte 0
 mouse_old_pot_y:
@@ -1259,17 +521,11 @@ mouse_tile_x:
         .byte 0
 mouse_tile_y:
         .byte 0
-mouse_ui_col:
-        .byte 0
-mouse_ui_row:
-        .byte 0
 mouse_edge_active:
         .byte 0
 mouse_scroll_tick:
         .byte 0
 mouse_scroll_bits:
-        .byte 0
-mouse_sprite_mode:
         .byte 0
 mouse_saved_ddra:
         .byte 0
@@ -1277,57 +533,3 @@ mouse_saved_ddrb:
         .byte 0
 mouse_saved_pra:
         .byte 0
-
-        .align 16
-mouse_sprite_ptrs:
-        .fill 16, 0
-
-        .align 64
-mouse_pointer_sprite:
-        .byte %10000000,%00000000,%00000000
-        .byte %11000000,%00000000,%00000000
-        .byte %11100000,%00000000,%00000000
-        .byte %11110000,%00000000,%00000000
-        .byte %11111000,%00000000,%00000000
-        .byte %11111100,%00000000,%00000000
-        .byte %11111110,%00000000,%00000000
-        .byte %11111111,%00000000,%00000000
-        .byte %11111111,%10000000,%00000000
-        .byte %11111000,%00000000,%00000000
-        .byte %11011000,%00000000,%00000000
-        .byte %10001100,%00000000,%00000000
-        .byte %00001100,%00000000,%00000000
-        .byte %00000110,%00000000,%00000000
-        .byte %00000110,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte %00000000,%00000000,%00000000
-        .byte $00
-
-        .align 64
-mouse_block_sprite:
-        .byte $FF,$FF,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $80,$01,$00
-        .byte $FF,$FF,$00
-        .byte $00,$00,$00
-        .byte $00,$00,$00
-        .byte $00,$00,$00
-        .byte $00,$00,$00
-        .byte $00,$00,$00
-        .byte $00

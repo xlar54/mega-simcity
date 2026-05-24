@@ -2,26 +2,31 @@
 ; Framed NCM renderer.
 ;=======================================================================================
 
+; The map viewport underlaps the static chrome (MAP_OVERLAP_*), so the map must
+; be drawn FIRST and the chrome (toolbar/menu/frame) drawn on top of it.
 render_init:
-        jsr render_ui
         jsr render_viewport
-        stz render_ui_dirty
-        stz render_view_dirty
+        jsr render_ui
+        lda #0
+        sta render_ui_dirty
+        sta render_view_dirty
         rts
 
 render_frame:
-        lda render_ui_dirty
-        beq _rf_view
-        jsr render_ui
-        stz render_ui_dirty
-        lda #1
-        sta render_view_dirty
-
-_rf_view:
         lda render_view_dirty
-        beq _rf_done
+        beq _rf_ui
         jsr render_viewport
-        stz render_view_dirty
+        lda #0
+        sta render_view_dirty
+        lda #1
+        sta render_ui_dirty         ; chrome sits on top; redraw it over the map
+
+_rf_ui:
+        lda render_ui_dirty
+        beq _rf_done
+        jsr render_ui
+        lda #0
+        sta render_ui_dirty
 _rf_done:
         rts
 
@@ -120,85 +125,7 @@ render_ui:
         ldy #UI_TOP_ROWS
         jsr render_fill_rect
 
-        jsr render_toolbar
-        rts
-
-; Draw the 16 toolbar buttons (UI_BTN_* block) in a 2x8 grid of 2x2 icons.
-; Slot i: tile = UI_BTN_BASE + i*4, column = LEFT/RIGHT by i's low bit,
-; row = ROW_TOP + (i & ~1).
-render_toolbar:
-        stz render_btn_slot
-_rt_loop:
-        lda render_btn_slot
-        and #$FE
-        clc
-        adc #UI_TOOL_ROW_TOP
-        sta render_btn_row
-        lda render_btn_slot
-        and #1
-        beq _rt_left
-        ldx #UI_TOOL_COL_RIGHT
-        bra _rt_col_done
-_rt_left:
-        ldx #UI_TOOL_COL_LEFT
-_rt_col_done:
-        lda render_btn_slot
-        asl
-        asl
-        clc
-        adc #UI_BTN_BASE
-        ldy render_btn_row
-        jsr render_draw_2x2_icon
-        inc render_btn_slot
-        lda render_btn_slot
-        cmp #UI_BTN_COUNT
-        bne _rt_loop
-
-        ; The very first icon drawn in this loop (slot 0) does not persist on
-        ; screen once later slots are drawn after it; its cells stay the panel
-        ; fill. The cause is unresolved, but redrawing slot 0 here (after the
-        ; rest of the grid) makes it stick. All other slots render correctly.
-        lda #UI_BTN_BASE
-        ldx #UI_TOOL_COL_LEFT
-        ldy #UI_TOOL_ROW_TOP
-        jsr render_draw_2x2_icon
-        rts
-
-; A = base char id of a 2x2 icon (uses base..base+3), X = left col, Y = top row.
-render_draw_2x2_icon:
-        sta render_icon_base
-        stx render_icon_left
-        sty render_icon_top
-
-        lda render_icon_base
-        ldx render_icon_left
-        ldy render_icon_top
-        jsr set_ncm_char
-
-        lda render_icon_base
-        clc
-        adc #1
-        ldx render_icon_left
-        inx
-        ldy render_icon_top
-        jsr set_ncm_char
-
-        lda render_icon_base
-        clc
-        adc #2
-        ldx render_icon_left
-        ldy render_icon_top
-        iny
-        jsr set_ncm_char
-
-        lda render_icon_base
-        clc
-        adc #3
-        ldx render_icon_left
-        inx
-        ldy render_icon_top
-        iny
-        jsr set_ncm_char
+        jsr toolbar_render
         rts
 
 render_fill_rect:
@@ -236,9 +163,11 @@ _rfr_done:
         rts
 
 render_viewport:
-        stz render_tile_y
+        lda #0
+        sta render_tile_y
 _rv_row:
-        stz render_tile_x
+        lda #0
+        sta render_tile_x
 _rv_col:
         clc
         lda view_x
@@ -331,22 +260,6 @@ render_screen_col:
 render_screen_row:
         .byte 0
 render_fill_tile:
-        .byte 0
-render_icon_base:
-        .byte 0
-render_btn_slot:
-        .byte 0
-render_btn_row:
-        .byte 0
-render_icon_left:
-        .byte 0
-render_icon_top:
-        .byte 0
-render_icon_col:
-        .byte 0
-render_icon_row:
-        .byte 0
-render_icon_tile:
         .byte 0
 render_fill_left:
         .byte 0

@@ -35,17 +35,18 @@ main_entry:
 app_loop:
         jsr wait_frame
         jsr input_poll
+        jsr mouse_dispatch
         lda input_action
         cmp #INPUT_QUIT
         beq shutdown
         jsr game_apply_input
         jsr game_tick
         jsr render_frame
-        jsr mouse_refresh_sprite
+        jsr sprites_refresh
         jmp app_loop
 
 shutdown:
-        jsr mouse_shutdown
+        jsr sprites_shutdown
         cli
         lda #MODE_BASIC
         jsr set_screen_mode
@@ -66,8 +67,9 @@ app_init:
         jsr city_init
 
         jsr mouse_init
+        jsr sprites_init
         jsr render_init
-        jsr mouse_refresh_sprite
+        jsr sprites_refresh
         sei
         rts
 
@@ -98,6 +100,76 @@ _wf_wait_top:
         rts
 
 ;=======================================================================================
+; Master-loop input dispatch.
+;
+; Runs each frame after input_poll. Classifies the pointer region (toolbar / map
+; viewport / off-map) from the raw state mouse.asm produced, updates map state
+; (mouse_over_main, mouse_tile_x/y, cursor), and routes clicks to the right
+; handler. Sprite positioning is handled separately by sprites_refresh, so there
+; are no sprite calls here.
+;=======================================================================================
+
+mouse_dispatch:
+        jsr mouse_scroll_view_from_edge
+
+        ; The left UI_LEFT_COLS columns are the toolbar, drawn in front of the
+        ; map. Treat that whole band as UI: freeze the map cursor at the toolbox
+        ; edge, never paint, and route left-clicks to tool selection.
+        lda mouse_x+1
+        bmi _md_toolbar
+        bne _md_viewport
+        lda mouse_x
+        cmp #UI_TOOL_PIXEL_RIGHT
+        bcs _md_viewport
+_md_toolbar:
+        lda #1
+        sta mouse_over_main
+        lda #CURSOR_TOOL_FREEZE_X
+        sta mouse_tile_x
+        jsr mouse_update_city_cursor
+        jmp mouse_handle_ui_click
+
+_md_viewport:
+        jsr mouse_pointer_inside_viewport
+        bcs _md_main
+
+_md_freeze:
+        ; Off-map: leave the cursor on its last tile. The pointer can still
+        ; scroll at the edge or click UI.
+        jmp mouse_handle_ui_click
+
+_md_main:
+        lda #1
+        sta mouse_over_main
+        jsr mouse_compute_tile_clamped
+        jsr mouse_update_city_cursor
+
+        lda mouse_buttons
+        and #MOUSE_BUTTON_LEFT
+        beq _md_done
+        lda #INPUT_PAINT
+        sta input_action
+_md_done:
+        rts
+
+; Gate: a confirmed left-click in the toolbar band hands off to toolbar.asm.
+; The high-byte guard rejects pointer X >= 256 (right side of screen) so only
+; the real toolbar columns register.
+mouse_handle_ui_click:
+        lda mouse_left_click
+        beq _mhu_done
+        lda mouse_x+1
+        bmi _mhu_toolbar            ; offscreen-left clamp = column 0 = toolbar
+        bne _mhu_done
+        lda mouse_x
+        cmp #UI_TOOL_PIXEL_RIGHT
+        bcs _mhu_done
+_mhu_toolbar:
+        jmp toolbar_handle_click
+_mhu_done:
+        rts
+
+;=======================================================================================
 ; Modules.
 ;=======================================================================================
 
@@ -107,4 +179,7 @@ _wf_wait_top:
         .include "city.asm"
         .include "render.asm"
         .include "mouse.asm"
+        .include "sprites.asm"
+        .include "viewport.asm"
+        .include "toolbar.asm"
         .include "input.asm"

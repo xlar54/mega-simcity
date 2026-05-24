@@ -116,7 +116,7 @@ UI_BOTTOM_ROWS          = 0
 ; The visible map can overlap the static chrome by whole NCM cells. Keeping
 ; these as constants lets us later widen the viewport or hide the top/left UI
 ; chrome without touching render or mouse hit-testing code.
-MAP_OVERLAP_LEFT_COLS   = 2
+MAP_OVERLAP_LEFT_COLS   = 0      ; map starts after the toolbar (no left overlap)
 MAP_OVERLAP_TOP_ROWS    = 4
 MAP_RIGHT_MARGIN_COLS   = UI_RIGHT_COLS
 MAP_BOTTOM_MARGIN_ROWS  = UI_BOTTOM_ROWS
@@ -140,7 +140,7 @@ CURSOR_TILE_MIN_Y       = CURSOR_TOP_NCM_ROWS / 2
 CURSOR_PIXEL_Y          = CURSOR_ROW * NCM_CELL_PIXELS
 CURSOR_PIXEL_RIGHT      = MAIN_PIXEL_RIGHT
 CURSOR_PIXEL_BOTTOM     = MAIN_PIXEL_BOTTOM
-SPRITE_SCREEN_X         = $28
+SPRITE_SCREEN_X         = $18    ; 24 = standard sprite-X for screen left edge
 SPRITE_SCREEN_Y         = 50
 MOUSE_MIN_X             = $10000 - SPRITE_SCREEN_X
 MOUSE_MAX_X             = (VIEW_COLS * NCM_CELL_PIXELS) - 1
@@ -159,6 +159,8 @@ MOUSE_START_Y           = MAIN_PIXEL_Y + (MOUSE_START_TILE_Y * CITY_TILE_PIXELS)
 MOUSE_SCROLL_DOWN_Y     = CURSOR_PIXEL_BOTTOM - SPRITE_SCREEN_Y - MOUSE_POINTER_CELL_HEIGHT
 MOUSE_SPRITE_MAX_Y      = 249
 MOUSE_BUTTON_LEFT       = $10
+MOUSE_BUTTON_SETTLE     = $40    ; busy-wait after DDR->input before reading
+                                 ; PORT_B (R5 CIA settle for reliable reads)
 MOUSE_SCROLL_DELAY      = 2
 MOUSE_SCROLL_LEFT       = $01
 MOUSE_SCROLL_RIGHT      = $02
@@ -194,8 +196,10 @@ UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)
 UI_TOOL_ROW_TOP         = 3      ; top of the 2x8 toolbar grid (8 rows of 2x2)
 UI_TOOL_PIXEL_RIGHT     = UI_LEFT_COLS * NCM_CELL_PIXELS
-UI_TOOL_SELECTOR_X      = $08    ; sprite 2 X for the first toolbox icon
-UI_TOOL_SELECTOR_Y      = $5A    ; sprite 2 Y for the first toolbox icon
+; Sprite 2 (selector) position for slot 0 (the bulldozer at NCM col 0, row 3).
+; Same sprite-coordinate convention as the pointer/cursor: sprite = cell*8 + screen offset.
+UI_TOOL_SELECTOR_X      = SPRITE_SCREEN_X + (UI_TOOL_COL_LEFT * NCM_CELL_PIXELS)
+UI_TOOL_SELECTOR_Y      = SPRITE_SCREEN_Y + (UI_TOOL_ROW_TOP * NCM_CELL_PIXELS) + 1
 CURSOR_TOOL_FREEZE_X    = 0      ; first visible map tile against the toolbar
 
 INPUT_NONE              = 0

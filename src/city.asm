@@ -11,11 +11,13 @@ city_init:
         sta cursor_x
         lda #14
         sta cursor_y
-        stz selected_tool           ; bulldozer (slot 0) is the starting tool
+        lda #0
+        sta selected_tool           ; bulldozer (slot 0) is the starting tool
         lda #TILE_GRASS
         sta selected_tile
-        stz sim_tick
-        stz sim_tick+1
+        lda #0
+        sta sim_tick
+        sta sim_tick+1
 
         jsr city_fill_grass
         jsr city_seed_terrain
