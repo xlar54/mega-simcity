@@ -88,7 +88,7 @@ mouse_read_motion:
 
         ; Sample BOTH pots back-to-back, right after the settle, before any
         ; per-axis processing. X was being read fresh but Y was read only after
-        ; all the X delta math, which during NCM stalls the CPU long enough that
+        ; all the X delta math, which during FCM stalls the CPU long enough that
         ; the POTY sample lands in a noisier window. Reading them together gives
         ; Y the same clean sample X gets.
         jsr mouse_read_pot_x
@@ -109,7 +109,7 @@ mouse_read_motion:
         jsr mouse_move_check
         sty mouse_old_pot_y
         bcc _mrm_done_y
-        ; NCM display fetches make POTY wobble by one 1351 tick. The samples
+        ; FCM display fetches make POTY wobble by one 1351 tick. The samples
         ; are masked with #$7E, so one tick is usually +/-2, not +/-1.
         ; Treat that as noise so a stationary pointer at the top edge does not
         ; scroll back up.
@@ -390,7 +390,7 @@ _madx_done:
 
 mouse_apply_delta_y:
         ; Hard-clamp the incoming signed delta (X:A) to +/-MOUSE_MAX_Y_STEP.
-        ; Noisy NCM-era POT samples can otherwise produce wrap-sized jumps;
+        ; Noisy FCM-era POT samples can otherwise produce wrap-sized jumps;
         ; capping the per-frame step means a single frame can never look like
         ; a counter wraparound, so we don't need (and must not have) the old
         ; wrap-rejection that trapped mouse_y against the bottom edge.

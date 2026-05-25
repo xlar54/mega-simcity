@@ -1,11 +1,14 @@
 ;=======================================================================================
-; NCM helpers for MEGA65.
+; FCM (Full Colour Mode) helpers for MEGA65: 8x8 chars, one byte per pixel,
+; each byte a full 8-bit palette index. This is NOT nibble mode (NCM) despite
+; the colour-RAM setup in fcm_screen.asm; the cleared colour RAM leaves the
+; per-char NCM bit off, so tile bytes address the full 256-colour palette.
 ;
 ; Based on C:\Users\scott\repos\m65-fcm\src\ncm.asm, narrowed to the routines
 ; the city scaffold needs.
 ;=======================================================================================
 
-init_ncm:
+init_fcm:
         lda #<SCREEN_RAM
         sta PTR
         lda #>SCREEN_RAM
@@ -67,7 +70,7 @@ _in_cnt:
 _in_counts:
         .word 1000, 2000
 
-clear_ncm:
+clear_fcm:
         and #$0F
         sta _cn_nibble
         asl
@@ -140,7 +143,7 @@ _cn_fill:
 _cn_nibble:
         .byte 0
 
-clear_color_ram_ncm:
+clear_color_ram_fcm:
         and #$0F
         asl
         asl
@@ -200,7 +203,7 @@ _ccrn_byte_counts:
 _ccrn_pos_counts:
         .word 1000, 2000
 
-create_ncm_char:
+create_fcm_char:
         sta _cnc_char_idx
         stx PTR2
         sty PTR2+1
@@ -246,7 +249,7 @@ _cnc_loop:
 _cnc_char_idx:
         .byte 0
 
-set_ncm_char:
+set_fcm_char:
         sta _snc_char
         stx _snc_col
         sty _snc_row
@@ -310,7 +313,7 @@ _snc_row:
 _snc_pos:
         .word 0
 
-set_ncm_palette:
+set_fcm_palette:
         pha
         stx _snp_col
         sty _snp_row

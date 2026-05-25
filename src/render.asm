@@ -1,5 +1,5 @@
 ;=======================================================================================
-; Framed NCM renderer.
+; Framed FCM renderer.
 ;=======================================================================================
 
 ; The map viewport underlaps the static chrome (MAP_OVERLAP_*), so the map must
@@ -66,40 +66,40 @@ render_ui:
         lda #UI_TEXT_M
         ldx #16
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_E
         ldx #17
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_G
         ldx #18
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_A
         ldx #19
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_C
         ldx #20
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_I
         ldx #21
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_T
         ldx #22
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
         lda #UI_TEXT_Y
         ldx #23
         ldy #0
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS
         sta render_fill_w
-        lda #MAIN_NCM_ROWS
+        lda #MAIN_FCM_ROWS
         sta render_fill_h
         lda #UI_TILE_PANEL
         ldx #0
@@ -141,7 +141,7 @@ _rfr_col:
         lda render_fill_tile
         ldx render_col
         ldy render_row
-        jsr set_ncm_char
+        jsr set_fcm_char
         inc render_col
         dec render_fill_cols
         bne _rfr_col
@@ -205,7 +205,7 @@ render_draw_16x16_tile:
         lda render_char_base
         ldx render_screen_col
         ldy render_screen_row
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda render_char_base
         clc
@@ -213,7 +213,7 @@ render_draw_16x16_tile:
         ldx render_screen_col
         inx
         ldy render_screen_row
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda render_char_base
         clc
@@ -221,7 +221,7 @@ render_draw_16x16_tile:
         ldx render_screen_col
         ldy render_screen_row
         iny
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda render_char_base
         clc
@@ -230,7 +230,7 @@ render_draw_16x16_tile:
         inx
         ldy render_screen_row
         iny
-        jsr set_ncm_char
+        jsr set_fcm_char
         rts
 
 render_col:

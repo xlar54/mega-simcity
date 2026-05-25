@@ -1,5 +1,5 @@
 ;=======================================================================================
-; UI/NCM tile and glyph data.
+; UI/FCM tile and glyph data.
 ;
 ; Compiles standalone into the `uitiles` asset (loaded from disk at boot). The
 ; payload is laid out at the offsets in shared/ui_tile_layout.asm; tileloader.asm
@@ -569,35 +569,35 @@ PLACEHOLDER_BOX .macro
 ui_btn_bulldozer:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$04,$04,$04,$04
-        .byte $0C,$0C,$0C,$04,$04,$04,$04,$04
+        .byte $0C,$1D,$1D,$1D,$1D,$1D,$1D,$1D
+        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
+        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
+        .byte $0C,$0C,$1D,$1C,$1D,$1D,$0C,$1C
+        .byte $0C,$0C,$1D,$1C,$1D,$1C,$1C,$1C
+        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $1D,$1D,$0C,$0C,$0C,$0C,$0C,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0D,$0D,$0C,$0C,$0C,$0C,$0C
-        .byte $0D,$0D,$0D,$0D,$0C,$0C,$0C,$0C
-        .byte $0D,$0F,$0F,$0D,$0C,$0C,$0C,$0C
-        .byte $04,$0D,$0F,$0D,$0C,$0C,$0C,$0C
-        .byte $04,$04,$0D,$0D,$06,$05,$0C,$0C
-        .byte $0C,$0C,$04,$04,$04,$04,$04,$04   ; bl
-        .byte $0C,$04,$04,$04,$04,$04,$04,$04
-        .byte $0C,$00,$00,$00,$00,$00,$00,$00
-        .byte $0C,$00,$0B,$00,$00,$0B,$00,$00
-        .byte $0C,$00,$00,$00,$00,$00,$00,$00
-        .byte $0C,$0C,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$1D,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$1D,$1D,$0C,$0C,$0C,$0C
+        .byte $1C,$1C,$1C,$1D,$1D,$0C,$1E,$1E
+        .byte $1C,$1C,$1C,$1C,$1C,$1D,$1E,$1E
+        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C   ; bl
+        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C
+        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
+        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
+        .byte $0C,$1E,$1D,$1C,$1D,$1C,$1D,$1C
+        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
+        .byte $0C,$0C,$1D,$0C,$1D,$0C,$1D,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $04,$04,$04,$06,$06,$05,$05,$0C   ; br
-        .byte $04,$04,$06,$06,$05,$05,$05,$0C
-        .byte $00,$00,$00,$05,$05,$05,$05,$0C
-        .byte $0B,$00,$00,$05,$05,$05,$0C,$0C
-        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$0C
-        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E   ; br
+        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E
+        .byte $1C,$1C,$1C,$1C,$1C,$0C,$1E,$1E
+        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
+        .byte $1D,$1C,$1D,$1E,$0C,$0C,$1E,$1E
+        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
+        .byte $1D,$0C,$1D,$0C,$0C,$0C,$0C,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_road:

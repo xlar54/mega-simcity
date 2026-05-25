@@ -4,7 +4,7 @@
 ; Tile graphics live in two PRGs on disk ("tileset" = 16x16 city tiles,
 ; "uitiles" = UI / glyph tiles). Each is a two-stage load at boot:
 ;   1. KERNAL-LOAD the PRG into chip-RAM staging, then DMA it up to Attic RAM.
-;   2. DMA from Attic into the VIC-visible NCM character RAM.
+;   2. DMA from Attic into the VIC-visible FCM character RAM.
 ; This module does both stages for both tilesets, plus the shared palette and
 ; the runtime-built map cursor chars.
 ;=======================================================================================
@@ -109,6 +109,10 @@ tiles_init_palette:
         #SET_COLOR 25,  44,  92, 165   ; dark band
         #SET_COLOR 26,  64, 118, 196   ; light band
         #SET_COLOR 27,  80, 134, 208   ; ripple glint
+        ; bulldozer icon
+        #SET_COLOR 28, 232, 148, 112   ; salmon body
+        #SET_COLOR 29, 124,  68,  66   ; maroon canopy / accents
+        #SET_COLOR 30,  44,  44,  60   ; navy treads / blade
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -138,27 +142,27 @@ tiles_dma_city_from_attic:
 
 tiles_load_cursor:
         lda #CITY_CHAR_CURSOR
-        ldx #<ncm_cursor_tl
-        ldy #>ncm_cursor_tl
-        jsr create_ncm_char
+        ldx #<fcm_cursor_tl
+        ldy #>fcm_cursor_tl
+        jsr create_fcm_char
 
         lda #CITY_CHAR_CURSOR+1
-        ldx #<ncm_cursor_tr
-        ldy #>ncm_cursor_tr
-        jsr create_ncm_char
+        ldx #<fcm_cursor_tr
+        ldy #>fcm_cursor_tr
+        jsr create_fcm_char
 
         lda #CITY_CHAR_CURSOR+2
-        ldx #<ncm_cursor_bl
-        ldy #>ncm_cursor_bl
-        jsr create_ncm_char
+        ldx #<fcm_cursor_bl
+        ldy #>fcm_cursor_bl
+        jsr create_fcm_char
 
         lda #CITY_CHAR_CURSOR+3
-        ldx #<ncm_cursor_br
-        ldy #>ncm_cursor_br
-        jsr create_ncm_char
+        ldx #<fcm_cursor_br
+        ldy #>fcm_cursor_br
+        jsr create_fcm_char
         rts
 
-ncm_cursor_tl:
+fcm_cursor_tl:
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
@@ -168,7 +172,7 @@ ncm_cursor_tl:
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
 
-ncm_cursor_tr:
+fcm_cursor_tr:
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
@@ -178,7 +182,7 @@ ncm_cursor_tr:
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
 
-ncm_cursor_bl:
+fcm_cursor_bl:
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
@@ -188,7 +192,7 @@ ncm_cursor_bl:
         .byte $0F,$00,$00,$00,$00,$00,$00,$00
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
 
-ncm_cursor_br:
+fcm_cursor_br:
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F

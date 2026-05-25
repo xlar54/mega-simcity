@@ -50,7 +50,7 @@ toolbar_draw_icon:
         lda toolbar_icon_base
         ldx toolbar_icon_left
         ldy toolbar_icon_top
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda toolbar_icon_base
         clc
@@ -58,7 +58,7 @@ toolbar_draw_icon:
         ldx toolbar_icon_left
         inx
         ldy toolbar_icon_top
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda toolbar_icon_base
         clc
@@ -66,7 +66,7 @@ toolbar_draw_icon:
         ldx toolbar_icon_left
         ldy toolbar_icon_top
         iny
-        jsr set_ncm_char
+        jsr set_fcm_char
 
         lda toolbar_icon_base
         clc
@@ -75,7 +75,7 @@ toolbar_draw_icon:
         inx
         ldy toolbar_icon_top
         iny
-        jsr set_ncm_char
+        jsr set_fcm_char
         rts
 
 ; Called from mouse.asm once a left-click in the toolbar band is confirmed.

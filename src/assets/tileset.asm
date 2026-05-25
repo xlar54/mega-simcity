@@ -1,7 +1,7 @@
 ;=======================================================================================
 ; 16x16 city tiles loaded from disk at boot.
 ;
-; Body order: each map tile is four 8x8 NCM characters: TL, TR, BL, BR.
+; Body order: each map tile is four 8x8 FCM characters: TL, TR, BL, BR.
 ; The game DMA-copies this body from Attic into CHAR_DATA at runtime.
 ;=======================================================================================
 

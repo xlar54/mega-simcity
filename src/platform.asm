@@ -83,17 +83,17 @@ PTR2                    = $FA
 PTR                     = $FC
 
 MODE_BASIC              = 0
-MODE_NCM40              = 5
+MODE_FCM40              = 5
 
 ; *** Changing VIEW_COLS to 80 will automatically switch
 ; *** the entire screen to 640x200
 VIEW_COLS               = 40
 VIEW_ROWS               = 25
 
-; VIC-IV NCM screen geometry, derived from VIEW_COLS so the column count lives
-; in exactly one place. screen_mode (loaded from NCM_SCREEN_MODE) drives
-; ncm_core's row stride, which is screen_mode*2 = VIEW_COLS cells per row.
-NCM_SCREEN_MODE         = VIEW_COLS / 2
+; VIC-IV FCM screen geometry, derived from VIEW_COLS so the column count lives
+; in exactly one place. screen_mode (loaded from FCM_SCREEN_MODE) drives
+; fcm_core's row stride, which is screen_mode*2 = VIEW_COLS cells per row.
+FCM_SCREEN_MODE         = VIEW_COLS / 2
 VIC_CHRCOUNT            = VIEW_COLS
 VIC_LINESTEP            = VIEW_COLS * 2
 
@@ -113,7 +113,7 @@ UI_LEFT_COLS            = 4
 UI_RIGHT_COLS           = 0
 UI_BOTTOM_ROWS          = 0
 
-; The visible map can overlap the static chrome by whole NCM cells. Keeping
+; The visible map can overlap the static chrome by whole FCM cells. Keeping
 ; these as constants lets us later widen the viewport or hide the top/left UI
 ; chrome without touching render or mouse hit-testing code.
 MAP_OVERLAP_LEFT_COLS   = 0      ; map starts after the toolbar (no left overlap)
@@ -123,28 +123,28 @@ MAP_BOTTOM_MARGIN_ROWS  = UI_BOTTOM_ROWS
 
 MAIN_COL                = UI_LEFT_COLS - MAP_OVERLAP_LEFT_COLS
 MAIN_ROW                = UI_TOP_ROWS - MAP_OVERLAP_TOP_ROWS
-MAIN_NCM_COLS           = VIEW_COLS - MAIN_COL - MAP_RIGHT_MARGIN_COLS
-MAIN_TILE_COLS          = MAIN_NCM_COLS / 2
+MAIN_FCM_COLS           = VIEW_COLS - MAIN_COL - MAP_RIGHT_MARGIN_COLS
+MAIN_TILE_COLS          = MAIN_FCM_COLS / 2
 MAIN_TILE_ROWS          = 12
-MAIN_NCM_ROWS           = MAIN_TILE_ROWS * 2
-NCM_CELL_PIXELS         = 8
+MAIN_FCM_ROWS           = MAIN_TILE_ROWS * 2
+FCM_CELL_PIXELS         = 8
 CITY_TILE_PIXELS        = 16
-MAIN_PIXEL_X            = MAIN_COL * NCM_CELL_PIXELS
-MAIN_PIXEL_Y            = MAIN_ROW * NCM_CELL_PIXELS
-MAIN_PIXEL_RIGHT        = (MAIN_COL + MAIN_NCM_COLS) * NCM_CELL_PIXELS
-MAIN_PIXEL_BOTTOM       = (MAIN_ROW + MAIN_NCM_ROWS) * NCM_CELL_PIXELS
+MAIN_PIXEL_X            = MAIN_COL * FCM_CELL_PIXELS
+MAIN_PIXEL_Y            = MAIN_ROW * FCM_CELL_PIXELS
+MAIN_PIXEL_RIGHT        = (MAIN_COL + MAIN_FCM_COLS) * FCM_CELL_PIXELS
+MAIN_PIXEL_BOTTOM       = (MAIN_ROW + MAIN_FCM_ROWS) * FCM_CELL_PIXELS
 CURSOR_PIXEL_X          = MAIN_PIXEL_X
-CURSOR_TOP_NCM_ROWS     = 2
-CURSOR_ROW              = MAIN_ROW + CURSOR_TOP_NCM_ROWS
-CURSOR_TILE_MIN_Y       = CURSOR_TOP_NCM_ROWS / 2
-CURSOR_PIXEL_Y          = CURSOR_ROW * NCM_CELL_PIXELS
+CURSOR_TOP_FCM_ROWS     = 2
+CURSOR_ROW              = MAIN_ROW + CURSOR_TOP_FCM_ROWS
+CURSOR_TILE_MIN_Y       = CURSOR_TOP_FCM_ROWS / 2
+CURSOR_PIXEL_Y          = CURSOR_ROW * FCM_CELL_PIXELS
 CURSOR_PIXEL_RIGHT      = MAIN_PIXEL_RIGHT
 CURSOR_PIXEL_BOTTOM     = MAIN_PIXEL_BOTTOM
 SPRITE_SCREEN_X         = $18    ; 24 = standard sprite-X for screen left edge
 SPRITE_SCREEN_Y         = 50
 MOUSE_MIN_X             = $10000 - SPRITE_SCREEN_X
-MOUSE_MAX_X             = (VIEW_COLS * NCM_CELL_PIXELS) - 1
-MOUSE_MAX_Y             = (VIEW_ROWS * NCM_CELL_PIXELS) - 1
+MOUSE_MAX_X             = (VIEW_COLS * FCM_CELL_PIXELS) - 1
+MOUSE_MAX_Y             = (VIEW_ROWS * FCM_CELL_PIXELS) - 1
 MOUSE_MAX_DELTA         = 24
 MOUSE_MAX_Y_STEP        = 24
 MOUSE_POINTER_WIDTH     = 9
@@ -196,11 +196,11 @@ ATTIC_TILE_ADDR         = $0000
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)
 UI_TOOL_ROW_TOP         = 3      ; top of the 2x8 toolbar grid (8 rows of 2x2)
-UI_TOOL_PIXEL_RIGHT     = UI_LEFT_COLS * NCM_CELL_PIXELS
-; Sprite 2 (selector) position for slot 0 (the bulldozer at NCM col 0, row 3).
+UI_TOOL_PIXEL_RIGHT     = UI_LEFT_COLS * FCM_CELL_PIXELS
+; Sprite 2 (selector) position for slot 0 (the bulldozer at FCM col 0, row 3).
 ; Same sprite-coordinate convention as the pointer/cursor: sprite = cell*8 + screen offset.
-UI_TOOL_SELECTOR_X      = SPRITE_SCREEN_X + (UI_TOOL_COL_LEFT * NCM_CELL_PIXELS)
-UI_TOOL_SELECTOR_Y      = SPRITE_SCREEN_Y + (UI_TOOL_ROW_TOP * NCM_CELL_PIXELS) + 1
+UI_TOOL_SELECTOR_X      = SPRITE_SCREEN_X + (UI_TOOL_COL_LEFT * FCM_CELL_PIXELS)
+UI_TOOL_SELECTOR_Y      = SPRITE_SCREEN_Y + (UI_TOOL_ROW_TOP * FCM_CELL_PIXELS) + 1
 CURSOR_TOOL_FREEZE_X    = 0      ; first visible map tile against the toolbar
 
 INPUT_NONE              = 0

@@ -1,7 +1,7 @@
 ;=======================================================================================
-; MEGA65 NCM screen setup.
+; MEGA65 FCM screen setup.
 ;
-; Derived from the local m65-fcm screen setup. set_screen_mode brings up the NCM
+; Derived from the local m65-fcm screen setup. set_screen_mode brings up the FCM
 ; display whose width follows VIEW_COLS (H320 at 40 columns, H640 above) and
 ; restores the default screen on exit.
 ;=======================================================================================
@@ -15,11 +15,11 @@ ssm_mode:
 set_screen_mode:
         sta ssm_mode
         cmp #MODE_BASIC
-        bne _ssm_check_ncm40
+        bne _ssm_check_fcm40
         jmp restore_default_screen
 
-_ssm_check_ncm40:
-        cmp #MODE_NCM40
+_ssm_check_fcm40:
+        cmp #MODE_FCM40
         beq _ssm_fcm_init
         jmp restore_default_screen
 
@@ -37,8 +37,8 @@ _ssm_fcm_init:
 
         jsr ssm_screen_off
 
-_ssm_ncm40:
-        lda #NCM_SCREEN_MODE    ; screen_mode * 2 = VIEW_COLS screen positions
+_ssm_fcm40:
+        lda #FCM_SCREEN_MODE    ; screen_mode * 2 = VIEW_COLS screen positions
         sta screen_mode
 
         lda VIC3_CTRL
@@ -74,9 +74,9 @@ _ssm_ncm40:
         jsr ssm_setup_pointers
 
         lda #0
-        jsr clear_color_ram_ncm
+        jsr clear_color_ram_fcm
         lda #0
-        jsr clear_ncm
+        jsr clear_fcm
 
         lda #0
         sta BORDERCOL
@@ -99,7 +99,7 @@ ssm_setup_pointers:
         sta VIC4_COLPTRBNK
         sta VIC4_COLPTRMB
 
-        ; FCM/NCM tile addresses come from the 16-bit screen code
+        ; FCM/FCM tile addresses come from the 16-bit screen code
         ; (CHAR_DATA / 64). Keep CHARPTR at the ROM charset base like m65-fcm.
         lda #$00
         sta VIC4_CHARPTRLSB

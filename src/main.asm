@@ -1,5 +1,5 @@
 ;=======================================================================================
-; MEGA-SimCity - NCM city-builder scaffold for the MEGA65.
+; MEGA-SimCity - FCM city-builder scaffold for the MEGA65.
 ;=======================================================================================
 
         .cpu "45gs02"
@@ -58,7 +58,7 @@ app_init:
         jsr boot_load_tileset
         jsr boot_load_ui_tiles
 
-        lda #MODE_NCM40
+        lda #MODE_FCM40
         jsr set_screen_mode
 
         jsr tiles_init_palette
@@ -173,8 +173,8 @@ _mhu_done:
 ; Modules.
 ;=======================================================================================
 
-        .include "graphics/ncm_screen.asm"
-        .include "graphics/ncm_core.asm"
+        .include "graphics/fcm_screen.asm"
+        .include "graphics/fcm_core.asm"
         .include "assets.asm"
         .include "city.asm"
         .include "render.asm"

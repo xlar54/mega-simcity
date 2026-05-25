@@ -12,7 +12,7 @@
 ; program, and directly by the standalone assets/ui_tiles.asm build.
 ;=======================================================================================
 
-; --- Chrome tile IDs (1x1 NCM chars) ---
+; --- Chrome tile IDs (1x1 FCM chars) ---
 UI_TILE_PANEL           = 64
 UI_TILE_MENU            = 65
 UI_TILE_STATUS_LIGHT    = 66

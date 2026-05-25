@@ -320,7 +320,7 @@ sprite_position_selector:
         lda selected_tool
         and #1
         beq _sps_left
-        lda #(UI_TOOL_SELECTOR_X + ((UI_TOOL_COL_RIGHT - UI_TOOL_COL_LEFT) * NCM_CELL_PIXELS))
+        lda #(UI_TOOL_SELECTOR_X + ((UI_TOOL_COL_RIGHT - UI_TOOL_COL_LEFT) * FCM_CELL_PIXELS))
         bra _sps_x_done
 _sps_left:
         lda #UI_TOOL_SELECTOR_X
