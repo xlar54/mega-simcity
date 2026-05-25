@@ -3,10 +3,11 @@
 ;
 ; Sprite 0 = mouse pointer (follows mouse_x/y).
 ; Sprite 1 = yellow map cursor block (follows mouse_tile_x/y when over the map).
-; Sprite 2 = toolbox selector block (follows selected_tool).
+; Sprite 2 = toolbox selector block, positioned only on a toolbar click.
 ;
-; Handlers (mouse.asm, viewport, toolbar) only set logical state; sprites_refresh
-; reflects that state onto the hardware once per frame. No other module pokes
+; Handlers (mouse.asm, viewport, toolbar) only set logical state. sprites_refresh
+; reflects sprites 0 and 1 onto the hardware once per frame; sprite 2 moves only
+; via sprite_position_selector (on click / at init). No other module pokes
 ; sprite registers.
 ;=======================================================================================
 

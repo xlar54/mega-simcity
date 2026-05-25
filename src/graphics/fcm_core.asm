@@ -71,13 +71,8 @@ _in_counts:
         .word 1000, 2000
 
 clear_fcm:
-        and #$0F
-        sta _cn_nibble
-        asl
-        asl
-        asl
-        asl
-        ora _cn_nibble
+        ; A = 8-bit palette index; FCM is one byte per pixel, so fill char data
+        ; with A directly (no NCM-style nibble duplication).
         sta _cn_fill
 
         lda screen_mode
@@ -139,8 +134,6 @@ _cn_80_val2:
         rts
 
 _cn_fill:
-        .byte 0
-_cn_nibble:
         .byte 0
 
 clear_color_ram_fcm:

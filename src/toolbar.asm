@@ -4,8 +4,9 @@
 ; Rendering is driven from render_ui (chrome) via toolbar_render. On a left-click
 ; that mouse.asm confirms lands in the toolbar band, mouse.asm calls
 ; toolbar_handle_click, which maps the pointer to a slot and sets selected_tool.
-; The selector sprite itself is owned by sprites.asm (sprites_refresh tracks
-; selected_tool); this module only changes selected_tool / selected_tile.
+; The selector sprite (sprite 2) is owned by sprites.asm; toolbar_handle_click
+; calls sprite_position_selector to move it on a click (sprites_refresh does not
+; track it). This module only changes selected_tool / selected_tile.
 ;=======================================================================================
 
 ; Draw the UI_BTN_COUNT toolbar buttons in a 2-column grid of 2x2 icons.
