@@ -43,6 +43,7 @@ app_loop:
         jsr game_tick
         jsr render_frame
         jsr sprites_refresh
+        jsr bolt_test_update        ; TEMP: round-robin the bolt over visible zones
         jmp app_loop
 
 shutdown:
@@ -179,6 +180,8 @@ _mhu_done:
         .include "graphics/fcm_core.asm"
         .include "assets.asm"
         .include "city.asm"
+        .include "roads.asm"
+        .include "powerlines.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"

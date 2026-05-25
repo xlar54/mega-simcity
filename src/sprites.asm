@@ -11,6 +11,13 @@
 ; sprite registers.
 ;=======================================================================================
 
+; Sprite 4 (temporary): a yellow lightning bolt parked just below the last
+; toolbar icon. Fixed position; X gets the real-hardware correction like the other
+; toolbar sprites. Last toolbar row top = (UI_BTN_COUNT-2)*8 + UI_TOOL_SELECTOR_Y;
+; the icon is 16px tall, so +18 drops the bolt a couple px below it.
+LIGHTNING_SPRITE_X      = SPRITE_SCREEN_X + 12
+LIGHTNING_SPRITE_Y      = UI_TOOL_SELECTOR_Y + ((UI_BTN_COUNT - 2) * 8) + 18
+
 ; Detect Xemu vs real hardware and set the per-sprite X correction. The Xemu
 ; author specifies PLATFORM_FLAGS ($D60F) bit 5: set on real MEGA65 hardware,
 ; clear under Xemu. Real hardware renders sprites ~16px left of Xemu, so shift
@@ -29,16 +36,16 @@ detect_platform:
 ; One-time hardware setup for all sprites, then place them from current state.
 sprites_init:
         lda SPRITE_X_MSB
-        and #%11110000
+        and #%11000000              ; clear MSB bits for sprites 0-5
         sta SPRITE_X_MSB
         lda VIC4_SPRXMSB9
-        and #%11110000
+        and #%11000000
         sta VIC4_SPRXMSB9
         lda VIC4_SPRYMSB8
-        and #%11110000
+        and #%11000000
         sta VIC4_SPRYMSB8
         lda VIC4_SPRYMSB9
-        and #%11110000
+        and #%11000000
         sta VIC4_SPRYMSB9
         lda #0
         sta SPRITE0_X
@@ -65,23 +72,27 @@ sprites_init:
         sta SPRITE2_COLOR
         lda #$0A                ; yellow road cursor (8x8)
         sta SPRITE3_COLOR
+        lda #$0A                ; yellow lightning bolt body (sprite 4)
+        sta SPRITE4_COLOR
+        lda #$00                ; black lightning outline (sprite 5)
+        sta SPRITE5_COLOR
 
         lda SPRITE_MULTICOLOR
-        and #%11110000
+        and #%11000000          ; sprites 0-5 mono
         sta SPRITE_MULTICOLOR
         lda SPRITE_X_EXPAND
-        and #%11110000
+        and #%11000000          ; sprites 0-5 not X-expanded
         sta SPRITE_X_EXPAND
         lda SPRITE_Y_EXPAND
-        and #%11110000
+        and #%11000000          ; sprites 0-5 not Y-expanded
         sta SPRITE_Y_EXPAND
         lda SPRITE_PRIORITY
-        and #%11110000
+        and #%11000000          ; sprites 0-5 in front of the foreground
         sta SPRITE_PRIORITY
 
         lda SPRITE_ENABLE
-        and #%11110000
-        ora #%00000101          ; sprite 0 (pointer) + sprite 2 (tool selector)
+        and #%11000000
+        ora #%00110101          ; sprite 0 (pointer) + 2 (selector) + 4,5 (lightning)
         sta SPRITE_ENABLE
 
         ; Shape pointers: 0 = arrow, 1 = block, 2 = block (selector).
@@ -95,6 +106,27 @@ sprites_init:
         sta mouse_sprite_ptrs+6
         lda #>(sprite_road_cursor_shape / 64)
         sta mouse_sprite_ptrs+7
+
+        ; Sprite 4: yellow lightning bolt body, parked below the last toolbar icon.
+        ; Sprite 5: its black outline (the bolt dilated 1px), one px higher so it
+        ; peeks out around all sides; sprite 4 draws in front and covers the middle.
+        lda #<(sprite_lightning_shape / 64)
+        sta mouse_sprite_ptrs+8
+        lda #>(sprite_lightning_shape / 64)
+        sta mouse_sprite_ptrs+9
+        lda #<(sprite_lightning_outline_shape / 64)
+        sta mouse_sprite_ptrs+10
+        lda #>(sprite_lightning_outline_shape / 64)
+        sta mouse_sprite_ptrs+11
+        clc
+        lda #LIGHTNING_SPRITE_X
+        adc sprite_x_fix
+        sta SPRITE4_X
+        sta SPRITE5_X               ; outline shares the X; its shape holds the offset
+        lda #LIGHTNING_SPRITE_Y
+        sta SPRITE4_Y
+        lda #LIGHTNING_SPRITE_Y-1
+        sta SPRITE5_Y
 
         ; Initial placement from current state.
         jsr mouse_position_pointer_on_cursor_sprite
@@ -120,10 +152,10 @@ sprites_refresh:
         beq _sr_road
         cmp #TILE_GROUND
         beq _sr_road                ; bulldozer also uses the 8x8 cursor
+        cmp #TILE_POWER
+        beq _sr_road                ; power lines are 1x1 -> 8x8 cursor
         cmp #TILE_RESIDENTIAL
         bcc _sr_block               ; water -> 16x16
-        cmp #TILE_POWER
-        bcs _sr_block               ; power and above
         jsr mouse_hide_block_sprite
         jsr sprite3_use_zone_shape
         jmp mouse_position_road_cursor
@@ -166,7 +198,160 @@ sprite3_use_zone_shape:
 
 sprites_shutdown:
         lda SPRITE_ENABLE
-        and #%11110000
+        and #%11000000
+        sta SPRITE_ENABLE
+        rts
+
+;=======================================================================================
+; TEMP test: each frame, move the lightning bolt (sprites 4 & 5) to the top-left
+; cell of one visible zone, cycling through them round-robin. Zone top-left cells
+; are literal chars ZONE_GEN_BASE + zone_index*9 with bit 7 set (residential $A0,
+; commercial $A9, industrial $B2). Scans the visible cell window, collects the
+; view-relative cell of each top-left into bolt_zx/bolt_zy, then picks one by
+; bolt_rr mod count. Speed is unimportant; this is throwaway.
+;=======================================================================================
+BOLT_ZONE_MAX = 64
+
+bolt_test_update:
+        lda #0
+        sta bolt_zone_count
+        sta bolt_row_i
+        lda view_y
+        asl
+        sta bolt_scan_cy
+_btu_row:
+        lda #0
+        sta bolt_col_i
+        lda view_x
+        asl
+        sta bolt_scan_cx
+_btu_col:
+        lda bolt_scan_cx
+        sta city_ptr_x
+        lda bolt_scan_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #(ZONE_GEN_BASE | ZONE_CELL_LITERAL)
+        beq _btu_found
+        cmp #((ZONE_GEN_BASE + 9) | ZONE_CELL_LITERAL)
+        beq _btu_found
+        cmp #((ZONE_GEN_BASE + 18) | ZONE_CELL_LITERAL)
+        beq _btu_found
+        bra _btu_next
+_btu_found:
+        ldx bolt_zone_count
+        cpx #BOLT_ZONE_MAX
+        bcs _btu_next
+        lda bolt_col_i              ; store view-relative cell (col_i = vrx, row_i = vry)
+        sta bolt_zx,x
+        lda bolt_row_i
+        sta bolt_zy,x
+        inx
+        stx bolt_zone_count
+_btu_next:
+        inc bolt_scan_cx
+        inc bolt_col_i
+        lda bolt_col_i
+        cmp #(MAIN_TILE_COLS * 2)
+        bne _btu_col
+        inc bolt_scan_cy
+        inc bolt_row_i
+        lda bolt_row_i
+        cmp #(MAIN_TILE_ROWS * 2)
+        bne _btu_row
+
+        lda bolt_zone_count
+        bne _btu_have
+        jmp bolt_hide               ; no visible zones -> hide the bolt
+_btu_have:
+        lda bolt_rr                 ; target = bolt_rr mod count
+_btu_mod:
+        cmp bolt_zone_count
+        bcc _btu_moddone
+        sec
+        sbc bolt_zone_count
+        bra _btu_mod
+_btu_moddone:
+        tax                         ; X = chosen zone index
+        inc bolt_rr
+
+        lda bolt_zx,x               ; sprite X = vrx*8 + screen origin
+        sta bolt_sx
+        lda #0
+        sta bolt_sx+1
+        asl bolt_sx
+        rol bolt_sx+1
+        asl bolt_sx
+        rol bolt_sx+1
+        asl bolt_sx
+        rol bolt_sx+1
+        clc
+        lda bolt_sx
+        adc #<(SPRITE_SCREEN_X + MAIN_PIXEL_X)
+        sta bolt_sx
+        lda bolt_sx+1
+        adc #>(SPRITE_SCREEN_X + MAIN_PIXEL_X)
+        sta bolt_sx+1
+
+        lda bolt_zy,x               ; sprite Y = vry*8 + screen origin
+        asl
+        asl
+        asl
+        clc
+        adc #(SPRITE_SCREEN_Y + MAIN_PIXEL_Y)
+        sta bolt_sy
+
+        lda SPRITE_ENABLE           ; make sure both bolt sprites are on
+        ora #%00110000
+        sta SPRITE_ENABLE
+        ; fall through to bolt_set_position
+
+; Position sprites 4 (body) & 5 (outline) at 16-bit sprite X = bolt_sx, Y = bolt_sy
+; (sprite 5 one px higher). Applies sprite_x_fix and the per-sprite X MSB bit.
+bolt_set_position:
+        clc
+        lda bolt_sx
+        adc sprite_x_fix
+        sta bolt_sx
+        lda bolt_sx+1
+        adc #0
+        sta bolt_sx+1
+
+        lda bolt_sx
+        sta SPRITE4_X
+        sta SPRITE5_X
+        lda bolt_sy
+        sta SPRITE4_Y
+        sec
+        sbc #1
+        sta SPRITE5_Y
+
+        lda SPRITE_X_MSB            ; X bit 8 for sprites 4 and 5
+        and #%11001111
+        sta SPRITE_X_MSB
+        lda bolt_sx+1
+        and #$01
+        beq +
+        lda SPRITE_X_MSB
+        ora #%00110000
+        sta SPRITE_X_MSB
++
+        lda VIC4_SPRXMSB9          ; clear the 640-mode X bit and the Y MSBs (Y<256)
+        and #%11001111
+        sta VIC4_SPRXMSB9
+        lda VIC4_SPRYMSB8
+        and #%11001111
+        sta VIC4_SPRYMSB8
+        lda VIC4_SPRYMSB9
+        and #%11001111
+        sta VIC4_SPRYMSB9
+        rts
+
+bolt_hide:
+        lda SPRITE_ENABLE
+        and #%11001111              ; disable sprites 4 and 5
         sta SPRITE_ENABLE
         rts
 
@@ -546,6 +731,28 @@ mouse_sprite_mode:
 sprite_x_fix:
         .byte 0                     ; real-hardware sprite-X correction (0 or 16)
 
+; TEMP bolt round-robin state
+bolt_rr:
+        .byte 0
+bolt_zone_count:
+        .byte 0
+bolt_scan_cx:
+        .byte 0
+bolt_scan_cy:
+        .byte 0
+bolt_col_i:
+        .byte 0
+bolt_row_i:
+        .byte 0
+bolt_sx:
+        .word 0
+bolt_sy:
+        .byte 0
+bolt_zx:
+        .fill BOLT_ZONE_MAX, 0
+bolt_zy:
+        .fill BOLT_ZONE_MAX, 0
+
         .align 16
 mouse_sprite_ptrs:
         .fill 16, 0
@@ -669,6 +876,62 @@ sprite_zone_cursor_shape:
         .byte %10000000,%00000000,%00000001
         .byte %10000000,%00000000,%00000001
         .byte %11111111,%11111111,%11111111
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Lightning bolt body (sprite 4): yellow, ~6px wide x 9px tall, kept inside
+        ; cols 1-5 so the black outline (sprite 5) has a 1px margin on every side.
+        ; Top-left downstroke, a rightward kink, then tapering to a point.
+        .align 64
+sprite_lightning_shape:
+        .byte %00011000,%00000000,%00000000
+        .byte %00111000,%00000000,%00000000
+        .byte %01110000,%00000000,%00000000
+        .byte %01111100,%00000000,%00000000
+        .byte %00001100,%00000000,%00000000
+        .byte %00011000,%00000000,%00000000
+        .byte %00110000,%00000000,%00000000
+        .byte %00100000,%00000000,%00000000
+        .byte %01000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Lightning outline (sprite 5): the bolt body dilated by 1px (8-connected),
+        ; so when drawn one px above sprite 4 it forms a 1px black border. The body
+        ; sits at rows 1-9 here to align with sprite 4 (which is one px lower).
+        .align 64
+sprite_lightning_outline_shape:
+        .byte %00111100,%00000000,%00000000
+        .byte %01111100,%00000000,%00000000
+        .byte %11111100,%00000000,%00000000
+        .byte %11111110,%00000000,%00000000
+        .byte %11111110,%00000000,%00000000
+        .byte %11111110,%00000000,%00000000
+        .byte %01111110,%00000000,%00000000
+        .byte %01111100,%00000000,%00000000
+        .byte %11111000,%00000000,%00000000
+        .byte %11110000,%00000000,%00000000
+        .byte %11100000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000

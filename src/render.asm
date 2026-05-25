@@ -250,6 +250,10 @@ cell_to_char:
         bcc _ctc_type
         cmp #ROAD_CELL_LAST+1
         bcc _ctc_done               ; road: A already holds the char
+        cmp #POWERLINE_CELL_FIRST
+        bcc _ctc_type
+        cmp #POWERLINE_CELL_LAST+1
+        bcc _ctc_done               ; power line: A already holds the char
 _ctc_type:
         ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
         ; appear as a base type here -- they are painted/seeded as literal chars.

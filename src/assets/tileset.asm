@@ -187,20 +187,73 @@ tileset_start:
         .byte $20,$20,$20,$20,$20,$20,$20,$14
         .byte $20,$20,$20,$20,$20,$20,$20,$17
 
-; Chars 19-23 are unused road-block headroom (room for more road tiles). Kept
-; blank so TILE_POWER stays at chars 24-27.
-        .fill 5 * 64, $00                       ; chars 19-23: unused
+; char 19 = ROAD_CELL_H_POWER: horizontal road (char 8) with two vertical power
+; wires ($22, cols 2 and 5) crossing over it -- aligns with POWERLINE_CELL_V.
+        .byte $1F,$1F,$22,$1F,$1F,$22,$1F,$1F
+        .byte $20,$20,$22,$20,$20,$22,$20,$20
+        .byte $20,$20,$22,$20,$20,$22,$20,$20
+        .byte $20,$20,$22,$21,$21,$22,$20,$20
+        .byte $20,$20,$22,$20,$20,$22,$20,$20
+        .byte $20,$20,$22,$20,$20,$22,$20,$20
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$23,$22,$23,$23,$22,$23,$23
+; char 20 = ROAD_CELL_V_POWER: vertical road (char 9) with two horizontal power
+; wires ($22, rows 2 and 5) crossing over it -- aligns with POWERLINE_CELL_H.
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+; Chars 21-23 are unused road-block headroom (room for more road tiles). Kept
+; blank so the power-line block stays at chars 24-27.
+        .fill 3 * 64, $00                       ; chars 21-23: unused
 
-; TILE_POWER
-        .byte $02,$02,$02,$0A,$0A,$02,$02,$02
-        .byte $02,$02,$0A,$0A,$02,$02,$02,$02
-        .byte $02,$02,$02,$0A,$0A,$02,$02,$02
-        .byte $02,$02,$02,$02,$0A,$0A,$02,$02
-        .byte $02,$0B,$0B,$0A,$0A,$0B,$0B,$02
-        .byte $02,$0B,$0B,$0B,$0B,$0B,$0B,$02
-        .byte $02,$0B,$0A,$0B,$0B,$0A,$0B,$02
-        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
-        .fill 192, $02
+; Power-line block (chars 24-27; cell value equals char index, see platform.asm
+; POWERLINE_CELL_*): two dark wires ($22, the road-border colour) on ground ($13).
+; Orientation follows the run (powerlines.asm); poles add a crossarm/post. There
+; are no curves. (First-draft art -- the pole crossarm is a straight bar for now.)
+        ; char 24 = POWERLINE_CELL_H: two horizontal wires (rows 2 and 5)
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        ; char 25 = POWERLINE_CELL_V: two vertical wires (cols 2 and 5)
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        ; char 26 = POWERLINE_CELL_POLE_H: a vertical brown ($24) post with an
+        ; upward-angled crossbar near the top; the two horizontal wires ($22) run
+        ; through the post at rows 2 and 5.
+        .byte $13,$13,$13,$13,$24,$24,$24,$13   ; crossbar (upper-right)
+        .byte $13,$13,$24,$24,$24,$13,$13,$13   ; crossbar (lower-left) + post
+        .byte $22,$22,$22,$24,$24,$22,$22,$22   ; wire 1 through post
+        .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
+        .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
+        .byte $22,$22,$22,$24,$24,$22,$22,$22   ; wire 2 through post
+        .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
+        .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
+        ; char 27 = POWERLINE_CELL_POLE_V: same vertical brown ($24) post +
+        ; upward-angled crossbar; the two wires ($22) run vertically (cols 2 and 5).
+        .byte $13,$13,$13,$13,$24,$24,$24,$13   ; crossbar (upper-right)
+        .byte $13,$13,$24,$24,$24,$13,$13,$13   ; crossbar (lower-left) + post
+        .byte $13,$13,$22,$24,$24,$22,$13,$13   ; wires (cols 2,5) + post (3,4)
+        .byte $13,$13,$22,$24,$24,$22,$13,$13
+        .byte $13,$13,$22,$24,$24,$22,$13,$13
+        .byte $13,$13,$22,$24,$24,$22,$13,$13
+        .byte $13,$13,$22,$24,$24,$22,$13,$13
+        .byte $13,$13,$22,$24,$24,$22,$13,$13
 
 tileset_base_end:
         .cerror tileset_base_end - tileset_start != TILESET_BODY_SIZE, "tileset base must match TILESET_BODY_SIZE"

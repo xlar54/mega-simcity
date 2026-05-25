@@ -126,8 +126,6 @@ _cst_zones:
         #SEED_ZONE TILE_INDUSTRIAL, 36, 18
         #SEED_ZONE TILE_INDUSTRIAL, 36, 24
 
-        #SEED_TILE TILE_POWER, 28, 8
-
         #SEED_TILE TILE_WATER, 47, 6
         #SEED_TILE TILE_WATER, 48, 6
         #SEED_TILE TILE_WATER, 48, 7
@@ -198,9 +196,8 @@ _c2g_no:
 game_apply_input:
         lda input_action
         beq _gai_done
-        ; Keyboard cursor scrolling is disabled; mouse edge-scroll handles
-        ; upward movement directly. Ignore stray queued INPUT_MOVE_UP events
-        ; so they cannot fight test/down scrolling.
+        ; Mouse edge-scroll handles upward movement; ignore stray queued
+        ; INPUT_MOVE_UP events.
         cmp #INPUT_MOVE_UP
         beq _gai_done
         cmp #INPUT_MOVE_DOWN
@@ -213,12 +210,6 @@ game_apply_input:
         beq city_paint_selected
 _gai_done:
         rts
-
-_gai_up:
-        lda view_y
-        beq _gai_done
-        dec view_y
-        jmp render_mark_view_dirty
 
 _gai_down:
         lda view_y
@@ -252,10 +243,10 @@ city_paint_selected:
         beq _cps_road
         cmp #TILE_GROUND
         beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
+        cmp #TILE_POWER
+        beq _cps_power              ; power lines are 1x1 (8x8), like roads
         cmp #TILE_RESIDENTIAL
         bcc _cps_2x2                ; water -> 2x2
-        cmp #TILE_POWER
-        bcs _cps_2x2                ; power and above
         jmp cps_zone                ; residential / commercial / industrial
 
 _cps_2x2:
@@ -297,8 +288,11 @@ _cps_road:
         ldx selected_tile
         cpx #TILE_GROUND
         bne _cps_road_build
-        ; bulldozer: clear anything but water
+        ; bulldozer: clear anything but water; skip already-clear ground so a
+        ; held/dragged bulldozer only booms when it actually demolishes something.
         cmp #TILE_WATER
+        beq _cps_road_skip
+        cmp #TILE_GROUND
         beq _cps_road_skip
         lda #TILE_GROUND
         ldz #0
@@ -308,247 +302,108 @@ _cps_road:
         lda road_cy
         sta city_ptr_y
         jsr render_redraw_cell_tile
-        jmp road_refresh_neighbors      ; roads above/below may re-orient
+        jsr audio_explosion             ; demolished a built tile -> boom
+        jsr road_refresh_neighbors      ; roads above/below may re-orient
+        lda road_cx                     ; ...and power lines around the cell
+        sta powerline_cx
+        lda road_cy
+        sta powerline_cy
+        jmp powerline_refresh_neighbors
 _cps_road_build:
         cmp #TILE_GROUND
-        bne _cps_road_skip          ; only on ground
+        beq _cps_road_place         ; ground: place normally
+        ; Not ground. A road may still CROSS an existing power line, but only
+        ; perpendicularly. Tentatively drop a road and let road_refresh decide;
+        ; keep it only if it became a crossing tile, else restore the power line.
+        sta road_cross_save
+        jsr is_powerline_value
+        bcc _cps_road_skip          ; occupied by a road/zone/water -> can't build
         lda #ROAD_CELL_H
         ldz #0
         sta [MAP_PTR],z
+        jsr road_refresh            ; sets H/V + the *_POWER tile if it crosses
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #ROAD_CELL_H_POWER
+        beq _cps_road_crossed
+        cmp #ROAD_CELL_V_POWER
+        beq _cps_road_crossed
+        ; not a perpendicular crossing -> undo, leave the power line intact
+        lda road_cross_save
+        ldz #0
+        sta [MAP_PTR],z
+        jmp render_redraw_cell_tile     ; city_ptr_* still = (road_cx, road_cy)
+_cps_road_crossed:
+        jsr audio_road_build
+        jsr road_refresh_neighbors      ; roads around may re-orient
+        lda road_cx                     ; ...and the power line on both sides
+        sta powerline_cx
+        lda road_cy
+        sta powerline_cy
+        jmp powerline_refresh_neighbors
+_cps_road_place:
+        lda #ROAD_CELL_H
+        ldz #0
+        sta [MAP_PTR],z
+        jsr audio_road_build            ; new road placed -> build blip
         jsr road_refresh                ; pick this cell's orientation + redraw
         jmp road_refresh_neighbors      ; roads above/below may re-orient
 _cps_road_skip:
         rts
 
-; --- Road orientation -----------------------------------------------------
-; A road cell renders per its road neighbours, chosen by road_refresh and stored
-; in the cell value (ROAD_CELL_*):
-;   4 sides         -> ROAD_CELL_4WAY (plain asphalt square)
-;   3 sides         -> a T-junction (T_N/T_S/T_E/T_W; closed side gets a black border)
-;   2 perpendicular -> a curve (NW/NE/SW/SE) connecting those two sides
-;   north or south  -> ROAD_CELL_V (vertical)
-;   otherwise       -> ROAD_CELL_H (horizontal)
-; A perpendicular neighbour that is merely a parallel road running alongside is
-; ignored (detected via the diagonals), so two adjacent parallel roads stay
-; straight instead of forming junctions. Because orientation now depends on the
-; diagonals too, a paint/bulldoze recomputes the cell and ALL eight surrounding
-; cells (road_refresh_neighbors).
-
-; Carry SET if cell value A is a road (any orientation).
-is_road_value:
-        cmp #ROAD_CELL_FIRST
-        bcc _irv_no
-        cmp #ROAD_CELL_LAST+1
-        bcs _irv_no
-        sec
-        rts
-_irv_no:
+; Power-line paint path (1x1, like roads). Places a wire/pole on ground only,
+; then lets powerlines.asm pick the orientation and re-orient the neighbours.
+; A running counter makes every POWERLINE_POLE_EVERY-th placed line a pole.
+_cps_power:
+        lda view_x
+        asl
         clc
-        rts
-
-; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it is a road.
-road_at_ptr:
+        adc mouse_cell_x
+        sta city_ptr_x
+        sta powerline_cx
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        sta city_ptr_y
+        sta powerline_cy
         jsr city_cell_ptr
         ldz #0
-        lda [MAP_PTR],z
-        jmp is_road_value
-
-; Offsets for the 8 surrounding cells, order NW,N,NE,W,E,SW,S,SE. Shared by
-; road_refresh's neighbour scan and road_refresh_neighbors. (dx/dy are signed;
-; cmp against CELL_COLS/ROWS rejects both underflow and overflow at the edges.)
-road_dx:  .byte $FF,$00,$01,$FF,$01,$FF,$00,$01
-road_dy:  .byte $FF,$FF,$FF,$00,$00,$01,$01,$01
-road_bit: .byte ROAD_BIT_NW,ROAD_BIT_N,ROAD_BIT_NE,ROAD_BIT_W,ROAD_BIT_E,ROAD_BIT_SW,ROAD_BIT_S,ROAD_BIT_SE
-
-; Re-orient and redraw the road cell at (road_cx, road_cy). No-op if not a road.
-; Scans all 8 neighbours into road_raw, then drops a perpendicular connection
-; that is only a parallel road alongside (this cell and the neighbour are both
-; straight runs on the same axis -- revealed when the diagonal is a road too), so
-; adjacent parallel roads stay straight instead of forming junctions.
-road_refresh:
-        lda road_cx
-        sta city_ptr_x
-        lda road_cy
-        sta city_ptr_y
-        jsr road_at_ptr
-        bcc _rr_done
+        lda [MAP_PTR],z             ; A = existing cell
+        cmp #TILE_GROUND
+        bne _cps_power_skip         ; only build on ground (skip water/road/zones)
+        inc powerline_count
+        lda powerline_count
+        cmp #POWERLINE_POLE_EVERY
+        bcc _cps_power_line
         lda #0
-        sta road_raw
-        ldx #0
-_rr_gather:
-        clc
-        lda road_cx
-        adc road_dx,x
-        cmp #CELL_COLS
-        bcs _rr_gnext               ; off map (under/overflow)
-        sta city_ptr_x
-        clc
-        lda road_cy
-        adc road_dy,x
-        cmp #CELL_ROWS
-        bcs _rr_gnext
-        sta city_ptr_y
-        jsr road_at_ptr             ; preserves X
-        bcc _rr_gnext
-        lda road_raw
-        ora road_bit,x
-        sta road_raw
-_rr_gnext:
-        inx
-        cpx #8
-        bne _rr_gather
-
-        ; refined connections start from the raw N/S/E/W
-        lda road_raw
-        and #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
-        sta road_mask
-        ; horizontal run (E&W)? drop a N/S neighbour that is itself horizontal
-        ; (its own E and W are roads -> our diagonals NE/NW or SE/SW)
-        lda road_raw
-        and #(ROAD_BIT_E|ROAD_BIT_W)
-        cmp #(ROAD_BIT_E|ROAD_BIT_W)
-        bne _rr_chk_vert
-        lda road_raw
-        and #(ROAD_BIT_NE|ROAD_BIT_NW)
-        cmp #(ROAD_BIT_NE|ROAD_BIT_NW)
-        bne _rr_chk_drops
-        lda road_mask
-        and #(255-ROAD_BIT_N)
-        sta road_mask
-_rr_chk_drops:
-        lda road_raw
-        and #(ROAD_BIT_SE|ROAD_BIT_SW)
-        cmp #(ROAD_BIT_SE|ROAD_BIT_SW)
-        bne _rr_chk_vert
-        lda road_mask
-        and #(255-ROAD_BIT_S)
-        sta road_mask
-_rr_chk_vert:
-        ; vertical run (N&S)? drop an E/W neighbour that is itself vertical
-        lda road_raw
-        and #(ROAD_BIT_N|ROAD_BIT_S)
-        cmp #(ROAD_BIT_N|ROAD_BIT_S)
-        bne _rr_decide
-        lda road_raw
-        and #(ROAD_BIT_NE|ROAD_BIT_SE)
-        cmp #(ROAD_BIT_NE|ROAD_BIT_SE)
-        bne _rr_chk_dropw
-        lda road_mask
-        and #(255-ROAD_BIT_E)
-        sta road_mask
-_rr_chk_dropw:
-        lda road_raw
-        and #(ROAD_BIT_NW|ROAD_BIT_SW)
-        cmp #(ROAD_BIT_NW|ROAD_BIT_SW)
-        bne _rr_decide
-        lda road_mask
-        and #(255-ROAD_BIT_W)
-        sta road_mask
-_rr_decide:
-        lda road_mask
-        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
-        beq _rr_4way
-        cmp #(ROAD_BIT_N|ROAD_BIT_W)
-        beq _rr_nw
-        cmp #(ROAD_BIT_N|ROAD_BIT_E)
-        beq _rr_ne
-        cmp #(ROAD_BIT_S|ROAD_BIT_W)
-        beq _rr_sw
-        cmp #(ROAD_BIT_S|ROAD_BIT_E)
-        beq _rr_se
-        cmp #(ROAD_BIT_N|ROAD_BIT_E|ROAD_BIT_W)
-        beq _rr_tn
-        cmp #(ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
-        beq _rr_ts
-        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E)
-        beq _rr_te
-        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_W)
-        beq _rr_tw
-        and #(ROAD_BIT_N|ROAD_BIT_S)   ; A still = road_mask
-        bne _rr_vertical
-        lda #ROAD_CELL_H
-        bra _rr_store
-_rr_4way:
-        lda #ROAD_CELL_4WAY
-        bra _rr_store
-_rr_nw:
-        lda #ROAD_CELL_CURVE_NW
-        bra _rr_store
-_rr_ne:
-        lda #ROAD_CELL_CURVE_NE
-        bra _rr_store
-_rr_sw:
-        lda #ROAD_CELL_CURVE_SW
-        bra _rr_store
-_rr_se:
-        lda #ROAD_CELL_CURVE_SE
-        bra _rr_store
-_rr_tn:
-        lda #ROAD_CELL_T_N
-        bra _rr_store
-_rr_ts:
-        lda #ROAD_CELL_T_S
-        bra _rr_store
-_rr_te:
-        lda #ROAD_CELL_T_E
-        bra _rr_store
-_rr_tw:
-        lda #ROAD_CELL_T_W
-        bra _rr_store
-_rr_vertical:
-        lda #ROAD_CELL_V
-_rr_store:
-        sta road_tmp
-        lda road_cx
-        sta city_ptr_x
-        lda road_cy
-        sta city_ptr_y
-        jsr city_cell_ptr
-        lda road_tmp
+        sta powerline_count
+        lda #POWERLINE_CELL_POLE_H  ; pole intent (powerline_refresh sets orient.)
+        bra _cps_power_write
+_cps_power_line:
+        lda #POWERLINE_CELL_H       ; line intent (powerline_refresh sets orient.)
+_cps_power_write:
         ldz #0
         sta [MAP_PTR],z
-        jmp render_redraw_cell_tile     ; city_ptr_* = (road_cx, road_cy)
-_rr_done:
+        ; First let adjacent straight roads detect a new crossing (they read the
+        ; raw power placeholder just written). Then orient this line and its power
+        ; neighbours, which now see any crossing tile as an on-axis connection.
+        lda powerline_cx
+        sta road_cx
+        lda powerline_cy
+        sta road_cy
+        jsr road_refresh_neighbors
+        jsr powerline_refresh
+        jmp powerline_refresh_neighbors
+_cps_power_skip:
         rts
 
-; Re-orient the 8 cells around (road_cx, road_cy). All 8 because a cell's
-; orientation now depends on its diagonal neighbours too (the parallel-road test
-; reads them). road_refresh clobbers X, so the loop index lives in road_nidx.
-road_refresh_neighbors:
-        lda road_cx
-        sta road_cx_save
-        lda road_cy
-        sta road_cy_save
-        lda #0
-        sta road_nidx
-_rrn_loop:
-        ldx road_nidx
-        clc
-        lda road_cx_save
-        adc road_dx,x
-        cmp #CELL_COLS
-        bcs _rrn_next
-        sta road_cx
-        clc
-        lda road_cy_save
-        adc road_dy,x
-        cmp #CELL_ROWS
-        bcs _rrn_next
-        sta road_cy
-        jsr road_refresh
-_rrn_next:
-        inc road_nidx
-        lda road_nidx
-        cmp #8
-        bne _rrn_loop
-        lda road_cx_save
-        sta road_cx
-        lda road_cy_save
-        sta road_cy
-        rts
-
-; Zone paint path (global label: it is reached past the road-orientation helpers
-; above, which would otherwise break a cheap label's scope).
+; Zone paint path.
 cps_zone:
         ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
         lda view_x
@@ -570,12 +425,13 @@ _cps_zone_setx:
 _cps_zone_sety:
         sta zone_org_y
 
-        jsr city_zone_all_ground    ; a zone may only be placed on all-ground cells
+        jsr city_zone_can_place     ; ground or power lines (zones overwrite power)
         bcs _cps_zone_do
         rts
 _cps_zone_do:
         lda selected_tile
         jsr city_stamp_zone
+        jsr audio_construct             ; zone placed -> construction sound
 
         ; Redraw the (up to) 2x2 tiles covering the 3x3 cell zone, by its four
         ; corner cells. render_redraw_cell_tile clobbers city_ptr_*, so re-seed
@@ -607,7 +463,8 @@ _cps_zone_do:
         clc
         adc #ZONE_SIZE-1
         sta city_ptr_y
-        jmp render_redraw_cell_tile
+        jsr render_redraw_cell_tile
+        jmp city_zone_refresh_border    ; re-tile power lines/roads bordering it
 
 ; Stamp a 3x3 bordered zone whose top-left cell is (zone_org_x, zone_org_y).
 ; A = zone type (TILE_RESIDENTIAL / COMMERCIAL / INDUSTRIAL). Writes the 9
@@ -664,10 +521,11 @@ _csz_col:
         bne _csz_row
         rts
 
-; Carry SET if all nine cells of the 3x3 zone at (zone_org_x, zone_org_y) are
-; TILE_GROUND, so a zone may be placed there; carry CLEAR if any is occupied.
-; Clobbers zone_dx/dy and city_ptr_* (re-set by city_stamp_zone on the way in).
-city_zone_all_ground:
+; Carry SET if every cell of the 3x3 zone at (zone_org_x, zone_org_y) is buildable
+; -- TILE_GROUND or a power line (zones overwrite power lines) -- so a zone may be
+; placed there; carry CLEAR if any cell is water/road/another zone. Clobbers
+; zone_dx/dy and city_ptr_* (re-set by city_stamp_zone on the way in).
+city_zone_can_place:
         lda #0
         sta zone_dy
 _czg_row:
@@ -686,7 +544,10 @@ _czg_col:
         ldz #0
         lda [MAP_PTR],z
         cmp #TILE_GROUND
-        bne _czg_no
+        beq _czg_ok
+        jsr is_powerline_value      ; zones may also overwrite power lines
+        bcc _czg_no
+_czg_ok:
         inc zone_dx
         lda zone_dx
         cmp #ZONE_SIZE
@@ -699,6 +560,79 @@ _czg_col:
         rts
 _czg_no:
         clc
+        rts
+
+; Re-tile the roads and power lines in the 5x5 area around the just-placed 3x3
+; zone, so a power line that ran into the zone (now removed) re-orients and a road
+; crossing that lost its power reverts to a plain road. Two passes: roads first
+; (crossings revert based on power presence), then power lines (which then see the
+; settled roads). Both refreshes no-op on the zone's own literal cells.
+city_zone_refresh_border:
+        lda #0
+        sta zone_rdy
+_czrb_r_row:
+        lda #0
+        sta zone_rdx
+_czrb_r_col:
+        lda zone_org_x
+        clc
+        adc zone_rdx
+        sec
+        sbc #1                      ; cell_x = zone_org_x - 1 + rdx
+        cmp #CELL_COLS              ; (underflow wraps to >=CELL_COLS too)
+        bcs _czrb_r_next
+        sta road_cx
+        lda zone_org_y
+        clc
+        adc zone_rdy
+        sec
+        sbc #1
+        cmp #CELL_ROWS
+        bcs _czrb_r_next
+        sta road_cy
+        jsr road_refresh
+_czrb_r_next:
+        inc zone_rdx
+        lda zone_rdx
+        cmp #5
+        bne _czrb_r_col
+        inc zone_rdy
+        lda zone_rdy
+        cmp #5
+        bne _czrb_r_row
+
+        lda #0
+        sta zone_rdy
+_czrb_p_row:
+        lda #0
+        sta zone_rdx
+_czrb_p_col:
+        lda zone_org_x
+        clc
+        adc zone_rdx
+        sec
+        sbc #1
+        cmp #CELL_COLS
+        bcs _czrb_p_next
+        sta powerline_cx
+        lda zone_org_y
+        clc
+        adc zone_rdy
+        sec
+        sbc #1
+        cmp #CELL_ROWS
+        bcs _czrb_p_next
+        sta powerline_cy
+        jsr powerline_refresh
+_czrb_p_next:
+        inc zone_rdx
+        lda zone_rdx
+        cmp #5
+        bne _czrb_p_col
+        inc zone_rdy
+        lda zone_rdy
+        cmp #5
+        bne _czrb_p_row
         rts
 
 city_clamp_view_to_cursor:
@@ -824,6 +758,8 @@ city_ptr_hi:
         .byte 0
 stamp_type:
         .byte 0
+road_cross_save:                ; cell overwritten while testing a road/power cross
+        .byte 0
 zone_org_x:
         .byte 0
 zone_org_y:
@@ -832,23 +768,11 @@ zone_dx:
         .byte 0
 zone_dy:
         .byte 0
+zone_rdx:                       ; city_zone_refresh_border loop counters
+        .byte 0
+zone_rdy:
+        .byte 0
 zone_char_base:
         .byte 0
 zone_tmp:
-        .byte 0
-road_cx:
-        .byte 0
-road_cy:
-        .byte 0
-road_cx_save:
-        .byte 0
-road_cy_save:
-        .byte 0
-road_mask:
-        .byte 0
-road_raw:
-        .byte 0
-road_nidx:
-        .byte 0
-road_tmp:
         .byte 0

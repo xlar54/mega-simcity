@@ -129,11 +129,14 @@ _thc_row:
         txa                         ; A = clicked slot 0..15
         sta selected_tool
         jsr sprite_position_selector   ; move selector to the clicked slot
+        jsr audio_click                ; toolbar button clicked -> click
 
         lda selected_tool
         beq _thc_bulldoze           ; slot 0 -> bulldozer
         cmp #1
         beq _thc_road               ; slot 1 -> road
+        cmp #3
+        beq _thc_power              ; slot 3 -> power lines (1x1)
         cmp #5
         beq _thc_residential        ; slot 5 -> residential zone (3x3)
         cmp #6
@@ -144,6 +147,10 @@ _thc_row:
 
 _thc_road:
         lda #TILE_ROAD
+        sta selected_tile
+        rts
+_thc_power:
+        lda #TILE_POWER
         sta selected_tile
         rts
 _thc_residential:

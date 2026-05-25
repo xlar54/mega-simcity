@@ -53,6 +53,10 @@ SPRITE2_X               = $D004
 SPRITE2_Y               = $D005
 SPRITE3_X               = $D006
 SPRITE3_Y               = $D007
+SPRITE4_X               = $D008
+SPRITE4_Y               = $D009
+SPRITE5_X               = $D00A
+SPRITE5_Y               = $D00B
 SPRITE_X_MSB            = $D010
 SPRITE_ENABLE           = $D015
 SPRITE_Y_EXPAND         = $D017
@@ -63,6 +67,8 @@ SPRITE0_COLOR           = $D027
 SPRITE1_COLOR           = $D028
 SPRITE2_COLOR           = $D029
 SPRITE3_COLOR           = $D02A
+SPRITE4_COLOR           = $D02B
+SPRITE5_COLOR           = $D02C
 
 MULTINA                 = $D770
 MULTINB                 = $D774
@@ -213,7 +219,7 @@ TILE_ROAD               = 2     ; tool id; road map cells use ROAD_CELL_* (below
 TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
-TILE_POWER              = 6
+TILE_POWER              = 6     ; tool id for the power-LINE tool (1x1, see below)
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is not a
 ; base tile type but a 3x3 block of literal zone-cell chars (see below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -223,7 +229,7 @@ CITY_CHARS_PER_TILE     = 4
 CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
 ; Road cells (1x1) live in a contiguous block whose cell value EQUALS its char
 ; index (8..14), so cell_to_char maps a road with no arithmetic and the block can
-; grow (chars 15-23 are free) before it would reach TILE_POWER's chars at 24.
+; grow (chars 21-23 are free) before it would reach the power-line chars at 24.
 ; Orientation is chosen from a cell's road neighbours (see city.asm road_refresh).
 ROAD_CELL_H             = 8     ; horizontal
 ROAD_CELL_V             = 9     ; vertical (char 8 rotated 90 deg)
@@ -236,8 +242,13 @@ ROAD_CELL_T_N           = 15    ; T-junction, connects N+E+W (closed south)
 ROAD_CELL_T_S           = 16    ; T-junction, connects S+E+W (closed north)
 ROAD_CELL_T_E           = 17    ; T-junction, connects N+S+E (closed west)
 ROAD_CELL_T_W           = 18    ; T-junction, connects N+S+W (closed east)
+; Straight roads with a power line crossing over them (only straight H/V roads can
+; cross; curves/T/4-way never do). Chosen by road_refresh when power lines sit on
+; both perpendicular sides of the road -- see roads.asm road_power_ns/road_power_ew.
+ROAD_CELL_H_POWER       = 19    ; horizontal road, vertical power line crossing
+ROAD_CELL_V_POWER       = 20    ; vertical road, horizontal power line crossing
 ROAD_CELL_FIRST         = ROAD_CELL_H
-ROAD_CELL_LAST          = ROAD_CELL_T_W
+ROAD_CELL_LAST          = ROAD_CELL_V_POWER
 ; Neighbour direction bits used by road_refresh to choose the orientation. The
 ; diagonals are used to spot a parallel road running alongside (so two adjacent
 ; parallel roads stay straight rather than forming a junction).
@@ -249,6 +260,21 @@ ROAD_BIT_NE             = $10
 ROAD_BIT_NW             = $20
 ROAD_BIT_SE             = $40
 ROAD_BIT_SW             = $80
+; Power-line cells (1x1) occupy the four chars (24..27) that the old 2x2 power
+; placeholder used; like roads, the cell value EQUALS its char index so
+; cell_to_char needs no arithmetic. Orientation follows a cell's power-line
+; neighbours (powerlines.asm) and there are no curves. A "pole" (crossarm) tile
+; is used for every POWERLINE_POLE_EVERY-th line the player places (a running
+; count) and at any intersection. These reuse the ROAD_BIT_* direction bits.
+; NOTE: the coal power PLANT is a separate, larger building (a future feature) --
+; these constants are only the wires/poles.
+POWERLINE_CELL_H        = 24    ; horizontal wires
+POWERLINE_CELL_V        = 25    ; vertical wires
+POWERLINE_CELL_POLE_H   = 26    ; pole (crossarm) on a horizontal run
+POWERLINE_CELL_POLE_V   = 27    ; pole (crossarm) on a vertical run
+POWERLINE_CELL_FIRST    = POWERLINE_CELL_H
+POWERLINE_CELL_LAST     = POWERLINE_CELL_POLE_V
+POWERLINE_POLE_EVERY    = 4     ; every 4th placed line becomes a pole
 ; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
 ; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
 ; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;

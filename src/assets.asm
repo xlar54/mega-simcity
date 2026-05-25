@@ -119,6 +119,7 @@ tiles_init_palette:
         #SET_COLOR 33, 156, 155, 155   ; lane marking
         #SET_COLOR 34,  63,  56,  49   ; bottom shadow
         #SET_COLOR 35, 117,  85,  56   ; bottom edge brown
+        #SET_COLOR 36, 156, 100,  52   ; power-pole wood brown (post + crossbar)
         rts
 
 ;---------------------------------------------------------------------------------------
