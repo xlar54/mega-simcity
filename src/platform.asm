@@ -193,12 +193,34 @@ TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
 TILE_POWER              = 6
+; Zones are 3x3 (8x8) cells: the 8 outer cells store the box type below, the
+; center cell stores the matching *_CENTER type so the renderer can draw the
+; lettered cell without tracking the zone's anchor. center = box + 4.
+TILE_RES_CENTER         = 7
+TILE_COM_CENTER         = 8
+TILE_IND_CENTER         = 9
+ZONE_CENTER_OFFSET      = 4
+ZONE_SIZE               = 3      ; 3x3 cells
+
 CITY_TILE_TYPE_COUNT    = 7
 CITY_CHARS_PER_TILE     = 4
 CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
 ; A road is a single 8x8 cell; it always renders this one char (the road tile's
 ; top-left quadrant) regardless of its position within a 16x16 tile.
 ROAD_CELL_CHAR          = TILE_ROAD * CITY_CHARS_PER_TILE
+; Zone cells: each zone tile's first two chars are the plain colored box and the
+; lettered center; the rest of the tile's 4-char slot is unused.
+ZONE_RES_BOX_CHAR       = TILE_RESIDENTIAL * CITY_CHARS_PER_TILE
+ZONE_RES_CENTER_CHAR    = ZONE_RES_BOX_CHAR + 1
+ZONE_COM_BOX_CHAR       = TILE_COMMERCIAL * CITY_CHARS_PER_TILE
+ZONE_COM_CENTER_CHAR    = ZONE_COM_BOX_CHAR + 1
+ZONE_IND_BOX_CHAR       = TILE_INDUSTRIAL * CITY_CHARS_PER_TILE
+ZONE_IND_CENTER_CHAR    = ZONE_IND_BOX_CHAR + 1
+; Runtime-loaded 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58.
+; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;
+; bit 7 marks the cell byte as a literal char (see cell_to_char).
+ZONE_GEN_BASE           = 32
+ZONE_CELL_LITERAL       = $80
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 
 TILESET_STAGE_ADDR      = $6000

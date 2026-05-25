@@ -177,6 +177,7 @@ _mhu_done:
         .include "graphics/fcm_screen.asm"
         .include "graphics/fcm_core.asm"
         .include "assets.asm"
+        .include "assets/zone_chars.asm"
         .include "city.asm"
         .include "render.asm"
         .include "mouse.asm"
@@ -184,3 +185,13 @@ _mhu_done:
         .include "viewport.asm"
         .include "toolbar.asm"
         .include "input.asm"
+
+;=======================================================================================
+; City map: 8 KB of 8x8 cells, placed LAST so it sits above all program code.
+; The only thing below it that boot-time asset loading touches is the staging
+; buffer at $6000, and city_fill_ground re-fills the map after boot -- so the
+; overlap is harmless, while keeping all code below $6000 (out of the staging
+; buffer's reach, which otherwise overwrites it and crashes).
+;=======================================================================================
+city_cells:
+        .fill CELL_MAP_SIZE, TILE_GROUND

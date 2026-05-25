@@ -219,11 +219,18 @@ game_tick:
 +       rts
 
 city_paint_selected:
-        ; Road is a 1x1 (8x8) tool: paint the single cell under the 8x8 cursor.
         lda selected_tile
         cmp #TILE_ROAD
         beq _cps_road
+        cmp #TILE_GROUND
+        beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
+        cmp #TILE_RESIDENTIAL
+        bcc _cps_2x2                ; water -> 2x2
+        cmp #TILE_POWER
+        bcs _cps_2x2                ; power and above
+        jmp _cps_zone               ; residential / commercial / industrial
 
+_cps_2x2:
         ; 16x16 tool: stamp the 2x2 cell block at the cursor tile.
         lda cursor_x
         asl
@@ -237,7 +244,7 @@ city_paint_selected:
         jmp render_mark_view_dirty
 
 _cps_road:
-        ; Absolute cell = view (tiles)*2 + cell-within-view.
+        ; 1x1: absolute cell = view (tiles)*2 + cell-within-view.
         lda view_x
         asl
         clc
@@ -252,6 +259,78 @@ _cps_road:
         lda selected_tile
         ldy #0
         sta (PTR2),y
+        jmp render_mark_view_dirty
+
+_cps_zone:
+        ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
+        lda view_x
+        asl
+        clc
+        adc mouse_cell_x
+        cmp #(CELL_COLS - ZONE_SIZE + 1)
+        bcc _cps_zone_setx
+        lda #(CELL_COLS - ZONE_SIZE)
+_cps_zone_setx:
+        sta zone_org_x
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        cmp #(CELL_ROWS - ZONE_SIZE + 1)
+        bcc _cps_zone_sety
+        lda #(CELL_ROWS - ZONE_SIZE)
+_cps_zone_sety:
+        sta zone_org_y
+
+        ; First zone-cell char = ZONE_GEN_BASE + (selected_tile - first zone)*9.
+        lda selected_tile
+        sec
+        sbc #TILE_RESIDENTIAL
+        sta zone_tmp
+        asl
+        asl
+        asl                         ; index * 8
+        clc
+        adc zone_tmp                ; index * 9
+        clc
+        adc #ZONE_GEN_BASE
+        sta zone_char_base
+
+        lda #0
+        sta zone_dy
+_cps_zone_row:
+        lda #0
+        sta zone_dx
+_cps_zone_col:
+        clc
+        lda zone_org_x
+        adc zone_dx
+        sta city_ptr_x
+        clc
+        lda zone_org_y
+        adc zone_dy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ; literal char = zone_char_base + position(dy*3 + dx), bit 7 set.
+        lda zone_dy
+        asl
+        clc
+        adc zone_dy                 ; dy * 3
+        clc
+        adc zone_dx                 ; + dx = position 0..8
+        clc
+        adc zone_char_base
+        ora #ZONE_CELL_LITERAL
+        ldy #0
+        sta (PTR2),y
+        inc zone_dx
+        lda zone_dx
+        cmp #ZONE_SIZE
+        bne _cps_zone_col
+        inc zone_dy
+        lda zone_dy
+        cmp #ZONE_SIZE
+        bne _cps_zone_row
         jmp render_mark_view_dirty
 
 city_clamp_view_to_cursor:
@@ -369,6 +448,18 @@ city_ptr_hi:
         .byte 0
 stamp_type:
         .byte 0
+zone_org_x:
+        .byte 0
+zone_org_y:
+        .byte 0
+zone_dx:
+        .byte 0
+zone_dy:
+        .byte 0
+zone_char_base:
+        .byte 0
+zone_tmp:
+        .byte 0
 
-city_cells:
-        .fill CELL_MAP_SIZE, TILE_GROUND
+; city_cells (the 8KB cell map) is defined at the very end of main.asm so it
+; sits above all code; see the note there.

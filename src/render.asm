@@ -236,10 +236,26 @@ render_draw_tile:
         jsr set_fcm_char
         rts
 
-; A = cell tile-type, X = parity (0-3) -> A = char offset to draw.
+; A = cell value, X = parity (0-3) -> A = char offset to draw. A cell byte with
+; bit 7 set is a literal char (low 7 bits); otherwise it is a tile type.
 cell_to_char:
+        cmp #$80                    ; bit 7 set -> literal char (N flag from the
+        bcs _ctc_literal            ; caller's ldx is unreliable, so test via cmp)
         cmp #TILE_ROAD
         beq _ctc_road
+        cmp #TILE_RESIDENTIAL
+        beq _ctc_res_box
+        cmp #TILE_COMMERCIAL
+        beq _ctc_com_box
+        cmp #TILE_INDUSTRIAL
+        beq _ctc_ind_box
+        cmp #TILE_RES_CENTER
+        beq _ctc_res_center
+        cmp #TILE_COM_CENTER
+        beq _ctc_com_center
+        cmp #TILE_IND_CENTER
+        beq _ctc_ind_center
+        ; water / ground / power: 2x2 tile, char = type*4 + parity
         asl
         asl
         sta render_char_base
@@ -247,8 +263,29 @@ cell_to_char:
         clc
         adc render_char_base
         rts
+_ctc_literal:
+        and #$7F
+        rts
 _ctc_road:
         lda #ROAD_CELL_CHAR
+        rts
+_ctc_res_box:
+        lda #ZONE_RES_BOX_CHAR
+        rts
+_ctc_com_box:
+        lda #ZONE_COM_BOX_CHAR
+        rts
+_ctc_ind_box:
+        lda #ZONE_IND_BOX_CHAR
+        rts
+_ctc_res_center:
+        lda #ZONE_RES_CENTER_CHAR
+        rts
+_ctc_com_center:
+        lda #ZONE_COM_CENTER_CHAR
+        rts
+_ctc_ind_center:
+        lda #ZONE_IND_CENTER_CHAR
         rts
 
 render_col:

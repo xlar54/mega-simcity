@@ -128,6 +128,7 @@ tiles_init_palette:
 tiles_load:
         jsr tiles_dma_city_from_attic
         jsr tiles_load_cursor
+        jsr tiles_load_zone_cells
         rts
 
 tiles_dma_city_from_attic:

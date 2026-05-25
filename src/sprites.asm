@@ -98,23 +98,56 @@ sprites_refresh:
         lda mouse_over_main
         beq _sr_hide_cursors
 
-        ; Road is a 1x1 (8x8) tool: show the 8x8 cursor (sprite 3) and hide the
-        ; 16x16 block cursor (sprite 1). Every other tool uses the 16x16 block.
+        ; Cursor size follows the tool footprint: road -> 8x8 (sprite 3),
+        ; zones -> 24x24 (sprite 3, Y-expanded), everything else -> 16x16 (sprite 1).
         lda selected_tile
         cmp #TILE_ROAD
         beq _sr_road
+        cmp #TILE_GROUND
+        beq _sr_road                ; bulldozer also uses the 8x8 cursor
+        cmp #TILE_RESIDENTIAL
+        bcc _sr_block               ; water -> 16x16
+        cmp #TILE_POWER
+        bcs _sr_block               ; power and above
+        jsr mouse_hide_block_sprite
+        jsr sprite3_use_zone_shape
+        jmp mouse_position_road_cursor
 
+_sr_block:
         jsr mouse_hide_road_cursor
         jsr mouse_use_block_shape
         jmp mouse_position_block_sprite
 
 _sr_road:
         jsr mouse_hide_block_sprite
+        jsr sprite3_use_road_shape
         jmp mouse_position_road_cursor
 
 _sr_hide_cursors:
         jsr mouse_hide_block_sprite
         jmp mouse_hide_road_cursor
+
+; Shape sprite 3 as the 8x8 road cursor (no Y-expand).
+sprite3_use_road_shape:
+        lda #<(sprite_road_cursor_shape / 64)
+        sta mouse_sprite_ptrs+6
+        lda #>(sprite_road_cursor_shape / 64)
+        sta mouse_sprite_ptrs+7
+        lda SPRITE_Y_EXPAND
+        and #%11110111
+        sta SPRITE_Y_EXPAND
+        rts
+
+; Shape sprite 3 as the 24x24 zone cursor (Y-expanded: 12 rows -> 24px tall).
+sprite3_use_zone_shape:
+        lda #<(sprite_zone_cursor_shape / 64)
+        sta mouse_sprite_ptrs+6
+        lda #>(sprite_zone_cursor_shape / 64)
+        sta mouse_sprite_ptrs+7
+        lda SPRITE_Y_EXPAND
+        ora #%00001000
+        sta SPRITE_Y_EXPAND
+        rts
 
 sprites_shutdown:
         lda SPRITE_ENABLE
@@ -566,6 +599,33 @@ sprite_road_cursor_shape:
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Zone cursor (sprite 3): a 24x24 box. Drawn as 12 rows (full sprite
+        ; width) and Y-expanded x2 by sprite3_use_zone_shape to reach 24px tall.
+        .align 64
+sprite_zone_cursor_shape:
+        .byte %11111111,%11111111,%11111111
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %11111111,%11111111,%11111111
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
