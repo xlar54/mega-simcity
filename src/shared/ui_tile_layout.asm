@@ -76,15 +76,13 @@ ATTIC_UI_TILE_MB        = $80
 ATTIC_UI_TILE_BANK      = $00
 ATTIC_UI_TILE_ADDR      = $1000
 UI_TILE_CHAR_SIZE       = 64
-UI_TILE_INDEX_ENTRY_SIZE = 8
 UI_BTN_CELLS_X          = 2
 UI_BTN_CELLS_Y          = 2
 UI_BTN_TILE_SIZE        = UI_BTN_CELLS_X * UI_BTN_CELLS_Y * UI_TILE_CHAR_SIZE
-; 6 chrome + UI_TEXT_COUNT glyphs are 1x1; UI_BTN_COUNT buttons are 2x2.
-UI_TILE_ASSET_COUNT     = 6 + UI_TEXT_COUNT + UI_BTN_COUNT
-UI_TILE_INDEX_SIZE      = UI_TILE_ASSET_COUNT * UI_TILE_INDEX_ENTRY_SIZE
-UI_TILE_PAYLOAD_SIZE    = ((6 + UI_TEXT_COUNT) * UI_TILE_CHAR_SIZE) + (UI_BTN_COUNT * UI_BTN_TILE_SIZE)
-UI_TILE_ASSET_SIZE      = UI_TILE_INDEX_SIZE + UI_TILE_PAYLOAD_SIZE
+; 6 chrome + UI_TEXT_COUNT glyphs are 1x1; UI_BTN_COUNT buttons are 2x2. The
+; asset is just the tile payload in this order; the loader DMAs each tile from
+; its compile-time offset below (no separate runtime index).
+UI_TILE_ASSET_SIZE      = ((6 + UI_TEXT_COUNT) * UI_TILE_CHAR_SIZE) + (UI_BTN_COUNT * UI_BTN_TILE_SIZE)
 
 ; --- Payload byte offsets (producer <-> loader contract) ---
 UI_ASSET_OFF_PANEL          = 0

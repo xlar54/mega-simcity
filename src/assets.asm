@@ -210,7 +210,7 @@ UI_TILE_DMA .macro index, size, offset
         .byte $00
         .byte $00
         .word \size
-        .word ATTIC_UI_TILE_ADDR + UI_TILE_INDEX_SIZE + \offset
+        .word ATTIC_UI_TILE_ADDR + \offset
         .byte ATTIC_UI_TILE_BANK
         .word \index * UI_TILE_CHAR_SIZE
         .byte `CHAR_DATA

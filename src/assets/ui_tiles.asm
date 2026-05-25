@@ -20,13 +20,6 @@
 
 ui_tiles_start:
 
-UI_TILE_INDEX_ENTRY .macro index, size, width_cells, height_cells, offset
-        .word \index
-        .word \size
-        .byte \width_cells, \height_cells
-        .word \offset
-.endmacro
-
 UI_TEXT_BG = $0E
 UI_TEXT_FG = $08
 
@@ -36,20 +29,6 @@ UI_TEXT_ROW .macro p0, p1, p2, p3, p4
 
 UI_TILE_RECORD .macro index
 .endmacro
-
-ui_tile_index:
-        #UI_TILE_INDEX_ENTRY UI_TILE_PANEL, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_PANEL
-        #UI_TILE_INDEX_ENTRY UI_TILE_MENU, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_MENU
-        #UI_TILE_INDEX_ENTRY UI_TILE_STATUS_LIGHT, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_STATUS_LIGHT
-        #UI_TILE_INDEX_ENTRY UI_TILE_STATUS_DARK, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_STATUS_DARK
-        #UI_TILE_INDEX_ENTRY UI_TILE_FRAME, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_FRAME
-        #UI_TILE_INDEX_ENTRY UI_TILE_BOTTOM, UI_TILE_CHAR_SIZE, 1, 1, UI_ASSET_OFF_BOTTOM
-.for i = 0, i < UI_TEXT_COUNT, i = i + 1
-        #UI_TILE_INDEX_ENTRY (UI_TEXT_A + i), UI_TILE_CHAR_SIZE, 1, 1, UI_TEXT_OFF_BASE + i * UI_TILE_CHAR_SIZE
-.next
-.for i = 0, i < UI_BTN_COUNT, i = i + 1
-        #UI_TILE_INDEX_ENTRY (UI_BTN_BASE + i * 4), UI_BTN_TILE_SIZE, UI_BTN_CELLS_X, UI_BTN_CELLS_Y, UI_BTN_OFF_BASE + i * UI_BTN_TILE_SIZE
-.next
 
 #UI_TILE_RECORD UI_TILE_PANEL
 ui_data_panel:
@@ -601,38 +580,38 @@ ui_btn_bulldozer:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_road:
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A   ; tl
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$08,$08,$08,$08,$08,$08,$08
-        .byte $0A,$08,$08,$08,$08,$08,$08,$08
-        .byte $0A,$08,$0F,$0F,$0F,$08,$08,$0F
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A   ; tr
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $08,$08,$08,$08,$08,$08,$08,$0A
-        .byte $08,$08,$08,$08,$08,$08,$08,$00
-        .byte $0F,$0F,$08,$08,$0F,$0F,$0F,$00
-        .byte $0A,$08,$0F,$0F,$0F,$08,$08,$0F   ; bl
-        .byte $0A,$08,$08,$08,$08,$08,$08,$08
-        .byte $0A,$08,$08,$08,$08,$08,$08,$08
-        .byte $0A,$0A,$00,$00,$00,$00,$00,$00
-        .byte $0A,$0A,$00,$00,$00,$00,$00,$00
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0F,$0F,$08,$08,$0F,$0F,$0F,$00   ; br
-        .byte $08,$08,$08,$08,$08,$08,$08,$00
-        .byte $08,$08,$08,$08,$08,$08,$08,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$00,$0F,$0F,$0F,$00,$00,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $0F,$0F,$00,$00,$0F,$0F,$0F,$00
+        .byte $0C,$00,$0F,$0F,$0F,$00,$00,$0F   ; bl
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$00,$00,$0F,$0F,$0F,$00   ; br
         .byte $00,$00,$00,$00,$00,$00,$00,$00
         .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
-        .byte $0A,$0A,$0A,$0A,$0A,$0A,$0A,$0A
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_rail:
         ; Top-down railroad track running left-to-right: $05 ballast bed,
