@@ -158,6 +158,91 @@ _mctc_y_max:
         sta mouse_tile_y
         rts
 
+; Like mouse_compute_tile_clamped but at 8x8-cell resolution (>>3). Outputs the
+; cell within the viewport: mouse_cell_x in 0..MAIN_NCM_COLS-1, mouse_cell_y in
+; CURSOR_TOP_FCM_ROWS..MAIN_NCM_ROWS-1. Used for the road tool's 8x8 cursor.
+mouse_compute_cell_clamped:
+        lda mouse_x+1
+        bmi _mccc_x_min
+        bne _mccc_x_check_right
+        lda mouse_x
+        cmp #MAIN_PIXEL_X
+        bcc _mccc_x_min
+
+_mccc_x_check_right:
+        lda mouse_x+1
+        cmp #>MAIN_PIXEL_RIGHT
+        bcc _mccc_x_compute
+        bne _mccc_x_max
+        lda mouse_x
+        cmp #<MAIN_PIXEL_RIGHT
+        bcc _mccc_x_compute
+
+_mccc_x_max:
+        lda #MAIN_FCM_COLS-1
+        sta mouse_cell_x
+        bra _mccc_y
+
+_mccc_x_min:
+        lda #0
+        sta mouse_cell_x
+        bra _mccc_y
+
+_mccc_x_compute:
+        sec
+        lda mouse_x
+        sbc #<MAIN_PIXEL_X
+        sta mouse_rel
+        lda mouse_x+1
+        sbc #>MAIN_PIXEL_X
+        sta mouse_rel+1
+
+        ldx #3
+_mccc_x_shift:
+        lsr mouse_rel+1
+        ror mouse_rel
+        dex
+        bne _mccc_x_shift
+        lda mouse_rel
+        sta mouse_cell_x
+
+_mccc_y:
+        lda mouse_y+1
+        bmi _mccc_y_min
+        bne _mccc_y_max
+        lda mouse_y
+        cmp #CURSOR_PIXEL_Y
+        bcc _mccc_y_min
+        cmp #MAIN_PIXEL_BOTTOM
+        bcs _mccc_y_max
+
+        sec
+        lda mouse_y
+        sbc #MAIN_PIXEL_Y
+        sta mouse_rel
+        lda #0
+        sta mouse_rel+1
+
+        ldx #3
+_mccc_y_shift:
+        lsr mouse_rel+1
+        ror mouse_rel
+        dex
+        bne _mccc_y_shift
+        lda mouse_rel
+        sta mouse_cell_y
+        rts
+
+_mccc_y_min:
+        lda #CURSOR_TOP_FCM_ROWS
+        sta mouse_cell_y
+        rts
+
+_mccc_y_max:
+        lda #MAIN_FCM_ROWS-1
+        sta mouse_cell_y
+        rts
+
 mouse_scroll_view_from_edge:
         lda #0
         sta mouse_edge_active

@@ -142,6 +142,7 @@ _md_main:
         lda #1
         sta mouse_over_main
         jsr mouse_compute_tile_clamped
+        jsr mouse_compute_cell_clamped
         jsr mouse_update_city_cursor
 
         lda mouse_buttons

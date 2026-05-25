@@ -219,6 +219,12 @@ game_tick:
 +       rts
 
 city_paint_selected:
+        ; Road is a 1x1 (8x8) tool: paint the single cell under the 8x8 cursor.
+        lda selected_tile
+        cmp #TILE_ROAD
+        beq _cps_road
+
+        ; 16x16 tool: stamp the 2x2 cell block at the cursor tile.
         lda cursor_x
         asl
         sta city_ptr_x              ; cell_x = cursor_x * 2
@@ -228,6 +234,24 @@ city_paint_selected:
         jsr city_cell_ptr
         lda selected_tile
         jsr city_stamp_2x2
+        jmp render_mark_view_dirty
+
+_cps_road:
+        ; Absolute cell = view (tiles)*2 + cell-within-view.
+        lda view_x
+        asl
+        clc
+        adc mouse_cell_x
+        sta city_ptr_x
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda selected_tile
+        ldy #0
+        sta (PTR2),y
         jmp render_mark_view_dirty
 
 city_clamp_view_to_cursor:

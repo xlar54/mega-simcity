@@ -14,16 +14,16 @@
 ; One-time hardware setup for all sprites, then place them from current state.
 sprites_init:
         lda SPRITE_X_MSB
-        and #%11111000
+        and #%11110000
         sta SPRITE_X_MSB
         lda VIC4_SPRXMSB9
-        and #%11111000
+        and #%11110000
         sta VIC4_SPRXMSB9
         lda VIC4_SPRYMSB8
-        and #%11111000
+        and #%11110000
         sta VIC4_SPRYMSB8
         lda VIC4_SPRYMSB9
-        and #%11111000
+        and #%11110000
         sta VIC4_SPRYMSB9
         lda #0
         sta SPRITE0_X
@@ -32,6 +32,8 @@ sprites_init:
         sta SPRITE1_Y
         sta SPRITE2_X
         sta SPRITE2_Y
+        sta SPRITE3_X
+        sta SPRITE3_Y
 
         lda #<mouse_sprite_ptrs
         sta VIC4_SPRPTRADRLSB
@@ -46,18 +48,20 @@ sprites_init:
         sta SPRITE1_COLOR
         lda #$00                ; black selector box
         sta SPRITE2_COLOR
+        lda #$0A                ; yellow road cursor (8x8)
+        sta SPRITE3_COLOR
 
         lda SPRITE_MULTICOLOR
-        and #%11111000
+        and #%11110000
         sta SPRITE_MULTICOLOR
         lda SPRITE_X_EXPAND
-        and #%11111000
+        and #%11110000
         sta SPRITE_X_EXPAND
         lda SPRITE_Y_EXPAND
-        and #%11111000
+        and #%11110000
         sta SPRITE_Y_EXPAND
         lda SPRITE_PRIORITY
-        and #%11111000
+        and #%11110000
         sta SPRITE_PRIORITY
 
         lda SPRITE_ENABLE
@@ -72,6 +76,10 @@ sprites_init:
         sta mouse_sprite_ptrs+4
         lda #>(sprite_selector_shape / 64)
         sta mouse_sprite_ptrs+5
+        lda #<(sprite_road_cursor_shape / 64)
+        sta mouse_sprite_ptrs+6
+        lda #>(sprite_road_cursor_shape / 64)
+        sta mouse_sprite_ptrs+7
 
         ; Initial placement from current state.
         jsr mouse_position_pointer_on_cursor_sprite
@@ -88,16 +96,29 @@ sprites_refresh:
         jsr mouse_position_pointer_sprite
 
         lda mouse_over_main
-        beq _sr_hide_block
+        beq _sr_hide_cursors
+
+        ; Road is a 1x1 (8x8) tool: show the 8x8 cursor (sprite 3) and hide the
+        ; 16x16 block cursor (sprite 1). Every other tool uses the 16x16 block.
+        lda selected_tile
+        cmp #TILE_ROAD
+        beq _sr_road
+
+        jsr mouse_hide_road_cursor
         jsr mouse_use_block_shape
         jmp mouse_position_block_sprite
 
-_sr_hide_block:
-        jmp mouse_hide_block_sprite
+_sr_road:
+        jsr mouse_hide_block_sprite
+        jmp mouse_position_road_cursor
+
+_sr_hide_cursors:
+        jsr mouse_hide_block_sprite
+        jmp mouse_hide_road_cursor
 
 sprites_shutdown:
         lda SPRITE_ENABLE
-        and #%11111000
+        and #%11110000
         sta SPRITE_ENABLE
         rts
 
@@ -308,6 +329,79 @@ mouse_hide_block_sprite:
         sta SPRITE_ENABLE
         rts
 
+; Position sprite 3 (8x8 road cursor) over the 8x8 cell under the pointer.
+mouse_position_road_cursor:
+        lda mouse_cell_x
+        sta mouse_sprite_x
+        lda #0
+        sta mouse_sprite_x+1
+        asl mouse_sprite_x          ; cell_x * 8 -> pixels
+        rol mouse_sprite_x+1
+        asl mouse_sprite_x
+        rol mouse_sprite_x+1
+        asl mouse_sprite_x
+        rol mouse_sprite_x+1
+
+        clc
+        lda mouse_sprite_x
+        adc #<(SPRITE_SCREEN_X + MAIN_PIXEL_X)
+        sta mouse_sprite_x
+        lda mouse_sprite_x+1
+        adc #>(SPRITE_SCREEN_X + MAIN_PIXEL_X)
+        sta mouse_sprite_x+1
+
+        lda mouse_cell_y
+        asl
+        asl
+        asl                         ; cell_y * 8
+        clc
+        adc #(SPRITE_SCREEN_Y + MAIN_PIXEL_Y)
+        sta mouse_sprite_y
+
+mouse_set_road_cursor_position:
+        lda SPRITE_X_MSB
+        and #%11110111
+        sta SPRITE_X_MSB
+        lda mouse_sprite_x+1
+        and #$01
+        beq +
+        lda SPRITE_X_MSB
+        ora #%00001000
+        sta SPRITE_X_MSB
++
+        lda VIC4_SPRXMSB9
+        and #%11110111
+        sta VIC4_SPRXMSB9
+        lda mouse_sprite_x+1
+        and #$02
+        beq +
+        lda VIC4_SPRXMSB9
+        ora #%00001000
+        sta VIC4_SPRXMSB9
++
+        lda VIC4_SPRYMSB8
+        and #%11110111
+        sta VIC4_SPRYMSB8
+        lda VIC4_SPRYMSB9
+        and #%11110111
+        sta VIC4_SPRYMSB9
+
+        lda mouse_sprite_x
+        sta SPRITE3_X
+        lda mouse_sprite_y
+        sta SPRITE3_Y
+
+        lda SPRITE_ENABLE
+        ora #%00001000
+        sta SPRITE_ENABLE
+        rts
+
+mouse_hide_road_cursor:
+        lda SPRITE_ENABLE
+        and #%11110111
+        sta SPRITE_ENABLE
+        rts
+
 ; Place sprite 2 (selector box) over selected_tool's toolbar slot. Column: even
 ; slots -> left, odd -> right. Row pair advances by 16 pixels per toolbar row.
 ; Uses toolbox sprite coordinates, not the general mouse/map pointer offset.
@@ -450,6 +544,32 @@ sprite_selector_shape:
         .byte %10000000,%00000000,%10000000
         .byte %10000000,%00000000,%10000000
         .byte %11111111,%11111111,%10000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Road cursor (sprite 3): an 8x8 box outline (uses only the left byte).
+        .align 64
+sprite_road_cursor_shape:
+        .byte %11111111,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %10000001,%00000000,%00000000
+        .byte %11111111,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000

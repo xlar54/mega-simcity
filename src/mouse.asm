@@ -524,6 +524,10 @@ mouse_tile_x:
         .byte 0
 mouse_tile_y:
         .byte 0
+mouse_cell_x:
+        .byte 0
+mouse_cell_y:
+        .byte 0
 mouse_edge_active:
         .byte 0
 mouse_scroll_tick:

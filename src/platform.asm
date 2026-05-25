@@ -49,6 +49,8 @@ SPRITE1_X               = $D002
 SPRITE1_Y               = $D003
 SPRITE2_X               = $D004
 SPRITE2_Y               = $D005
+SPRITE3_X               = $D006
+SPRITE3_Y               = $D007
 SPRITE_X_MSB            = $D010
 SPRITE_ENABLE           = $D015
 SPRITE_Y_EXPAND         = $D017
@@ -58,6 +60,7 @@ SPRITE_X_EXPAND         = $D01D
 SPRITE0_COLOR           = $D027
 SPRITE1_COLOR           = $D028
 SPRITE2_COLOR           = $D029
+SPRITE3_COLOR           = $D02A
 
 MULTINA                 = $D770
 MULTINB                 = $D774
