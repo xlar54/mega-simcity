@@ -35,7 +35,7 @@ _ip_keyboard:
         cmp #'0'
         beq _ip_water
         cmp #'1'
-        beq _ip_grass
+        beq _ip_ground
         cmp #'2'
         beq _ip_road
         cmp #'3'
@@ -64,8 +64,8 @@ _ip_water:
         sta selected_tile
         jmp _ip_paint
 
-_ip_grass:
-        lda #TILE_GRASS
+_ip_ground:
+        lda #TILE_GROUND
         sta selected_tile
         jmp _ip_paint
 

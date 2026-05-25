@@ -13,21 +13,21 @@ city_init:
         sta cursor_y
         lda #0
         sta selected_tool           ; bulldozer (slot 0) is the starting tool
-        lda #TILE_GRASS
+        lda #TILE_GROUND
         sta selected_tile
         lda #0
         sta sim_tick
         sta sim_tick+1
 
-        jsr city_fill_grass
+        jsr city_fill_ground
         jsr city_seed_terrain
         jsr city_clamp_view_to_cursor
         rts
 
-city_fill_grass:
+city_fill_ground:
         ldx #0
 _cfg_loop:
-        lda #TILE_GRASS
+        lda #TILE_GROUND
         sta city_map+$000,x
         sta city_map+$100,x
         sta city_map+$200,x
@@ -309,4 +309,4 @@ city_ptr_hi:
         .byte 0
 
 city_map:
-        .fill CITY_MAP_SIZE, TILE_GRASS
+        .fill CITY_MAP_SIZE, TILE_GROUND

@@ -80,7 +80,7 @@ tiles_init_palette:
         #SET_COLOR 1, 0, 3, 10      ; water
         #SET_COLOR 2, 2, 10, 2      ; grass
         #SET_COLOR 3, 0, 6, 1       ; dark green
-        #SET_COLOR 4, 9, 5, 1       ; dirt
+        #SET_COLOR 4, 10, 7, 4      ; ground / dirt
         #SET_COLOR 5, 6, 6, 6       ; road
         #SET_COLOR 6, 15, 13, 1     ; stripe / yellow text
         #SET_COLOR 7, 6, 13, 4      ; residential green
@@ -92,6 +92,11 @@ tiles_init_palette:
         #SET_COLOR 13, 14, 2, 2     ; red
         #SET_COLOR 14, 2, 14, 15    ; cyan
         #SET_COLOR 15, 15, 15, 15   ; white
+        ; ground-texture browns (sampled, scaled 8-bit -> 4-bit)
+        #SET_COLOR 16, 7, 5, 2      ; A  base       116,86,46 / 115,81,43
+        #SET_COLOR 17, 7, 5, 3      ; B  grain      114,85,55 / 112,80,59
+        #SET_COLOR 18, 6, 4, 2      ; C  sparse     105,75,34 / 107,74,35
+        #SET_COLOR 19, 6, 5, 3      ; D  grain      109,83,57
         rts
 
 ;---------------------------------------------------------------------------------------

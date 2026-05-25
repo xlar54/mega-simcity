@@ -141,7 +141,7 @@ _thc_road:
         rts
 
 _thc_bulldoze:
-        lda #TILE_GRASS
+        lda #TILE_GROUND
         sta selected_tile
 _thc_done:
         rts

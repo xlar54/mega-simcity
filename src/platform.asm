@@ -177,7 +177,7 @@ CITY_VIEW_MAX_X         = CITY_COLS - MAIN_TILE_COLS
 CITY_VIEW_MAX_Y         = CITY_ROWS - MAIN_TILE_ROWS
 
 TILE_WATER              = 0
-TILE_GRASS              = 1
+TILE_GROUND             = 1
 TILE_ROAD               = 2
 TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
