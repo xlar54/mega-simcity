@@ -328,8 +328,11 @@ _cps_road_skip:
 ;   2 perpendicular -> a curve (NW/NE/SW/SE) connecting those two sides
 ;   north or south  -> ROAD_CELL_V (vertical)
 ;   otherwise       -> ROAD_CELL_H (horizontal)
-; Recomputed for a painted/bulldozed cell and ALL four neighbours, since each of
-; those depends on every side, so runs/curves/junctions orient as drawn.
+; A perpendicular neighbour that is merely a parallel road running alongside is
+; ignored (detected via the diagonals), so two adjacent parallel roads stay
+; straight instead of forming junctions. Because orientation now depends on the
+; diagonals too, a paint/bulldoze recomputes the cell and ALL eight surrounding
+; cells (road_refresh_neighbors).
 
 ; Carry SET if cell value A is a road (any orientation).
 is_road_value:
@@ -350,9 +353,18 @@ road_at_ptr:
         lda [MAP_PTR],z
         jmp is_road_value
 
+; Offsets for the 8 surrounding cells, order NW,N,NE,W,E,SW,S,SE. Shared by
+; road_refresh's neighbour scan and road_refresh_neighbors. (dx/dy are signed;
+; cmp against CELL_COLS/ROWS rejects both underflow and overflow at the edges.)
+road_dx:  .byte $FF,$00,$01,$FF,$01,$FF,$00,$01
+road_dy:  .byte $FF,$FF,$FF,$00,$00,$01,$01,$01
+road_bit: .byte ROAD_BIT_NW,ROAD_BIT_N,ROAD_BIT_NE,ROAD_BIT_W,ROAD_BIT_E,ROAD_BIT_SW,ROAD_BIT_S,ROAD_BIT_SE
+
 ; Re-orient and redraw the road cell at (road_cx, road_cy). No-op if not a road.
-; Counts road neighbours: all four -> 4-way; north/south present -> vertical;
-; otherwise horizontal.
+; Scans all 8 neighbours into road_raw, then drops a perpendicular connection
+; that is only a parallel road alongside (this cell and the neighbour are both
+; straight runs on the same axis -- revealed when the diagonal is a road too), so
+; adjacent parallel roads stay straight instead of forming junctions.
 road_refresh:
         lda road_cx
         sta city_ptr_x
@@ -361,64 +373,76 @@ road_refresh:
         jsr road_at_ptr
         bcc _rr_done
         lda #0
-        sta road_mask
-        ; north (road_cx, road_cy-1)
-        lda road_cy
-        beq _rr_south
-        lda road_cx
-        sta city_ptr_x
-        lda road_cy
-        sec
-        sbc #1
-        sta city_ptr_y
-        jsr road_at_ptr
-        bcc _rr_south
-        lda road_mask
-        ora #ROAD_BIT_N
-        sta road_mask
-_rr_south:
-        lda road_cy
-        cmp #CELL_ROWS-1
-        bcs _rr_west
-        lda road_cx
-        sta city_ptr_x
-        lda road_cy
+        sta road_raw
+        ldx #0
+_rr_gather:
         clc
-        adc #1
-        sta city_ptr_y
-        jsr road_at_ptr
-        bcc _rr_west
-        lda road_mask
-        ora #ROAD_BIT_S
-        sta road_mask
-_rr_west:
         lda road_cx
-        beq _rr_east
-        lda road_cx
-        sec
-        sbc #1
+        adc road_dx,x
+        cmp #CELL_COLS
+        bcs _rr_gnext               ; off map (under/overflow)
         sta city_ptr_x
-        lda road_cy
-        sta city_ptr_y
-        jsr road_at_ptr
-        bcc _rr_east
-        lda road_mask
-        ora #ROAD_BIT_W
-        sta road_mask
-_rr_east:
-        lda road_cx
-        cmp #CELL_COLS-1
-        bcs _rr_decide
-        lda road_cx
         clc
-        adc #1
-        sta city_ptr_x
         lda road_cy
+        adc road_dy,x
+        cmp #CELL_ROWS
+        bcs _rr_gnext
         sta city_ptr_y
-        jsr road_at_ptr
-        bcc _rr_decide
+        jsr road_at_ptr             ; preserves X
+        bcc _rr_gnext
+        lda road_raw
+        ora road_bit,x
+        sta road_raw
+_rr_gnext:
+        inx
+        cpx #8
+        bne _rr_gather
+
+        ; refined connections start from the raw N/S/E/W
+        lda road_raw
+        and #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
+        sta road_mask
+        ; horizontal run (E&W)? drop a N/S neighbour that is itself horizontal
+        ; (its own E and W are roads -> our diagonals NE/NW or SE/SW)
+        lda road_raw
+        and #(ROAD_BIT_E|ROAD_BIT_W)
+        cmp #(ROAD_BIT_E|ROAD_BIT_W)
+        bne _rr_chk_vert
+        lda road_raw
+        and #(ROAD_BIT_NE|ROAD_BIT_NW)
+        cmp #(ROAD_BIT_NE|ROAD_BIT_NW)
+        bne _rr_chk_drops
         lda road_mask
-        ora #ROAD_BIT_E
+        and #(255-ROAD_BIT_N)
+        sta road_mask
+_rr_chk_drops:
+        lda road_raw
+        and #(ROAD_BIT_SE|ROAD_BIT_SW)
+        cmp #(ROAD_BIT_SE|ROAD_BIT_SW)
+        bne _rr_chk_vert
+        lda road_mask
+        and #(255-ROAD_BIT_S)
+        sta road_mask
+_rr_chk_vert:
+        ; vertical run (N&S)? drop an E/W neighbour that is itself vertical
+        lda road_raw
+        and #(ROAD_BIT_N|ROAD_BIT_S)
+        cmp #(ROAD_BIT_N|ROAD_BIT_S)
+        bne _rr_decide
+        lda road_raw
+        and #(ROAD_BIT_NE|ROAD_BIT_SE)
+        cmp #(ROAD_BIT_NE|ROAD_BIT_SE)
+        bne _rr_chk_dropw
+        lda road_mask
+        and #(255-ROAD_BIT_E)
+        sta road_mask
+_rr_chk_dropw:
+        lda road_raw
+        and #(ROAD_BIT_NW|ROAD_BIT_SW)
+        cmp #(ROAD_BIT_NW|ROAD_BIT_SW)
+        bne _rr_decide
+        lda road_mask
+        and #(255-ROAD_BIT_W)
         sta road_mask
 _rr_decide:
         lda road_mask
@@ -487,40 +511,36 @@ _rr_store:
 _rr_done:
         rts
 
-; Re-orient the four road cells around (road_cx, road_cy). All four are checked
-; because adding/removing this cell can change a neighbour's 4-way status.
+; Re-orient the 8 cells around (road_cx, road_cy). All 8 because a cell's
+; orientation now depends on its diagonal neighbours too (the parallel-road test
+; reads them). road_refresh clobbers X, so the loop index lives in road_nidx.
 road_refresh_neighbors:
         lda road_cx
         sta road_cx_save
         lda road_cy
         sta road_cy_save
-        ; north
-        lda road_cy_save
-        beq _rrn_south
-        dec road_cy
-        jsr road_refresh
-_rrn_south:
-        lda road_cy_save
-        sta road_cy
-        cmp #CELL_ROWS-1
-        bcs _rrn_west
-        inc road_cy
-        jsr road_refresh
-_rrn_west:
-        lda road_cy_save
-        sta road_cy
+        lda #0
+        sta road_nidx
+_rrn_loop:
+        ldx road_nidx
+        clc
         lda road_cx_save
-        beq _rrn_east
-        dec road_cx
-        jsr road_refresh
-_rrn_east:
-        lda road_cx_save
+        adc road_dx,x
+        cmp #CELL_COLS
+        bcs _rrn_next
         sta road_cx
-        cmp #CELL_COLS-1
-        bcs _rrn_done
-        inc road_cx
+        clc
+        lda road_cy_save
+        adc road_dy,x
+        cmp #CELL_ROWS
+        bcs _rrn_next
+        sta road_cy
         jsr road_refresh
-_rrn_done:
+_rrn_next:
+        inc road_nidx
+        lda road_nidx
+        cmp #8
+        bne _rrn_loop
         lda road_cx_save
         sta road_cx
         lda road_cy_save
@@ -825,6 +845,10 @@ road_cx_save:
 road_cy_save:
         .byte 0
 road_mask:
+        .byte 0
+road_raw:
+        .byte 0
+road_nidx:
         .byte 0
 road_tmp:
         .byte 0

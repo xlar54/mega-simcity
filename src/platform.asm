@@ -238,11 +238,17 @@ ROAD_CELL_T_E           = 17    ; T-junction, connects N+S+E (closed west)
 ROAD_CELL_T_W           = 18    ; T-junction, connects N+S+W (closed east)
 ROAD_CELL_FIRST         = ROAD_CELL_H
 ROAD_CELL_LAST          = ROAD_CELL_T_W
-; Neighbour direction bits used by road_refresh to choose the orientation.
-ROAD_BIT_N              = 1
-ROAD_BIT_S              = 2
-ROAD_BIT_E              = 4
-ROAD_BIT_W              = 8
+; Neighbour direction bits used by road_refresh to choose the orientation. The
+; diagonals are used to spot a parallel road running alongside (so two adjacent
+; parallel roads stay straight rather than forming a junction).
+ROAD_BIT_N              = $01
+ROAD_BIT_S              = $02
+ROAD_BIT_E              = $04
+ROAD_BIT_W              = $08
+ROAD_BIT_NE             = $10
+ROAD_BIT_NW             = $20
+ROAD_BIT_SE             = $40
+ROAD_BIT_SW             = $80
 ; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
 ; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
 ; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;
