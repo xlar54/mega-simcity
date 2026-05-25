@@ -134,10 +134,28 @@ _thc_row:
         beq _thc_bulldoze           ; slot 0 -> bulldozer
         cmp #1
         beq _thc_road               ; slot 1 -> road
-        rts                         ; slots 2-15: selected, no paint tile yet
+        cmp #5
+        beq _thc_residential        ; slot 5 -> residential zone (3x3)
+        cmp #6
+        beq _thc_commercial         ; slot 6 -> commercial zone (3x3)
+        cmp #7
+        beq _thc_industrial         ; slot 7 -> industrial zone (3x3)
+        rts                         ; other slots: selected, no paint tile yet
 
 _thc_road:
         lda #TILE_ROAD
+        sta selected_tile
+        rts
+_thc_residential:
+        lda #TILE_RESIDENTIAL
+        sta selected_tile
+        rts
+_thc_commercial:
+        lda #TILE_COMMERCIAL
+        sta selected_tile
+        rts
+_thc_industrial:
+        lda #TILE_INDUSTRIAL
         sta selected_tile
         rts
 
