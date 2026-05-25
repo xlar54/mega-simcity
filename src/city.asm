@@ -17,6 +17,16 @@ SEED_TILE .macro type, tx, ty
         jsr city_stamp_tile
 .endmacro
 
+; Stamp a 3x3 bordered zone at a CELL origin. Args: type, cell_x, cell_y.
+SEED_ZONE .macro type, cx, cy
+        lda #\cx
+        sta zone_org_x
+        lda #\cy
+        sta zone_org_y
+        lda #\type
+        jsr city_stamp_zone
+.endmacro
+
 city_init:
         lda #8
         sta view_x
@@ -108,22 +118,13 @@ _cst_road_v:
         jmp _cst_road_v
 
 _cst_zones:
-        #SEED_TILE TILE_RESIDENTIAL, 15, 10
-        #SEED_TILE TILE_RESIDENTIAL, 16, 10
-        #SEED_TILE TILE_RESIDENTIAL, 15, 11
-        #SEED_TILE TILE_RESIDENTIAL, 16, 11
-        #SEED_TILE TILE_RESIDENTIAL, 18, 12
-        #SEED_TILE TILE_RESIDENTIAL, 18, 13
-
-        #SEED_TILE TILE_COMMERCIAL, 25, 16
-        #SEED_TILE TILE_COMMERCIAL, 26, 16
-        #SEED_TILE TILE_COMMERCIAL, 25, 17
-        #SEED_TILE TILE_COMMERCIAL, 28, 18
-
-        #SEED_TILE TILE_INDUSTRIAL, 16, 21
-        #SEED_TILE TILE_INDUSTRIAL, 17, 21
-        #SEED_TILE TILE_INDUSTRIAL, 16, 22
-        #SEED_TILE TILE_INDUSTRIAL, 17, 23
+        ; Demo 3x3 bordered zones (cell origins): one of each type, two rows.
+        #SEED_ZONE TILE_RESIDENTIAL, 20, 18
+        #SEED_ZONE TILE_RESIDENTIAL, 20, 24
+        #SEED_ZONE TILE_COMMERCIAL, 28, 18
+        #SEED_ZONE TILE_COMMERCIAL, 28, 24
+        #SEED_ZONE TILE_INDUSTRIAL, 36, 18
+        #SEED_ZONE TILE_INDUSTRIAL, 36, 24
 
         #SEED_TILE TILE_POWER, 28, 8
 
@@ -284,55 +285,8 @@ _cps_zone_setx:
 _cps_zone_sety:
         sta zone_org_y
 
-        ; First zone-cell char = ZONE_GEN_BASE + (selected_tile - first zone)*9.
         lda selected_tile
-        sec
-        sbc #TILE_RESIDENTIAL
-        sta zone_tmp
-        asl
-        asl
-        asl                         ; index * 8
-        clc
-        adc zone_tmp                ; index * 9
-        clc
-        adc #ZONE_GEN_BASE
-        sta zone_char_base
-
-        lda #0
-        sta zone_dy
-_cps_zone_row:
-        lda #0
-        sta zone_dx
-_cps_zone_col:
-        clc
-        lda zone_org_x
-        adc zone_dx
-        sta city_ptr_x
-        clc
-        lda zone_org_y
-        adc zone_dy
-        sta city_ptr_y
-        jsr city_cell_ptr
-        ; literal char = zone_char_base + position(dy*3 + dx), bit 7 set.
-        lda zone_dy
-        asl
-        clc
-        adc zone_dy                 ; dy * 3
-        clc
-        adc zone_dx                 ; + dx = position 0..8
-        clc
-        adc zone_char_base
-        ora #ZONE_CELL_LITERAL
-        ldz #0
-        sta [MAP_PTR],z
-        inc zone_dx
-        lda zone_dx
-        cmp #ZONE_SIZE
-        bne _cps_zone_col
-        inc zone_dy
-        lda zone_dy
-        cmp #ZONE_SIZE
-        bne _cps_zone_row
+        jsr city_stamp_zone
 
         ; Redraw the (up to) 2x2 tiles covering the 3x3 cell zone, by its four
         ; corner cells. render_redraw_cell_tile clobbers city_ptr_*, so re-seed
@@ -365,6 +319,61 @@ _cps_zone_col:
         adc #ZONE_SIZE-1
         sta city_ptr_y
         jmp render_redraw_cell_tile
+
+; Stamp a 3x3 bordered zone whose top-left cell is (zone_org_x, zone_org_y).
+; A = zone type (TILE_RESIDENTIAL / COMMERCIAL / INDUSTRIAL). Writes the 9
+; position-specific literal chars (ZONE_GEN_BASE + type_index*9 + position) | $80
+; into the map. Does not redraw -- callers handle that (paint redraws the covered
+; tiles; the seed runs before the first full render).
+city_stamp_zone:
+        sec
+        sbc #TILE_RESIDENTIAL
+        sta zone_tmp
+        asl
+        asl
+        asl                         ; index * 8
+        clc
+        adc zone_tmp                ; index * 9
+        clc
+        adc #ZONE_GEN_BASE
+        sta zone_char_base
+
+        lda #0
+        sta zone_dy
+_csz_row:
+        lda #0
+        sta zone_dx
+_csz_col:
+        clc
+        lda zone_org_x
+        adc zone_dx
+        sta city_ptr_x
+        clc
+        lda zone_org_y
+        adc zone_dy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ; literal char = zone_char_base + position(dy*3 + dx), bit 7 set.
+        lda zone_dy
+        asl
+        clc
+        adc zone_dy                 ; dy * 3
+        clc
+        adc zone_dx                 ; + dx = position 0..8
+        clc
+        adc zone_char_base
+        ora #ZONE_CELL_LITERAL
+        ldz #0
+        sta [MAP_PTR],z
+        inc zone_dx
+        lda zone_dx
+        cmp #ZONE_SIZE
+        bne _csz_col
+        inc zone_dy
+        lda zone_dy
+        cmp #ZONE_SIZE
+        bne _csz_row
+        rts
 
 city_clamp_view_to_cursor:
         lda cursor_x

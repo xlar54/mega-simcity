@@ -178,7 +178,6 @@ _mhu_done:
         .include "graphics/fcm_screen.asm"
         .include "graphics/fcm_core.asm"
         .include "assets.asm"
-        .include "assets/zone_chars.asm"
         .include "city.asm"
         .include "render.asm"
         .include "mouse.asm"
@@ -186,6 +185,7 @@ _mhu_done:
         .include "viewport.asm"
         .include "toolbar.asm"
         .include "input.asm"
+        .include "audio.asm"
 
 ; The world map (240x200 cells) lives in Attic RAM at ATTIC_MAP_PHYS, filled by
 ; city_fill_ground at boot -- it is not allocated in chip RAM. See city.asm.

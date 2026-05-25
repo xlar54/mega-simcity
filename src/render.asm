@@ -246,19 +246,8 @@ cell_to_char:
         bcs _ctc_literal            ; caller's ldx is unreliable, so test via cmp)
         cmp #TILE_ROAD
         beq _ctc_road
-        cmp #TILE_RESIDENTIAL
-        beq _ctc_res_box
-        cmp #TILE_COMMERCIAL
-        beq _ctc_com_box
-        cmp #TILE_INDUSTRIAL
-        beq _ctc_ind_box
-        cmp #TILE_RES_CENTER
-        beq _ctc_res_center
-        cmp #TILE_COM_CENTER
-        beq _ctc_com_center
-        cmp #TILE_IND_CENTER
-        beq _ctc_ind_center
-        ; water / ground / power: 2x2 tile, char = type*4 + parity
+        ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
+        ; appear as a base type here -- they are painted/seeded as literal chars.
         asl
         asl
         sta render_char_base
@@ -271,24 +260,6 @@ _ctc_literal:
         rts
 _ctc_road:
         lda #ROAD_CELL_CHAR
-        rts
-_ctc_res_box:
-        lda #ZONE_RES_BOX_CHAR
-        rts
-_ctc_com_box:
-        lda #ZONE_COM_BOX_CHAR
-        rts
-_ctc_ind_box:
-        lda #ZONE_IND_BOX_CHAR
-        rts
-_ctc_res_center:
-        lda #ZONE_RES_CENTER_CHAR
-        rts
-_ctc_com_center:
-        lda #ZONE_COM_CENTER_CHAR
-        rts
-_ctc_ind_center:
-        lda #ZONE_IND_CENTER_CHAR
         rts
 
 ; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if

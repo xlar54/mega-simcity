@@ -48,7 +48,7 @@ LOAD_ASSET .macro name, namelen, size, attic_mb, attic_addr, attic_bank
 ;---------------------------------------------------------------------------------------
 
 boot_load_tileset:
-        #LOAD_ASSET tileset_name, tileset_name_end - tileset_name, TILESET_BODY_SIZE, ATTIC_TILE_MB, ATTIC_TILE_ADDR, ATTIC_TILE_BANK
+        #LOAD_ASSET tileset_name, tileset_name_end - tileset_name, TILESET_ASSET_SIZE, ATTIC_TILE_MB, ATTIC_TILE_ADDR, ATTIC_TILE_BANK
         rts
 
 tileset_name:
@@ -132,10 +132,10 @@ tiles_init_palette:
 tiles_load:
         jsr tiles_dma_city_from_attic
         jsr tiles_load_cursor
-        jsr tiles_load_zone_cells
         rts
 
 tiles_dma_city_from_attic:
+        ; Base tiles (chars 0-27): Attic start -> CHAR_DATA.
         lda #$00
         sta $D707
         .byte $80, ATTIC_TILE_MB
@@ -146,6 +146,22 @@ tiles_dma_city_from_attic:
         .word ATTIC_TILE_ADDR
         .byte ATTIC_TILE_BANK
         .word $0000             ; low 16 bits of CHAR_DATA ($40000)
+        .byte `CHAR_DATA
+        .byte $00
+        .word $0000
+
+        ; Zone cells (chars ZONE_GEN_BASE..+26): they follow the base tiles in
+        ; the asset (Attic + TILESET_BODY_SIZE) -> CHAR_DATA + ZONE_GEN_BASE*64.
+        lda #$00
+        sta $D707
+        .byte $80, ATTIC_TILE_MB
+        .byte $81, $00
+        .byte $00
+        .byte $00
+        .word TILESET_ZONE_SIZE
+        .word ATTIC_TILE_ADDR + TILESET_BODY_SIZE
+        .byte ATTIC_TILE_BANK
+        .word ZONE_GEN_BASE * 64
         .byte `CHAR_DATA
         .byte $00
         .word $0000

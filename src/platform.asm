@@ -214,13 +214,8 @@ TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
 TILE_POWER              = 6
-; Zones are 3x3 (8x8) cells: the 8 outer cells store the box type below, the
-; center cell stores the matching *_CENTER type so the renderer can draw the
-; lettered cell without tracking the zone's anchor. center = box + 4.
-TILE_RES_CENTER         = 7
-TILE_COM_CENTER         = 8
-TILE_IND_CENTER         = 9
-ZONE_CENTER_OFFSET      = 4
+; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is not a
+; base tile type but a 3x3 block of literal zone-cell chars (see below).
 ZONE_SIZE               = 3      ; 3x3 cells
 
 CITY_TILE_TYPE_COUNT    = 7
@@ -229,20 +224,19 @@ CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
 ; A road is a single 8x8 cell; it always renders this one char (the road tile's
 ; top-left quadrant) regardless of its position within a 16x16 tile.
 ROAD_CELL_CHAR          = TILE_ROAD * CITY_CHARS_PER_TILE
-; Zone cells: each zone tile's first two chars are the plain colored box and the
-; lettered center; the rest of the tile's 4-char slot is unused.
-ZONE_RES_BOX_CHAR       = TILE_RESIDENTIAL * CITY_CHARS_PER_TILE
-ZONE_RES_CENTER_CHAR    = ZONE_RES_BOX_CHAR + 1
-ZONE_COM_BOX_CHAR       = TILE_COMMERCIAL * CITY_CHARS_PER_TILE
-ZONE_COM_CENTER_CHAR    = ZONE_COM_BOX_CHAR + 1
-ZONE_IND_BOX_CHAR       = TILE_INDUSTRIAL * CITY_CHARS_PER_TILE
-ZONE_IND_CENTER_CHAR    = ZONE_IND_BOX_CHAR + 1
-; Runtime-loaded 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58.
+; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
+; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
 ; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;
 ; bit 7 marks the cell byte as a literal char (see cell_to_char).
 ZONE_GEN_BASE           = 32
 ZONE_CELL_LITERAL       = $80
+ZONE_TYPE_COUNT         = 3      ; residential, commercial, industrial
+ZONE_CELL_CHAR_COUNT    = ZONE_TYPE_COUNT * ZONE_SIZE * ZONE_SIZE   ; 27 distinct cells
+; Tileset disk asset = base tiles (chars 0-27) followed by the 3x3 zone cells
+; (loaded to chars ZONE_GEN_BASE..+26). TILESET_ASSET_SIZE is the whole blob.
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
+TILESET_ZONE_SIZE       = ZONE_CELL_CHAR_COUNT * 64
+TILESET_ASSET_SIZE      = TILESET_BODY_SIZE + TILESET_ZONE_SIZE
 
 ; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.
 ; Bank 5 ($50000, the top 64K of the MEGA65's 384K) keeps it clear of program
