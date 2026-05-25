@@ -67,36 +67,48 @@ ui_tiles_name_end:
 ; Palette (shared by both tilesets)
 ;---------------------------------------------------------------------------------------
 
+; Palette color from natural 0-255 RGB. Each channel is nibble-swapped at
+; assemble time because the MEGA65 stores palette bytes nibble-swapped (a
+; display value of $37 is stored as $73), giving full 8-bit-per-channel color.
 SET_COLOR .macro index, red, green, blue
         lda #\index
-        ldx #\red
-        ldy #\green
-        ldz #\blue
+        ldx #((((\red) & $0F) << 4) | (((\red) >> 4) & $0F))
+        ldy #((((\green) & $0F) << 4) | (((\green) >> 4) & $0F))
+        ldz #((((\blue) & $0F) << 4) | (((\blue) >> 4) & $0F))
         jsr set_palette_color
 .endmacro
 
 tiles_init_palette:
-        #SET_COLOR 0, 0, 0, 0       ; black / transparent-looking interior
-        #SET_COLOR 1, 0, 3, 10      ; water
-        #SET_COLOR 2, 2, 10, 2      ; grass
-        #SET_COLOR 3, 0, 6, 1       ; dark green
-        #SET_COLOR 4, 10, 7, 4      ; ground / dirt
-        #SET_COLOR 5, 6, 6, 6       ; road
-        #SET_COLOR 6, 15, 13, 1     ; stripe / yellow text
-        #SET_COLOR 7, 6, 13, 4      ; residential green
-        #SET_COLOR 8, 2, 6, 14      ; commercial blue
-        #SET_COLOR 9, 12, 6, 1      ; industrial orange
-        #SET_COLOR 10, 15, 14, 2    ; power / prompt
-        #SET_COLOR 11, 3, 3, 3      ; dark gray
-        #SET_COLOR 12, 13, 13, 13   ; light gray UI panel
-        #SET_COLOR 13, 14, 2, 2     ; red
-        #SET_COLOR 14, 2, 14, 15    ; cyan
-        #SET_COLOR 15, 15, 15, 15   ; white
-        ; ground-texture browns (sampled, scaled 8-bit -> 4-bit)
-        #SET_COLOR 16, 7, 5, 2      ; A  base       116,86,46 / 115,81,43
-        #SET_COLOR 17, 7, 5, 3      ; B  grain      114,85,55 / 112,80,59
-        #SET_COLOR 18, 6, 4, 2      ; C  sparse     105,75,34 / 107,74,35
-        #SET_COLOR 19, 6, 5, 3      ; D  grain      109,83,57
+        #SET_COLOR 0,    0,   0,   0    ; black / transparent-looking interior
+        #SET_COLOR 1,    0,  48, 160    ; water
+        #SET_COLOR 2,   32, 160,  32    ; grass
+        #SET_COLOR 3,    0,  96,  16    ; dark green
+        #SET_COLOR 4,  160, 112,  64    ; ground / dirt
+        #SET_COLOR 5,   96,  96,  96    ; road
+        #SET_COLOR 6,  240, 208,  16    ; stripe / yellow text
+        #SET_COLOR 7,   96, 208,  64    ; residential green
+        #SET_COLOR 8,   32,  96, 224    ; commercial blue
+        #SET_COLOR 9,  192,  96,  16    ; industrial orange
+        #SET_COLOR 10, 240, 224,  32    ; power / prompt
+        #SET_COLOR 11,  48,  48,  48    ; dark gray
+        #SET_COLOR 12, 208, 208, 208    ; light gray UI panel
+        #SET_COLOR 13, 224,  32,  32    ; red
+        #SET_COLOR 14,  32, 224, 240    ; cyan
+        #SET_COLOR 15, 240, 240, 240    ; white
+        ; ground-texture browns: exact sampled colors, full 8-bit
+        #SET_COLOR 16, 116, 86, 46
+        #SET_COLOR 17, 105, 75, 34
+        #SET_COLOR 18, 114, 85, 55
+        #SET_COLOR 19, 109, 83, 57
+        #SET_COLOR 20, 115, 81, 43
+        #SET_COLOR 21, 112, 80, 59
+        #SET_COLOR 22,  89, 70, 59
+        #SET_COLOR 23, 107, 74, 35
+        ; water blues: close shades for subtle horizontal ripple banding
+        #SET_COLOR 24,  52, 104, 180   ; base
+        #SET_COLOR 25,  44,  92, 165   ; dark band
+        #SET_COLOR 26,  64, 118, 196   ; light band
+        #SET_COLOR 27,  80, 134, 208   ; ripple glint
         rts
 
 ;---------------------------------------------------------------------------------------
