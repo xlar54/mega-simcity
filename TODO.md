@@ -37,6 +37,65 @@ Tracking known issues. Severity from the code review; line numbers are on
       codebase-wide `stz` -> `lda #0`/`sta` fix, slot 0 renders correctly and the
       redraw-after-loop hack in `toolbar_render` is gone.
 
+## Deferred (scaling)
+
+- [ ] **Stream tiles from Attic when char RAM fills up.** Today every tile is
+      DMA'd resident into char RAM at boot (`tiles_load` / `ui_load`,
+      `src/assets.asm` Stage 2). Bank 4 holds 64KB / 64 = ~1024 chars; only ~174
+      are used, so there's lots of headroom. The VIC-IV **cannot** fetch glyphs
+      from Attic, so once the art outgrows the resident budget, keep the master
+      library in Attic and DMA only currently-needed tiles into a char-RAM cache
+      on demand. The `bank 5 -> Attic -> char RAM` hop already exists for exactly
+      this; don't build the cache/eviction logic until needed.
+      *When implementing:* add a per-asset index — `id`, `width_chars`,
+      `height_chars`, `size_bytes`, `attic_addr`, `attic_bank`, `attic_mb` — to
+      describe each tile for the on-demand DMA. (Related: the Medium item about
+      the loader ignoring the UI tile index.)
+
+## World map & simulation (planned)
+
+Target map is the classic/Amiga SimCity size: 1920x1600 px = **120x100 tiles**.
+At this project's 8x8 cell resolution (1 tile = 2x2 cells) that's **240x200 =
+48,000 cells**, 1 byte/cell = **~47 KB**. (Today's map is 64x32 tiles = 128x64
+cells = 8 KB, currently `city_cells` at the end of `main.asm`.)
+
+- [ ] **Phase 1 — full world map in Attic (start here).** Move the cell array to
+      Attic and grow it to 240x200. Proposed layout: tile/asset library stays at
+      Attic start (`$08000000`, MB `$80`, 2 MB reserved); world map at **Attic +
+      2 MB = `$08200000` (MB `$82`)**, on a clean megabyte boundary.
+      *Access:* the CPU can't reach Attic with normal addressing, so rewrite
+      `city_cell_ptr` and the paint/render reads to use 45GS02 32-bit indirect
+      addressing (`lda [zp],z` with a 28-bit base) instead of the current 16-bit
+      zp-indirect. The renderer is dirty-flag based (~864 cell reads on a full
+      viewport redraw, only on scroll/paint), so direct 32-bit Attic access is
+      fast enough — no DMA-window cache needed unless profiling says so. If it
+      ever is needed, that's the same "Attic master + chip-RAM working window"
+      pattern as the tile-streaming item above.
+
+- [ ] **Phase 2+ — simulation overlay layers.** Derived from the main map,
+      mostly **coarser** resolution and **recomputed each sim tick** (scratch, not
+      save state), so they're small (~20 KB combined) and are good candidates for
+      **chip RAM** (fast direct access) rather than Attic. Bring online as the
+      RCI growth model is built:
+      - **Power grid** — flood-fill from plants along conductive tiles; zones
+        won't develop unpowered. Full tile res, bitmap (~1.5 KB). *Needed first,
+        alongside zones/roads.*
+      - **Population density** — half res (60x50, ~3 KB); feeds traffic, crime,
+        growth.
+      - **Traffic density** — half res; high traffic suppresses desirability,
+        drives road/rail demand.
+      - **Pollution** — half res; from industry, traffic, coal plants; lowers
+        land value & desirability.
+      - **Land value** — half res; distance-to-center + terrain (water/parks
+        raise) minus pollution/crime; drives R/C growth.
+      - **Crime** — half res; rises with density, falls with police coverage +
+        land value.
+      - **Police / fire coverage**, **rate of growth** — eighth res (~15x13,
+        <1 KB each); station effect radius / growth indicators.
+      Core feedback loop: pollution + crime + traffic pull land value down/up ->
+      land value + power + RCI demand decide zone growth/decline -> growth feeds
+      population density -> density regenerates traffic and pollution.
+
 ## Resolved this session
 
 - [x] **45GS02 STZ bug (the big one).** `stz` stores the Z register, not zero
