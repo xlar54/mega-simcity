@@ -34,6 +34,8 @@ VIC4_SPRYMSB8           = $D077
 VIC4_SPRYMSB9           = $D078
 VIC4_DISPROWS           = $D07B
 MEGA_KEYQUEUE           = $D610
+PLATFORM_FLAGS          = $D60F   ; per Xemu author: bit5 (=$20) set = real HW, clear = Xemu
+PLATFORM_REAL_HW_BIT    = $20
 CIA1_PORT_B             = $DC01
 CIA1_PORT_A             = $DC00
 CIA1_DDRA               = $DC02
@@ -84,6 +86,10 @@ CHAR_CODE_BASE          = $1000
 
 PTR2                    = $FA
 PTR                     = $FC
+; 4-byte zero-page pointer for 32-bit indirect access to the world map in Attic.
+; Sits below PTR2 and survives set_fcm_char (which only clobbers PTR at $FC-$FF).
+; Safe here because the runtime never calls KERNAL (only boot loading does).
+MAP_PTR                 = $F6
 
 MODE_BASIC              = 0
 MODE_FCM40              = 5
@@ -130,6 +136,12 @@ MAIN_FCM_COLS           = VIEW_COLS - MAIN_COL - MAP_RIGHT_MARGIN_COLS
 MAIN_TILE_COLS          = MAIN_FCM_COLS / 2
 MAIN_TILE_ROWS          = 12
 MAIN_FCM_ROWS           = MAIN_TILE_ROWS * 2
+; The map's top MAP_OVERLAP_TOP_ROWS cell rows sit under the top chrome and are
+; never visible, so render_viewport starts here and skips the tile rows they
+; cover. This keeps the map from drawing into the chrome (the bleed/tearing seen
+; on scroll) so the chrome never needs redrawing over the map -- which is what
+; made the menu bar flicker. Requires the overlap to be a whole number of tiles.
+FIRST_VISIBLE_TILE_ROW  = MAP_OVERLAP_TOP_ROWS / 2
 FCM_CELL_PIXELS         = 8
 CITY_TILE_PIXELS        = 16
 MAIN_PIXEL_X            = MAIN_COL * FCM_CELL_PIXELS
@@ -143,8 +155,15 @@ CURSOR_TILE_MIN_Y       = CURSOR_TOP_FCM_ROWS / 2
 CURSOR_PIXEL_Y          = CURSOR_ROW * FCM_CELL_PIXELS
 CURSOR_PIXEL_RIGHT      = MAIN_PIXEL_RIGHT
 CURSOR_PIXEL_BOTTOM     = MAIN_PIXEL_BOTTOM
+; SPRITE_SCREEN_X is the base sprite-X for the screen's left edge. On real MEGA65
+; hardware sprites render ~16px left of where Xemu puts them, so an additional
+; runtime offset (sprite_x_fix in sprites.asm, set by detect_platform from the
+; PLATFORM_FLAGS bit) is added when each sprite's X register is written.
+; paint/hit-testing use the logical mouse coords (not SPRITE_SCREEN_X), so they
+; are unaffected by the correction.
 SPRITE_SCREEN_X         = $18    ; 24 = standard sprite-X for screen left edge
 SPRITE_SCREEN_Y         = 50
+SPRITE_X_HW_FIX         = 16     ; runtime correction added on real hardware
 MOUSE_MIN_X             = $10000 - SPRITE_SCREEN_X
 MOUSE_MAX_X             = (VIEW_COLS * FCM_CELL_PIXELS) - 1
 MOUSE_MAX_Y             = (VIEW_ROWS * FCM_CELL_PIXELS) - 1
@@ -176,8 +195,10 @@ CPU_40MHZ_BIT           = $40
 ; The map is stored at 8x8-cell resolution (CELL_*). The viewport, cursor,
 ; hit-testing and scrolling still work in 16x16 tiles (CITY_*); a 16x16 tile is
 ; a 2x2 block of same-type cells, so tile (tx,ty) maps to cell (tx*2,ty*2).
-CITY_COLS               = 64
-CITY_ROWS               = 32
+; Full SimCity/Amiga map: 1920x1600 px = 120x100 tiles = 240x200 cells = 48,000
+; bytes. Too big for bank 0, so the cell array lives in Attic (see ATTIC_MAP_*).
+CITY_COLS               = 120
+CITY_ROWS               = 100
 CITY_MAP_SIZE           = CITY_COLS * CITY_ROWS
 CITY_VIEW_MAX_X         = CITY_COLS - MAIN_TILE_COLS
 CITY_VIEW_MAX_Y         = CITY_ROWS - MAIN_TILE_ROWS
@@ -223,10 +244,23 @@ ZONE_GEN_BASE           = 32
 ZONE_CELL_LITERAL       = $80
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 
-TILESET_STAGE_ADDR      = $6000
+; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.
+; Bank 5 ($50000, the top 64K of the MEGA65's 384K) keeps it clear of program
+; code in bank 0, which previously grew into the old $6000 buffer and crashed.
+TILESET_STAGE_BANK      = $05
+TILESET_STAGE_ADDR      = $0000
 ATTIC_TILE_MB           = $80
 ATTIC_TILE_BANK         = $00
 ATTIC_TILE_ADDR         = $0000
+
+; World map cell array in Attic, 2 MB past the asset library (clean MB boundary;
+; leaves the first 2 MB of Attic for the tile/asset library to grow into).
+; Physical $08200000 = MB $82. ATTIC_MAP_PHYS is the same address as the CPU sees
+; it for 32-bit indirect addressing ([MAP_PTR],z).
+ATTIC_MAP_MB            = $82
+ATTIC_MAP_BANK          = $00
+ATTIC_MAP_ADDR          = $0000
+ATTIC_MAP_PHYS          = $8200000
 
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)

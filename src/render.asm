@@ -2,11 +2,14 @@
 ; Framed FCM renderer.
 ;=======================================================================================
 
-; The map viewport underlaps the static chrome (MAP_OVERLAP_*), so the map must
-; be drawn FIRST and the chrome (toolbar/menu/frame) drawn on top of it.
+; The map and chrome occupy non-overlapping screen rows: render_viewport skips
+; the tile rows hidden under the top chrome (FIRST_VISIBLE_TILE_ROW), so the map
+; never draws into the chrome. The chrome is therefore drawn once at init and not
+; redrawn on scroll -- redrawing it every scroll frame is what made the bar
+; flicker (real HW) and let the map bleed into it (Xemu).
 render_init:
-        jsr render_viewport
         jsr render_ui
+        jsr render_viewport
         lda #0
         sta render_ui_dirty
         sta render_view_dirty
@@ -18,8 +21,6 @@ render_frame:
         jsr render_viewport
         lda #0
         sta render_view_dirty
-        lda #1
-        sta render_ui_dirty         ; chrome sits on top; redraw it over the map
 
 _rf_ui:
         lda render_ui_dirty
@@ -153,7 +154,7 @@ _rfr_done:
         rts
 
 render_viewport:
-        lda #0
+        lda #FIRST_VISIBLE_TILE_ROW  ; skip tile rows hidden under the top chrome
         sta render_tile_y
 _rv_row:
         lda #0
@@ -183,9 +184,11 @@ _rv_col:
         bne _rv_row
         rts
 
-; Draw a 16x16 tile as its four 8x8 cells. PTR2 = the tile's top-left cell;
-; each cell renders its type's quadrant (type*4 + parity), except a road cell
-; which always renders the single 8x8 ROAD_CELL_CHAR.
+; Draw a 16x16 tile as its four 8x8 cells. MAP_PTR = the tile's top-left cell in
+; Attic; each cell renders its type's quadrant (type*4 + parity), except a road
+; cell which always renders the single 8x8 ROAD_CELL_CHAR. Cells are read with
+; 32-bit indirect addressing ([MAP_PTR],z), z = 0/1/CELL_COLS/CELL_COLS+1.
+; MAP_PTR ($F6-$F9) survives set_fcm_char, which only touches PTR ($FC-$FF).
 render_draw_tile:
         lda render_tile_x
         asl
@@ -199,16 +202,16 @@ render_draw_tile:
         adc #MAIN_ROW
         sta render_screen_row
 
-        ldy #0                      ; TL cell, parity 0
-        lda (PTR2),y
+        ldz #0                      ; TL cell, parity 0
+        lda [MAP_PTR],z
         ldx #0
         jsr cell_to_char
         ldx render_screen_col
         ldy render_screen_row
         jsr set_fcm_char
 
-        ldy #1                      ; TR cell, parity 1
-        lda (PTR2),y
+        ldz #1                      ; TR cell, parity 1
+        lda [MAP_PTR],z
         ldx #1
         jsr cell_to_char
         ldx render_screen_col
@@ -216,8 +219,8 @@ render_draw_tile:
         ldy render_screen_row
         jsr set_fcm_char
 
-        ldy #CELL_COLS              ; BL cell, parity 2
-        lda (PTR2),y
+        ldz #CELL_COLS              ; BL cell, parity 2
+        lda [MAP_PTR],z
         ldx #2
         jsr cell_to_char
         ldx render_screen_col
@@ -225,8 +228,8 @@ render_draw_tile:
         iny
         jsr set_fcm_char
 
-        ldy #CELL_COLS+1           ; BR cell, parity 3
-        lda (PTR2),y
+        ldz #CELL_COLS+1           ; BR cell, parity 3
+        lda [MAP_PTR],z
         ldx #3
         jsr cell_to_char
         ldx render_screen_col
@@ -286,6 +289,46 @@ _ctc_com_center:
         rts
 _ctc_ind_center:
         lda #ZONE_IND_CENTER_CHAR
+        rts
+
+; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if
+; that tile is currently visible; otherwise do nothing. Paint paths use this so
+; dropping a tile redraws only the affected tile -- a full render_viewport every
+; paint frame races the raster and flashes map content through the chrome at the
+; top. The painted tile is always below the chrome (cursor Y is clamped), so a
+; targeted redraw never touches the overlap rows.
+render_redraw_cell_tile:
+        lda city_ptr_x
+        lsr                         ; map tile x = cell x / 2
+        sec
+        sbc view_x                  ; viewport-relative tile x
+        bcc _rrct_skip              ; left of viewport
+        cmp #MAIN_TILE_COLS
+        bcs _rrct_skip              ; right of viewport
+        sta render_tile_x
+
+        lda city_ptr_y
+        lsr                         ; map tile y = cell y / 2
+        sec
+        sbc view_y                  ; viewport-relative tile y
+        bcc _rrct_skip              ; above viewport
+        cmp #MAIN_TILE_ROWS
+        bcs _rrct_skip              ; below viewport
+        sta render_tile_y
+
+        clc                         ; cell ptr = (view + tile) * 2 (tile top-left)
+        lda view_x
+        adc render_tile_x
+        asl
+        sta city_ptr_x
+        clc
+        lda view_y
+        adc render_tile_y
+        asl
+        sta city_ptr_y
+        jsr city_cell_ptr
+        jmp render_draw_tile
+_rrct_skip:
         rts
 
 render_col:

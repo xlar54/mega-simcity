@@ -54,6 +54,7 @@ shutdown:
 
 app_init:
         jsr enable_40mhz
+        jsr detect_platform         ; sets sprite_x_fix (real HW vs Xemu) post-unlock
 
         jsr boot_load_tileset
         jsr boot_load_ui_tiles
@@ -186,12 +187,5 @@ _mhu_done:
         .include "toolbar.asm"
         .include "input.asm"
 
-;=======================================================================================
-; City map: 8 KB of 8x8 cells, placed LAST so it sits above all program code.
-; The only thing below it that boot-time asset loading touches is the staging
-; buffer at $6000, and city_fill_ground re-fills the map after boot -- so the
-; overlap is harmless, while keeping all code below $6000 (out of the staging
-; buffer's reach, which otherwise overwrites it and crashes).
-;=======================================================================================
-city_cells:
-        .fill CELL_MAP_SIZE, TILE_GROUND
+; The world map (240x200 cells) lives in Attic RAM at ATTIC_MAP_PHYS, filled by
+; city_fill_ground at boot -- it is not allocated in chip RAM. See city.asm.

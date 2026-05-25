@@ -1,8 +1,10 @@
 ;=======================================================================================
 ; City state and coarse viewport scrolling.
 ;
-; The map is stored at 8x8-cell resolution in city_cells (CELL_COLS x CELL_ROWS,
-; one tile-type byte per cell). Tools currently place 16x16 tiles, which are 2x2
+; The map is stored at 8x8-cell resolution in Attic RAM (ATTIC_MAP_PHYS,
+; CELL_COLS x CELL_ROWS = 240x200, one tile-type byte per cell). Cells are read
+; and written with 45GS02 32-bit indirect addressing via MAP_PTR ([MAP_PTR],z),
+; set up by city_cell_ptr. Tools currently place 16x16 tiles, which are 2x2
 ; blocks of same-type cells: tile (tx,ty) maps to cell (tx*2, ty*2). cursor_x/y
 ; and view_x/y stay in 16x16 tile units.
 ;=======================================================================================
@@ -37,22 +39,22 @@ city_init:
         jsr city_clamp_view_to_cursor
         rts
 
-; Fill every cell with TILE_GROUND (CELL_MAP_SIZE bytes via a page loop).
+; Fill every cell in the Attic world map with TILE_GROUND via one DMA fill.
+; (FILL command $03: the fill byte is the low byte of the source address field.)
 city_fill_ground:
-        lda #<city_cells
-        sta PTR
-        lda #>city_cells
-        sta PTR+1
-        ldx #(>CELL_MAP_SIZE)       ; whole pages to fill
-        ldy #0
-        lda #TILE_GROUND
-_cfg_byte:
-        sta (PTR),y
-        iny
-        bne _cfg_byte
-        inc PTR+1
-        dex
-        bne _cfg_byte
+        lda #$00
+        sta $D707
+        .byte $80, $00              ; src MB (unused by fill)
+        .byte $81, ATTIC_MAP_MB     ; dst MB = $82
+        .byte $00                    ; end of option list
+        .byte $03                    ; FILL
+        .word CELL_MAP_SIZE          ; 48,000 bytes
+        .byte TILE_GROUND, $00       ; src addr lo = fill byte (TILE_GROUND)
+        .byte $00                    ; src bank
+        .word ATTIC_MAP_ADDR         ; dst addr $0000
+        .byte ATTIC_MAP_BANK         ; dst bank $00
+        .byte $00                    ; command high byte
+        .word $0000                  ; modulo
         rts
 
 city_seed_terrain:
@@ -155,16 +157,16 @@ city_set_seed_tile:
         sta city_ptr_y
         jsr city_cell_ptr
         pla
-; Write A into the 2x2 cell block whose top-left is PTR2.
+; Write A into the 2x2 cell block whose top-left cell is MAP_PTR (in Attic).
 city_stamp_2x2:
-        ldy #0
-        sta (PTR2),y
-        ldy #1
-        sta (PTR2),y
-        ldy #CELL_COLS
-        sta (PTR2),y
-        ldy #CELL_COLS+1
-        sta (PTR2),y
+        ldz #0
+        sta [MAP_PTR],z
+        ldz #1
+        sta [MAP_PTR],z
+        ldz #CELL_COLS
+        sta [MAP_PTR],z
+        ldz #CELL_COLS+1
+        sta [MAP_PTR],z
         rts
 
 game_apply_input:
@@ -241,7 +243,7 @@ _cps_2x2:
         jsr city_cell_ptr
         lda selected_tile
         jsr city_stamp_2x2
-        jmp render_mark_view_dirty
+        jmp render_redraw_cell_tile     ; city_ptr_* still = cursor cell
 
 _cps_road:
         ; 1x1: absolute cell = view (tiles)*2 + cell-within-view.
@@ -257,9 +259,9 @@ _cps_road:
         sta city_ptr_y
         jsr city_cell_ptr
         lda selected_tile
-        ldy #0
-        sta (PTR2),y
-        jmp render_mark_view_dirty
+        ldz #0
+        sta [MAP_PTR],z
+        jmp render_redraw_cell_tile     ; city_ptr_* still = painted cell
 
 _cps_zone:
         ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
@@ -321,8 +323,8 @@ _cps_zone_col:
         clc
         adc zone_char_base
         ora #ZONE_CELL_LITERAL
-        ldy #0
-        sta (PTR2),y
+        ldz #0
+        sta [MAP_PTR],z
         inc zone_dx
         lda zone_dx
         cmp #ZONE_SIZE
@@ -331,7 +333,38 @@ _cps_zone_col:
         lda zone_dy
         cmp #ZONE_SIZE
         bne _cps_zone_row
-        jmp render_mark_view_dirty
+
+        ; Redraw the (up to) 2x2 tiles covering the 3x3 cell zone, by its four
+        ; corner cells. render_redraw_cell_tile clobbers city_ptr_*, so re-seed
+        ; from zone_org_x/y each time; off-viewport corners are skipped there.
+        lda zone_org_x
+        sta city_ptr_x
+        lda zone_org_y
+        sta city_ptr_y
+        jsr render_redraw_cell_tile
+        lda zone_org_x
+        clc
+        adc #ZONE_SIZE-1
+        sta city_ptr_x
+        lda zone_org_y
+        sta city_ptr_y
+        jsr render_redraw_cell_tile
+        lda zone_org_x
+        sta city_ptr_x
+        lda zone_org_y
+        clc
+        adc #ZONE_SIZE-1
+        sta city_ptr_y
+        jsr render_redraw_cell_tile
+        lda zone_org_x
+        clc
+        adc #ZONE_SIZE-1
+        sta city_ptr_x
+        lda zone_org_y
+        clc
+        adc #ZONE_SIZE-1
+        sta city_ptr_y
+        jmp render_redraw_cell_tile
 
 city_clamp_view_to_cursor:
         lda cursor_x
@@ -384,7 +417,9 @@ _ccvt_max_check:
         sta view_y
 +       rts
 
-; PTR2 = city_cells + city_ptr_y*CELL_COLS + city_ptr_x  (cell coordinates).
+; MAP_PTR (28-bit) = ATTIC_MAP_PHYS + city_ptr_y*CELL_COLS + city_ptr_x.
+; The cell offset is 16-bit (max 199*240+239 = 47,999); add it into the low two
+; bytes of the Attic base and carry up so [MAP_PTR],z reaches the right cell.
 city_cell_ptr:
         lda city_ptr_y
         sta MULTINA
@@ -409,12 +444,18 @@ city_cell_ptr:
         sta city_ptr_hi
 
         clc
-        lda #<city_cells
+        lda #<ATTIC_MAP_PHYS
         adc city_ptr_lo
-        sta PTR2
-        lda #>city_cells
+        sta MAP_PTR
+        lda #>ATTIC_MAP_PHYS
         adc city_ptr_hi
-        sta PTR2+1
+        sta MAP_PTR+1
+        lda #`ATTIC_MAP_PHYS
+        adc #0
+        sta MAP_PTR+2
+        lda #(ATTIC_MAP_PHYS >> 24)
+        adc #0
+        sta MAP_PTR+3
         rts
 
 cursor_x:
@@ -460,6 +501,3 @@ zone_char_base:
         .byte 0
 zone_tmp:
         .byte 0
-
-; city_cells (the 8KB cell map) is defined at the very end of main.asm so it
-; sits above all code; see the note there.

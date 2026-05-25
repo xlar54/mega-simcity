@@ -11,6 +11,21 @@
 ; sprite registers.
 ;=======================================================================================
 
+; Detect Xemu vs real hardware and set the per-sprite X correction. The Xemu
+; author specifies PLATFORM_FLAGS ($D60F) bit 5: set on real MEGA65 hardware,
+; clear under Xemu. Real hardware renders sprites ~16px left of Xemu, so shift
+; every sprite X right by SPRITE_X_HW_FIX there. Must run after the VIC-IV I/O
+; unlock (enable_40mhz) and before any sprite is positioned.
+detect_platform:
+        lda #0
+        sta sprite_x_fix
+        lda PLATFORM_FLAGS
+        and #PLATFORM_REAL_HW_BIT
+        beq +
+        lda #SPRITE_X_HW_FIX
+        sta sprite_x_fix
++       rts
+
 ; One-time hardware setup for all sprites, then place them from current state.
 sprites_init:
         lda SPRITE_X_MSB
@@ -285,6 +300,14 @@ _mpb_x_shift:
         jmp mouse_set_block_sprite_position
 
 mouse_set_sprite_position:
+        clc                         ; apply real-hardware sprite-X correction
+        lda mouse_sprite_x
+        adc sprite_x_fix
+        sta mouse_sprite_x
+        lda mouse_sprite_x+1
+        adc #0
+        sta mouse_sprite_x+1
+
         lda SPRITE_X_MSB
         and #$FE
         sta SPRITE_X_MSB
@@ -319,6 +342,14 @@ mouse_set_sprite_position:
         rts
 
 mouse_set_block_sprite_position:
+        clc                         ; apply real-hardware sprite-X correction
+        lda mouse_sprite_x
+        adc sprite_x_fix
+        sta mouse_sprite_x
+        lda mouse_sprite_x+1
+        adc #0
+        sta mouse_sprite_x+1
+
         lda SPRITE_X_MSB
         and #%11111101
         sta SPRITE_X_MSB
@@ -392,6 +423,14 @@ mouse_position_road_cursor:
         sta mouse_sprite_y
 
 mouse_set_road_cursor_position:
+        clc                         ; apply real-hardware sprite-X correction
+        lda mouse_sprite_x
+        adc sprite_x_fix
+        sta mouse_sprite_x
+        lda mouse_sprite_x+1
+        adc #0
+        sta mouse_sprite_x+1
+
         lda SPRITE_X_MSB
         and #%11110111
         sta SPRITE_X_MSB
@@ -453,6 +492,8 @@ sprite_position_selector:
 _sps_left:
         lda #UI_TOOL_SELECTOR_X
 _sps_x_done:
+        clc                         ; apply real-hardware sprite-X correction
+        adc sprite_x_fix
         sta SPRITE2_X
 
         lda selected_tool
@@ -502,6 +543,8 @@ mouse_sprite_y:
         .byte 0
 mouse_sprite_mode:
         .byte 0
+sprite_x_fix:
+        .byte 0                     ; real-hardware sprite-X correction (0 or 16)
 
         .align 16
 mouse_sprite_ptrs:

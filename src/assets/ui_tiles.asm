@@ -16,7 +16,10 @@
         .include "../platform.asm"
         .include "../shared/ui_tile_layout.asm"
 
-        * = $6800
+; Origin is irrelevant: position-independent data. It only sets the 2-byte PRG
+; load-address header, which the boot loader strips (DMAs body from staging+2).
+; $0000 so no reader infers a real address.
+        * = $0000
 
 ui_tiles_start:
 

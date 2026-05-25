@@ -12,7 +12,7 @@
 ; KERNAL-LOAD a disk file into staging RAM, then DMA it up to an Attic bank.
 LOAD_ASSET .macro name, namelen, size, attic_mb, attic_addr, attic_bank
 -
-        lda #$00
+        lda #TILESET_STAGE_BANK         ; .A = data bank (5); .X = filename bank (0)
         ldx #$00
         jsr KERNAL_SETBNK
         lda #0
@@ -36,7 +36,7 @@ LOAD_ASSET .macro name, namelen, size, attic_mb, attic_addr, attic_bank
         .byte $00
         .word \size
         .word TILESET_STAGE_ADDR + 2
-        .byte $00
+        .byte TILESET_STAGE_BANK
         .word \attic_addr
         .byte \attic_bank
         .byte $00
@@ -123,6 +123,10 @@ tiles_init_palette:
 
 ;---------------------------------------------------------------------------------------
 ; Stage 2: Attic -> char RAM
+;
+; Every tile is DMA'd resident at boot. When the art outgrows char RAM, this
+; becomes an on-demand Attic->char-RAM cache instead -- see "Stream tiles from
+; Attic" in TODO.md.
 ;---------------------------------------------------------------------------------------
 
 tiles_load:

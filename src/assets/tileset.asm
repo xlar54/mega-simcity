@@ -7,7 +7,11 @@
 
         .cpu "45gs02"
 
-        * = $6000
+; Origin is irrelevant: this is a position-independent data blob. The value only
+; sets the 2-byte PRG load-address header, which the boot loader strips (it DMAs
+; the body from staging+2 into Attic). $0000 so no reader infers a real address.
+        * = $0000
+tileset_start:
 
 ; TILE_WATER  (close blues $18-$1B, subtle horizontal ripple banding)
         ; TL cell
@@ -173,4 +177,4 @@
         .fill 192, $02
 
 tileset_end:
-        .cerror tileset_end - $6000 != 1792, "tileset body must match TILESET_BODY_SIZE"
+        .cerror tileset_end - tileset_start != 1792, "tileset body must match TILESET_BODY_SIZE"

@@ -1,9 +1,10 @@
 MEGA-SimCity
 ============
 
-A native MEGA65 city-builder scaffold inspired by SimCity. The display uses NCM
-mode at 320x200 pixels: 40 columns by 25 rows of 8x8 full-color cells. City tiles
-are 16x16 pixels (a 2x2 block of NCM cells). An 18x12-tile viewport scrolls over a
+A native MEGA65 city-builder scaffold inspired by SimCity. The display uses FCM
+mode (Full Colour Mode: 8x8 chars, one byte per pixel = an 8-bit palette index)
+at 320x200 pixels: 40 columns by 25 rows of 8x8 full-color cells. City tiles are
+16x16 pixels (a 2x2 block of FCM cells). An 18x12-tile viewport scrolls over a
 64x32-tile city map, framed by a top status bar and a left tool rail.
 
 Build
@@ -40,9 +41,9 @@ Architecture
 ------------
 
 At boot, `tileset` and `uitiles` are loaded from disk into a chip-RAM staging
-buffer, DMA-copied to Attic RAM, then DMA-copied into VIC-visible NCM character
-RAM. The graphics layer (`src/graphics/`) vendors a minimal MEGA65 FCM/NCM screen
-setup plus NCM character helpers.
+buffer, DMA-copied to Attic RAM, then DMA-copied into VIC-visible FCM character
+RAM. The graphics layer (`src/graphics/`) vendors a minimal MEGA65 FCM screen
+setup plus FCM character helpers.
 
 The runtime is split into focused modules, with the master loop and region
 dispatch in `main.asm`:
@@ -62,5 +63,6 @@ render -> reflect state onto sprites. Three sprites are used: 0 = mouse pointer,
 1 = yellow map cursor, 2 = black tool selector.
 
 Note: this is a 45GS02 target. `STZ` stores the Z register (not zero) on this CPU;
-use `LDA #0 / STA`. See `.claude/CLAUDE.md` for MEGA65 notes and gotchas, and
-`docs/PLAN.md` for the build-out plan.
+use `LDA #0 / STA`. See `.claude/CLAUDE.md` for MEGA65 notes and gotchas,
+`docs/PLAN.md` for the build-out plan, `MEMORY.md` for the memory map, and
+`TODO.md` for known issues and deferred/scaling work.
