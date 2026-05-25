@@ -113,6 +113,12 @@ tiles_init_palette:
         #SET_COLOR 28, 232, 148, 112   ; salmon body
         #SET_COLOR 29, 124,  68,  66   ; maroon canopy / accents
         #SET_COLOR 30,  44,  44,  60   ; navy treads / blade
+        ; road tile (8x8 cell)
+        #SET_COLOR 31, 113,  86,  66   ; top edge brown
+        #SET_COLOR 32, 102, 103,  99   ; asphalt
+        #SET_COLOR 33, 156, 155, 155   ; lane marking
+        #SET_COLOR 34,  63,  56,  49   ; bottom shadow
+        #SET_COLOR 35, 117,  85,  56   ; bottom edge brown
         rts
 
 ;---------------------------------------------------------------------------------------
