@@ -244,8 +244,12 @@ render_draw_tile:
 cell_to_char:
         cmp #$80                    ; bit 7 set -> literal char (N flag from the
         bcs _ctc_literal            ; caller's ldx is unreliable, so test via cmp)
-        cmp #TILE_ROAD
+        cmp #TILE_ROAD_H
         beq _ctc_road
+        cmp #TILE_ROAD_V
+        beq _ctc_road_v
+        cmp #TILE_ROAD_4WAY
+        beq _ctc_road_4way
         ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
         ; appear as a base type here -- they are painted/seeded as literal chars.
         asl
@@ -260,6 +264,12 @@ _ctc_literal:
         rts
 _ctc_road:
         lda #ROAD_CELL_CHAR
+        rts
+_ctc_road_v:
+        lda #ROAD_CELL_CHAR_V
+        rts
+_ctc_road_4way:
+        lda #ROAD_CELL_CHAR_4WAY
         rts
 
 ; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if

@@ -90,8 +90,10 @@ tileset_start:
         .byte $11,$14,$17,$10,$14,$12,$10,$14
         .byte $16,$10,$10,$15,$13,$11,$17,$15
 
-; TILE_ROAD  (char 8 / TL is the 8x8 road cell = ROAD_CELL_CHAR; rest unused)
-        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F   ; row 0: top edge brown
+; TILE_ROAD_H slot (chars 8-11). Char 8 (ROAD_CELL_CHAR) is the horizontal road
+; cell; char 9 (ROAD_CELL_CHAR_V) is the same art rotated 90 deg for vertical
+; road. The renderer picks H or V per cell from its neighbours (see city.asm).
+        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F   ; char 8 row 0: top edge brown
         .byte $20,$20,$20,$20,$20,$20,$20,$20   ; rows 1-5: asphalt
         .byte $20,$20,$20,$20,$20,$20,$20,$20
         .byte $20,$20,$21,$21,$21,$21,$20,$20   ; row 3: lane marking (cols 2-5)
@@ -99,15 +101,18 @@ tileset_start:
         .byte $20,$20,$20,$20,$20,$20,$20,$20
         .byte $22,$22,$22,$22,$22,$22,$22,$22   ; row 6: bottom shadow
         .byte $23,$23,$23,$23,$23,$23,$23,$23   ; row 7: bottom edge brown
-        .byte $05,$05,$05,$06,$05,$05,$05,$05
-        .byte $05,$05,$05,$05,$05,$05,$05,$05
-        .byte $05,$05,$05,$05,$05,$05,$06,$05
-        .byte $05,$05,$05,$05,$05,$05,$05,$05
-        .byte $05,$06,$05,$05,$05,$05,$05,$05
-        .byte $05,$05,$05,$05,$05,$06,$05,$05
-        .byte $05,$05,$05,$05,$05,$05,$05,$05
-        .byte $05,$05,$05,$06,$05,$05,$05,$05
-        .fill 128, $05
+        ; char 9: vertical road -- char 8 rotated 90 deg (curbs left/right, lane
+        ; stripe top-to-bottom at col 4).
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .fill 64, $20                           ; char 10 = 4-way junction (plain asphalt)
+        .fill 64, $05                           ; char 11 unused
 
 ; Chars 12-23 (the old 16x16 residential/commercial/industrial "box" tiles) are
 ; unused: zones now render from the 3x3 bordered cells at chars 32-58 below. The

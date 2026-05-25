@@ -70,7 +70,7 @@ _ip_ground:
         jmp _ip_paint
 
 _ip_road:
-        lda #TILE_ROAD
+        lda #TILE_ROAD_H
         sta selected_tile
         jmp _ip_paint
 

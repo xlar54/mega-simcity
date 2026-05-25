@@ -98,7 +98,7 @@ _cst_road_h:
         lda seed_x
         cmp #CITY_COLS
         beq _cst_road_v_setup
-        lda #TILE_ROAD
+        lda #TILE_ROAD_H
         jsr city_set_seed_tile
         inc seed_x
         jmp _cst_road_h
@@ -112,7 +112,7 @@ _cst_road_v:
         lda seed_y
         cmp #CITY_ROWS
         beq _cst_zones
-        lda #TILE_ROAD
+        lda #TILE_ROAD_V            ; vertical road segment
         jsr city_set_seed_tile
         inc seed_y
         jmp _cst_road_v
@@ -248,7 +248,7 @@ game_tick:
 
 city_paint_selected:
         lda selected_tile
-        cmp #TILE_ROAD
+        cmp #TILE_ROAD_H
         beq _cps_road
         cmp #TILE_GROUND
         beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
@@ -256,7 +256,7 @@ city_paint_selected:
         bcc _cps_2x2                ; water -> 2x2
         cmp #TILE_POWER
         bcs _cps_2x2                ; power and above
-        jmp _cps_zone               ; residential / commercial / industrial
+        jmp cps_zone                ; residential / commercial / industrial
 
 _cps_2x2:
         ; 16x16 tool (water/power): stamp the 2x2 block only on all-ground cells.
@@ -282,11 +282,13 @@ _cps_road:
         clc
         adc mouse_cell_x
         sta city_ptr_x
+        sta road_cx
         lda view_y
         asl
         clc
         adc mouse_cell_y
         sta city_ptr_y
+        sta road_cy
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z             ; A = existing cell
@@ -295,21 +297,193 @@ _cps_road:
         ldx selected_tile
         cpx #TILE_GROUND
         bne _cps_road_build
+        ; bulldozer: clear anything but water
         cmp #TILE_WATER
-        beq _cps_road_skip          ; bulldozer can't touch water
-        bra _cps_road_write
-_cps_road_build:
-        cmp #TILE_GROUND
-        bne _cps_road_skip          ; non-bulldozer: only on ground
-_cps_road_write:
-        lda selected_tile
+        beq _cps_road_skip
+        lda #TILE_GROUND
         ldz #0
         sta [MAP_PTR],z
-        jmp render_redraw_cell_tile     ; city_ptr_* still = painted cell
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr render_redraw_cell_tile
+        jmp road_refresh_neighbors      ; roads above/below may re-orient
+_cps_road_build:
+        cmp #TILE_GROUND
+        bne _cps_road_skip          ; only on ground
+        lda #TILE_ROAD_H
+        ldz #0
+        sta [MAP_PTR],z
+        jsr road_refresh                ; pick this cell's orientation + redraw
+        jmp road_refresh_neighbors      ; roads above/below may re-orient
 _cps_road_skip:
         rts
 
-_cps_zone:
+; --- Road orientation -----------------------------------------------------
+; A road cell renders per its neighbours, stored in the cell value:
+;   TILE_ROAD_4WAY  - a road on all four sides (plain asphalt square)
+;   TILE_ROAD_V     - else, a road directly north or south (vertical)
+;   TILE_ROAD_H     - otherwise (horizontal)
+; This is recomputed for a painted/bulldozed cell and ALL four neighbours (the
+; 4-way test depends on every side), so runs and junctions auto-orient as drawn.
+
+; Carry SET if cell value A is a road (any orientation).
+is_road_value:
+        cmp #TILE_ROAD_H
+        beq _irv_yes
+        cmp #TILE_ROAD_V
+        beq _irv_yes
+        cmp #TILE_ROAD_4WAY
+        beq _irv_yes
+        clc
+        rts
+_irv_yes:
+        sec
+        rts
+
+; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it is a road.
+road_at_ptr:
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jmp is_road_value
+
+; Re-orient and redraw the road cell at (road_cx, road_cy). No-op if not a road.
+; Counts road neighbours: all four -> 4-way; north/south present -> vertical;
+; otherwise horizontal.
+road_refresh:
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcc _rr_done
+        lda #0
+        sta road_count
+        sta road_ns
+        ; north (road_cx, road_cy-1)
+        lda road_cy
+        beq _rr_south
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sec
+        sbc #1
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcc _rr_south
+        inc road_count
+        inc road_ns
+_rr_south:
+        lda road_cy
+        cmp #CELL_ROWS-1
+        bcs _rr_west
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        clc
+        adc #1
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcc _rr_west
+        inc road_count
+        inc road_ns
+_rr_west:
+        lda road_cx
+        beq _rr_east
+        lda road_cx
+        sec
+        sbc #1
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcc _rr_east
+        inc road_count
+_rr_east:
+        lda road_cx
+        cmp #CELL_COLS-1
+        bcs _rr_decide
+        lda road_cx
+        clc
+        adc #1
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcc _rr_decide
+        inc road_count
+_rr_decide:
+        lda road_count
+        cmp #4
+        beq _rr_4way
+        lda road_ns
+        bne _rr_vertical
+        lda #TILE_ROAD_H
+        bra _rr_store
+_rr_4way:
+        lda #TILE_ROAD_4WAY
+        bra _rr_store
+_rr_vertical:
+        lda #TILE_ROAD_V
+_rr_store:
+        sta road_tmp
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda road_tmp
+        ldz #0
+        sta [MAP_PTR],z
+        jmp render_redraw_cell_tile     ; city_ptr_* = (road_cx, road_cy)
+_rr_done:
+        rts
+
+; Re-orient the four road cells around (road_cx, road_cy). All four are checked
+; because adding/removing this cell can change a neighbour's 4-way status.
+road_refresh_neighbors:
+        lda road_cx
+        sta road_cx_save
+        lda road_cy
+        sta road_cy_save
+        ; north
+        lda road_cy_save
+        beq _rrn_south
+        dec road_cy
+        jsr road_refresh
+_rrn_south:
+        lda road_cy_save
+        sta road_cy
+        cmp #CELL_ROWS-1
+        bcs _rrn_west
+        inc road_cy
+        jsr road_refresh
+_rrn_west:
+        lda road_cy_save
+        sta road_cy
+        lda road_cx_save
+        beq _rrn_east
+        dec road_cx
+        jsr road_refresh
+_rrn_east:
+        lda road_cx_save
+        sta road_cx
+        cmp #CELL_COLS-1
+        bcs _rrn_done
+        inc road_cx
+        jsr road_refresh
+_rrn_done:
+        lda road_cx_save
+        sta road_cx
+        lda road_cy_save
+        sta road_cy
+        rts
+
+; Zone paint path (global label: it is reached past the road-orientation helpers
+; above, which would otherwise break a cheap label's scope).
+cps_zone:
         ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
         lda view_x
         asl
@@ -595,4 +769,18 @@ zone_dy:
 zone_char_base:
         .byte 0
 zone_tmp:
+        .byte 0
+road_cx:
+        .byte 0
+road_cy:
+        .byte 0
+road_cx_save:
+        .byte 0
+road_cy_save:
+        .byte 0
+road_count:
+        .byte 0
+road_ns:
+        .byte 0
+road_tmp:
         .byte 0

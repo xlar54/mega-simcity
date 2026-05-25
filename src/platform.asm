@@ -209,7 +209,7 @@ CELL_MAP_SIZE           = CELL_COLS * CELL_ROWS
 
 TILE_WATER              = 0
 TILE_GROUND             = 1
-TILE_ROAD               = 2
+TILE_ROAD_H             = 2
 TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
@@ -221,9 +221,16 @@ ZONE_SIZE               = 3      ; 3x3 cells
 CITY_TILE_TYPE_COUNT    = 7
 CITY_CHARS_PER_TILE     = 4
 CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
-; A road is a single 8x8 cell; it always renders this one char (the road tile's
-; top-left quadrant) regardless of its position within a 16x16 tile.
-ROAD_CELL_CHAR          = TILE_ROAD * CITY_CHARS_PER_TILE
+; A road is a single 8x8 cell. It renders horizontal (ROAD_CELL_CHAR) or vertical
+; (ROAD_CELL_CHAR_V = char 8 rotated) depending on whether a road sits directly
+; above/below it; the paint path picks the orientation (see city.asm road_*).
+ROAD_CELL_CHAR          = TILE_ROAD_H * CITY_CHARS_PER_TILE
+ROAD_CELL_CHAR_V        = ROAD_CELL_CHAR + 1   ; vertical road (char 8 rotated)
+ROAD_CELL_CHAR_4WAY     = ROAD_CELL_CHAR + 2   ; 4-way junction (plain asphalt)
+; Render-only cell values (never tool ids) marking a road cell's orientation;
+; TILE_ROAD_H itself stays horizontal.
+TILE_ROAD_V             = 7   ; road directly north or south -> vertical
+TILE_ROAD_4WAY          = 8   ; roads on all four sides -> plain asphalt square
 ; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
 ; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
 ; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;

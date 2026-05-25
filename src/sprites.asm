@@ -116,7 +116,7 @@ sprites_refresh:
         ; Cursor size follows the tool footprint: road -> 8x8 (sprite 3),
         ; zones -> 24x24 (sprite 3, Y-expanded), everything else -> 16x16 (sprite 1).
         lda selected_tile
-        cmp #TILE_ROAD
+        cmp #TILE_ROAD_H
         beq _sr_road
         cmp #TILE_GROUND
         beq _sr_road                ; bulldozer also uses the 8x8 cursor

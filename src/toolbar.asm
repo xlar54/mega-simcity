@@ -143,7 +143,7 @@ _thc_row:
         rts                         ; other slots: selected, no paint tile yet
 
 _thc_road:
-        lda #TILE_ROAD
+        lda #TILE_ROAD_H
         sta selected_tile
         rts
 _thc_residential:
