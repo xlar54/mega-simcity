@@ -162,16 +162,15 @@ _rv_col:
         clc
         lda view_x
         adc render_tile_x
+        asl                         ; cell_x = (view_x + tile_x) * 2
         sta city_ptr_x
         clc
         lda view_y
         adc render_tile_y
+        asl                         ; cell_y = (view_y + tile_y) * 2
         sta city_ptr_y
-        jsr city_ptr_for_xy
-
-        ldy #0
-        lda (PTR2),y
-        jsr render_draw_16x16_tile
+        jsr city_cell_ptr
+        jsr render_draw_tile
 
         inc render_tile_x
         lda render_tile_x
@@ -184,12 +183,10 @@ _rv_col:
         bne _rv_row
         rts
 
-render_draw_16x16_tile:
-        sta render_tile_id
-        asl
-        asl
-        sta render_char_base
-
+; Draw a 16x16 tile as its four 8x8 cells. PTR2 = the tile's top-left cell;
+; each cell renders its type's quadrant (type*4 + parity), except a road cell
+; which always renders the single 8x8 ROAD_CELL_CHAR.
+render_draw_tile:
         lda render_tile_x
         asl
         clc
@@ -202,35 +199,56 @@ render_draw_16x16_tile:
         adc #MAIN_ROW
         sta render_screen_row
 
-        lda render_char_base
+        ldy #0                      ; TL cell, parity 0
+        lda (PTR2),y
+        ldx #0
+        jsr cell_to_char
         ldx render_screen_col
         ldy render_screen_row
         jsr set_fcm_char
 
-        lda render_char_base
-        clc
-        adc #1
+        ldy #1                      ; TR cell, parity 1
+        lda (PTR2),y
+        ldx #1
+        jsr cell_to_char
         ldx render_screen_col
         inx
         ldy render_screen_row
         jsr set_fcm_char
 
-        lda render_char_base
-        clc
-        adc #2
+        ldy #CELL_COLS              ; BL cell, parity 2
+        lda (PTR2),y
+        ldx #2
+        jsr cell_to_char
         ldx render_screen_col
         ldy render_screen_row
         iny
         jsr set_fcm_char
 
-        lda render_char_base
-        clc
-        adc #3
+        ldy #CELL_COLS+1           ; BR cell, parity 3
+        lda (PTR2),y
+        ldx #3
+        jsr cell_to_char
         ldx render_screen_col
         inx
         ldy render_screen_row
         iny
         jsr set_fcm_char
+        rts
+
+; A = cell tile-type, X = parity (0-3) -> A = char offset to draw.
+cell_to_char:
+        cmp #TILE_ROAD
+        beq _ctc_road
+        asl
+        asl
+        sta render_char_base
+        txa
+        clc
+        adc render_char_base
+        rts
+_ctc_road:
+        lda #ROAD_CELL_CHAR
         rts
 
 render_col:

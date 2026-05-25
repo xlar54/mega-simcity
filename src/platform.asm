@@ -170,11 +170,18 @@ MOUSE_SCROLL_DOWN       = $08
 MOUSE_POT_PORT1_SELECT  = $7F
 CPU_40MHZ_BIT           = $40
 
+; The map is stored at 8x8-cell resolution (CELL_*). The viewport, cursor,
+; hit-testing and scrolling still work in 16x16 tiles (CITY_*); a 16x16 tile is
+; a 2x2 block of same-type cells, so tile (tx,ty) maps to cell (tx*2,ty*2).
 CITY_COLS               = 64
 CITY_ROWS               = 32
 CITY_MAP_SIZE           = CITY_COLS * CITY_ROWS
 CITY_VIEW_MAX_X         = CITY_COLS - MAIN_TILE_COLS
 CITY_VIEW_MAX_Y         = CITY_ROWS - MAIN_TILE_ROWS
+
+CELL_COLS               = CITY_COLS * 2
+CELL_ROWS               = CITY_ROWS * 2
+CELL_MAP_SIZE           = CELL_COLS * CELL_ROWS
 
 TILE_WATER              = 0
 TILE_GROUND             = 1
@@ -186,6 +193,9 @@ TILE_POWER              = 6
 CITY_TILE_TYPE_COUNT    = 7
 CITY_CHARS_PER_TILE     = 4
 CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
+; A road is a single 8x8 cell; it always renders this one char (the road tile's
+; top-left quadrant) regardless of its position within a 16x16 tile.
+ROAD_CELL_CHAR          = TILE_ROAD * CITY_CHARS_PER_TILE
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 
 TILESET_STAGE_ADDR      = $6000

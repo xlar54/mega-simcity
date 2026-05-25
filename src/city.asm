@@ -1,6 +1,19 @@
 ;=======================================================================================
 ; City state and coarse viewport scrolling.
+;
+; The map is stored at 8x8-cell resolution in city_cells (CELL_COLS x CELL_ROWS,
+; one tile-type byte per cell). Tools currently place 16x16 tiles, which are 2x2
+; blocks of same-type cells: tile (tx,ty) maps to cell (tx*2, ty*2). cursor_x/y
+; and view_x/y stay in 16x16 tile units.
 ;=======================================================================================
+
+; Stamp a 16x16 tile (2x2 same-type cell block). Args: type, tile_x, tile_y.
+SEED_TILE .macro type, tx, ty
+        lda #\type
+        ldx #\tx
+        ldy #\ty
+        jsr city_stamp_tile
+.endmacro
 
 city_init:
         lda #8
@@ -24,24 +37,26 @@ city_init:
         jsr city_clamp_view_to_cursor
         rts
 
+; Fill every cell with TILE_GROUND (CELL_MAP_SIZE bytes via a page loop).
 city_fill_ground:
-        ldx #0
-_cfg_loop:
+        lda #<city_cells
+        sta PTR
+        lda #>city_cells
+        sta PTR+1
+        ldx #(>CELL_MAP_SIZE)       ; whole pages to fill
+        ldy #0
         lda #TILE_GROUND
-        sta city_map+$000,x
-        sta city_map+$100,x
-        sta city_map+$200,x
-        sta city_map+$300,x
-        sta city_map+$400,x
-        sta city_map+$500,x
-        sta city_map+$600,x
-        sta city_map+$700,x
-        inx
-        bne _cfg_loop
+_cfg_byte:
+        sta (PTR),y
+        iny
+        bne _cfg_byte
+        inc PTR+1
+        dex
+        bne _cfg_byte
         rts
 
 city_seed_terrain:
-        ; Coastal water band.
+        ; Coastal water band (tile rows 0-4).
         lda #0
         sta seed_y
 _cst_water_rows:
@@ -91,45 +106,64 @@ _cst_road_v:
         jmp _cst_road_v
 
 _cst_zones:
-        lda #TILE_RESIDENTIAL
-        sta city_map+(10*CITY_COLS)+15
-        sta city_map+(10*CITY_COLS)+16
-        sta city_map+(11*CITY_COLS)+15
-        sta city_map+(11*CITY_COLS)+16
-        sta city_map+(12*CITY_COLS)+18
-        sta city_map+(13*CITY_COLS)+18
+        #SEED_TILE TILE_RESIDENTIAL, 15, 10
+        #SEED_TILE TILE_RESIDENTIAL, 16, 10
+        #SEED_TILE TILE_RESIDENTIAL, 15, 11
+        #SEED_TILE TILE_RESIDENTIAL, 16, 11
+        #SEED_TILE TILE_RESIDENTIAL, 18, 12
+        #SEED_TILE TILE_RESIDENTIAL, 18, 13
 
-        lda #TILE_COMMERCIAL
-        sta city_map+(16*CITY_COLS)+25
-        sta city_map+(16*CITY_COLS)+26
-        sta city_map+(17*CITY_COLS)+25
-        sta city_map+(18*CITY_COLS)+28
+        #SEED_TILE TILE_COMMERCIAL, 25, 16
+        #SEED_TILE TILE_COMMERCIAL, 26, 16
+        #SEED_TILE TILE_COMMERCIAL, 25, 17
+        #SEED_TILE TILE_COMMERCIAL, 28, 18
 
-        lda #TILE_INDUSTRIAL
-        sta city_map+(21*CITY_COLS)+16
-        sta city_map+(21*CITY_COLS)+17
-        sta city_map+(22*CITY_COLS)+16
-        sta city_map+(23*CITY_COLS)+17
+        #SEED_TILE TILE_INDUSTRIAL, 16, 21
+        #SEED_TILE TILE_INDUSTRIAL, 17, 21
+        #SEED_TILE TILE_INDUSTRIAL, 16, 22
+        #SEED_TILE TILE_INDUSTRIAL, 17, 23
 
-        lda #TILE_POWER
-        sta city_map+(8*CITY_COLS)+28
+        #SEED_TILE TILE_POWER, 28, 8
 
-        lda #TILE_WATER
-        sta city_map+(6*CITY_COLS)+47
-        sta city_map+(6*CITY_COLS)+48
-        sta city_map+(7*CITY_COLS)+48
-        sta city_map+(8*CITY_COLS)+49
+        #SEED_TILE TILE_WATER, 47, 6
+        #SEED_TILE TILE_WATER, 48, 6
+        #SEED_TILE TILE_WATER, 48, 7
+        #SEED_TILE TILE_WATER, 49, 8
         rts
 
+; Stamp a 16x16 tile as a 2x2 same-type cell block. A=type, X=tile_x, Y=tile_y.
+city_stamp_tile:
+        sta stamp_type
+        txa
+        asl
+        sta city_ptr_x              ; cell_x = tile_x * 2
+        tya
+        asl
+        sta city_ptr_y              ; cell_y = tile_y * 2
+        jsr city_cell_ptr
+        lda stamp_type
+        jmp city_stamp_2x2
+
+; Stamp a 2x2 same-type block from seed_x/seed_y (tile coords). A=type.
 city_set_seed_tile:
         pha
-        lda seed_y
-        sta city_ptr_y
         lda seed_x
+        asl
         sta city_ptr_x
-        jsr city_ptr_for_xy
+        lda seed_y
+        asl
+        sta city_ptr_y
+        jsr city_cell_ptr
         pla
+; Write A into the 2x2 cell block whose top-left is PTR2.
+city_stamp_2x2:
         ldy #0
+        sta (PTR2),y
+        ldy #1
+        sta (PTR2),y
+        ldy #CELL_COLS
+        sta (PTR2),y
+        ldy #CELL_COLS+1
         sta (PTR2),y
         rts
 
@@ -186,13 +220,14 @@ game_tick:
 
 city_paint_selected:
         lda cursor_x
-        sta city_ptr_x
+        asl
+        sta city_ptr_x              ; cell_x = cursor_x * 2
         lda cursor_y
-        sta city_ptr_y
-        jsr city_ptr_for_xy
-        ldy #0
+        asl
+        sta city_ptr_y              ; cell_y = cursor_y * 2
+        jsr city_cell_ptr
         lda selected_tile
-        sta (PTR2),y
+        jsr city_stamp_2x2
         jmp render_mark_view_dirty
 
 city_clamp_view_to_cursor:
@@ -246,7 +281,8 @@ _ccvt_max_check:
         sta view_y
 +       rts
 
-city_ptr_for_xy:
+; PTR2 = city_cells + city_ptr_y*CELL_COLS + city_ptr_x  (cell coordinates).
+city_cell_ptr:
         lda city_ptr_y
         sta MULTINA
         lda #0
@@ -254,7 +290,7 @@ city_ptr_for_xy:
         sta MULTINA+2
         sta MULTINA+3
 
-        lda #CITY_COLS
+        lda #CELL_COLS
         sta MULTINB
         lda #0
         sta MULTINB+1
@@ -270,10 +306,10 @@ city_ptr_for_xy:
         sta city_ptr_hi
 
         clc
-        lda #<city_map
+        lda #<city_cells
         adc city_ptr_lo
         sta PTR2
-        lda #>city_map
+        lda #>city_cells
         adc city_ptr_hi
         sta PTR2+1
         rts
@@ -307,6 +343,8 @@ city_ptr_lo:
         .byte 0
 city_ptr_hi:
         .byte 0
+stamp_type:
+        .byte 0
 
-city_map:
-        .fill CITY_MAP_SIZE, TILE_GROUND
+city_cells:
+        .fill CELL_MAP_SIZE, TILE_GROUND
