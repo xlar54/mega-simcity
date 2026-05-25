@@ -108,7 +108,7 @@ VIC_H640_BIT            = %00000000
 VIC_SPRH640_BIT         = %00000000
 .endif
 
-UI_TOP_ROWS             = 5
+UI_TOP_ROWS             = 3
 UI_LEFT_COLS            = 4
 UI_RIGHT_COLS           = 0
 UI_BOTTOM_ROWS          = 0
@@ -117,7 +117,7 @@ UI_BOTTOM_ROWS          = 0
 ; these as constants lets us later widen the viewport or hide the top/left UI
 ; chrome without touching render or mouse hit-testing code.
 MAP_OVERLAP_LEFT_COLS   = 0      ; map starts after the toolbar (no left overlap)
-MAP_OVERLAP_TOP_ROWS    = 4
+MAP_OVERLAP_TOP_ROWS    = 2
 MAP_RIGHT_MARGIN_COLS   = UI_RIGHT_COLS
 MAP_BOTTOM_MARGIN_ROWS  = UI_BOTTOM_ROWS
 

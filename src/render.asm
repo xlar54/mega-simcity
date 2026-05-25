@@ -62,16 +62,6 @@ render_ui:
         ldy #2
         jsr render_fill_rect
 
-        lda #UI_TILE_FRAME
-        ldx #0
-        ldy #3
-        jsr render_fill_rect
-
-        lda #UI_TILE_FRAME
-        ldx #0
-        ldy #4
-        jsr render_fill_rect
-
         ; Centered title on the top menu bar.
         lda #UI_TEXT_M
         ldx #16
