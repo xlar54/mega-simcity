@@ -101,7 +101,6 @@ mouse_read_motion:
         jsr mouse_move_check
         sty mouse_old_pot_x
         bcc +
-        jsr mouse_double_delta
         jsr mouse_apply_delta_x
 +
         lda mouse_poty_sample
@@ -109,20 +108,18 @@ mouse_read_motion:
         jsr mouse_move_check
         sty mouse_old_pot_y
         bcc _mrm_done_y
-        ; FCM display fetches make POTY wobble by one 1351 tick. The samples
-        ; are masked with #$7E, so one tick is usually +/-2, not +/-1.
-        ; Treat that as noise so a stationary pointer at the top edge does not
-        ; scroll back up.
+        ; FCM display fetches make POTY wobble by one 1351 tick. With the #$7F
+        ; mask that tick is +/-1, so reject a single-tick delta as noise to keep
+        ; a stationary pointer from drifting (and edge-scrolling) at the top.
         cpx #0
         bne _mrm_check_y_neg_noise
-        cmp #3
+        cmp #2
         bcc _mrm_done_y
         bra _mrm_apply_y
 _mrm_check_y_neg_noise:
-        cmp #$FE
+        cmp #$FF
         bcs _mrm_done_y
 _mrm_apply_y:
-        jsr mouse_double_delta
         jsr mouse_apply_delta_y
 _mrm_done_y:
         lda mouse_saved_pra
@@ -199,7 +196,7 @@ _mrpx_loop:
         bne _mrpx_loop
         lda mouse_old_pot_x
 _mrpx_done:
-        and #$7E
+        and #$7F
         rts
 
 mouse_read_pot_y:
@@ -212,7 +209,7 @@ _mrpy_loop:
         bne _mrpy_loop
         lda mouse_old_pot_y
 _mrpy_done:
-        and #$7E
+        and #$7F
         rts
 
 mouse_read_buttons:
@@ -460,15 +457,6 @@ _mady_store:
         lda mouse_next+1
         sta mouse_y+1
 _mady_done:
-        rts
-
-mouse_double_delta:
-        asl
-        pha
-        txa
-        rol
-        tax
-        pla
         rts
 
 mouse_move_check:
