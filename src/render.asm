@@ -185,9 +185,9 @@ _rv_col:
         rts
 
 ; Draw a 16x16 tile as its four 8x8 cells. MAP_PTR = the tile's top-left cell in
-; Attic; each cell renders its type's quadrant (type*4 + parity), except a road
-; cell which always renders the single 8x8 ROAD_CELL_CHAR. Cells are read with
-; 32-bit indirect addressing ([MAP_PTR],z), z = 0/1/CELL_COLS/CELL_COLS+1.
+; Attic; each cell maps to a char via cell_to_char (type quadrant, literal char,
+; or road). Cells are read with 32-bit indirect addressing ([MAP_PTR],z),
+; z = 0/1/CELL_COLS/CELL_COLS+1.
 ; MAP_PTR ($F6-$F9) survives set_fcm_char, which only touches PTR ($FC-$FF).
 render_draw_tile:
         lda render_tile_x
@@ -239,17 +239,18 @@ render_draw_tile:
         jsr set_fcm_char
         rts
 
-; A = cell value, X = parity (0-3) -> A = char offset to draw. A cell byte with
-; bit 7 set is a literal char (low 7 bits); otherwise it is a tile type.
+; A = cell value, X = parity (0-3) -> A = char to draw.
+;   bit 7 set       -> literal char (low 7 bits)
+;   ROAD_CELL_FIRST..LAST -> road; the value IS the char (no arithmetic)
+;   otherwise       -> 2x2 tile type: char = type*4 + parity (water/ground/power)
 cell_to_char:
         cmp #$80                    ; bit 7 set -> literal char (N flag from the
         bcs _ctc_literal            ; caller's ldx is unreliable, so test via cmp)
-        cmp #TILE_ROAD_H
-        beq _ctc_road
-        cmp #TILE_ROAD_V
-        beq _ctc_road_v
-        cmp #TILE_ROAD_4WAY
-        beq _ctc_road_4way
+        cmp #ROAD_CELL_FIRST
+        bcc _ctc_type
+        cmp #ROAD_CELL_LAST+1
+        bcc _ctc_done               ; road: A already holds the char
+_ctc_type:
         ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
         ; appear as a base type here -- they are painted/seeded as literal chars.
         asl
@@ -258,18 +259,10 @@ cell_to_char:
         txa
         clc
         adc render_char_base
+_ctc_done:
         rts
 _ctc_literal:
         and #$7F
-        rts
-_ctc_road:
-        lda #ROAD_CELL_CHAR
-        rts
-_ctc_road_v:
-        lda #ROAD_CELL_CHAR_V
-        rts
-_ctc_road_4way:
-        lda #ROAD_CELL_CHAR_4WAY
         rts
 
 ; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if

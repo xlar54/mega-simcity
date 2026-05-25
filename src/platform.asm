@@ -209,7 +209,7 @@ CELL_MAP_SIZE           = CELL_COLS * CELL_ROWS
 
 TILE_WATER              = 0
 TILE_GROUND             = 1
-TILE_ROAD_H             = 2
+TILE_ROAD               = 2     ; tool id; road map cells use ROAD_CELL_* (below)
 TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
@@ -221,16 +221,28 @@ ZONE_SIZE               = 3      ; 3x3 cells
 CITY_TILE_TYPE_COUNT    = 7
 CITY_CHARS_PER_TILE     = 4
 CITY_CHAR_CURSOR        = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE
-; A road is a single 8x8 cell. It renders horizontal (ROAD_CELL_CHAR) or vertical
-; (ROAD_CELL_CHAR_V = char 8 rotated) depending on whether a road sits directly
-; above/below it; the paint path picks the orientation (see city.asm road_*).
-ROAD_CELL_CHAR          = TILE_ROAD_H * CITY_CHARS_PER_TILE
-ROAD_CELL_CHAR_V        = ROAD_CELL_CHAR + 1   ; vertical road (char 8 rotated)
-ROAD_CELL_CHAR_4WAY     = ROAD_CELL_CHAR + 2   ; 4-way junction (plain asphalt)
-; Render-only cell values (never tool ids) marking a road cell's orientation;
-; TILE_ROAD_H itself stays horizontal.
-TILE_ROAD_V             = 7   ; road directly north or south -> vertical
-TILE_ROAD_4WAY          = 8   ; roads on all four sides -> plain asphalt square
+; Road cells (1x1) live in a contiguous block whose cell value EQUALS its char
+; index (8..14), so cell_to_char maps a road with no arithmetic and the block can
+; grow (chars 15-23 are free) before it would reach TILE_POWER's chars at 24.
+; Orientation is chosen from a cell's road neighbours (see city.asm road_refresh).
+ROAD_CELL_H             = 8     ; horizontal
+ROAD_CELL_V             = 9     ; vertical (char 8 rotated 90 deg)
+ROAD_CELL_4WAY          = 10    ; roads on all four sides (plain asphalt square)
+ROAD_CELL_CURVE_NW      = 11    ; connects north + west
+ROAD_CELL_CURVE_NE      = 12    ; connects north + east
+ROAD_CELL_CURVE_SW      = 13    ; connects south + west
+ROAD_CELL_CURVE_SE      = 14    ; connects south + east
+ROAD_CELL_T_N           = 15    ; T-junction, connects N+E+W (closed south)
+ROAD_CELL_T_S           = 16    ; T-junction, connects S+E+W (closed north)
+ROAD_CELL_T_E           = 17    ; T-junction, connects N+S+E (closed west)
+ROAD_CELL_T_W           = 18    ; T-junction, connects N+S+W (closed east)
+ROAD_CELL_FIRST         = ROAD_CELL_H
+ROAD_CELL_LAST          = ROAD_CELL_T_W
+; Neighbour direction bits used by road_refresh to choose the orientation.
+ROAD_BIT_N              = 1
+ROAD_BIT_S              = 2
+ROAD_BIT_E              = 4
+ROAD_BIT_W              = 8
 ; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
 ; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
 ; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;

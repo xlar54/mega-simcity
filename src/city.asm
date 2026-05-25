@@ -98,7 +98,7 @@ _cst_road_h:
         lda seed_x
         cmp #CITY_COLS
         beq _cst_road_v_setup
-        lda #TILE_ROAD_H
+        lda #ROAD_CELL_H
         jsr city_set_seed_tile
         inc seed_x
         jmp _cst_road_h
@@ -112,7 +112,7 @@ _cst_road_v:
         lda seed_y
         cmp #CITY_ROWS
         beq _cst_zones
-        lda #TILE_ROAD_V            ; vertical road segment
+        lda #ROAD_CELL_V            ; vertical road segment
         jsr city_set_seed_tile
         inc seed_y
         jmp _cst_road_v
@@ -248,7 +248,7 @@ game_tick:
 
 city_paint_selected:
         lda selected_tile
-        cmp #TILE_ROAD_H
+        cmp #TILE_ROAD
         beq _cps_road
         cmp #TILE_GROUND
         beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
@@ -312,7 +312,7 @@ _cps_road:
 _cps_road_build:
         cmp #TILE_GROUND
         bne _cps_road_skip          ; only on ground
-        lda #TILE_ROAD_H
+        lda #ROAD_CELL_H
         ldz #0
         sta [MAP_PTR],z
         jsr road_refresh                ; pick this cell's orientation + redraw
@@ -321,25 +321,26 @@ _cps_road_skip:
         rts
 
 ; --- Road orientation -----------------------------------------------------
-; A road cell renders per its neighbours, stored in the cell value:
-;   TILE_ROAD_4WAY  - a road on all four sides (plain asphalt square)
-;   TILE_ROAD_V     - else, a road directly north or south (vertical)
-;   TILE_ROAD_H     - otherwise (horizontal)
-; This is recomputed for a painted/bulldozed cell and ALL four neighbours (the
-; 4-way test depends on every side), so runs and junctions auto-orient as drawn.
+; A road cell renders per its road neighbours, chosen by road_refresh and stored
+; in the cell value (ROAD_CELL_*):
+;   4 sides         -> ROAD_CELL_4WAY (plain asphalt square)
+;   3 sides         -> a T-junction (T_N/T_S/T_E/T_W; closed side gets a black border)
+;   2 perpendicular -> a curve (NW/NE/SW/SE) connecting those two sides
+;   north or south  -> ROAD_CELL_V (vertical)
+;   otherwise       -> ROAD_CELL_H (horizontal)
+; Recomputed for a painted/bulldozed cell and ALL four neighbours, since each of
+; those depends on every side, so runs/curves/junctions orient as drawn.
 
 ; Carry SET if cell value A is a road (any orientation).
 is_road_value:
-        cmp #TILE_ROAD_H
-        beq _irv_yes
-        cmp #TILE_ROAD_V
-        beq _irv_yes
-        cmp #TILE_ROAD_4WAY
-        beq _irv_yes
-        clc
-        rts
-_irv_yes:
+        cmp #ROAD_CELL_FIRST
+        bcc _irv_no
+        cmp #ROAD_CELL_LAST+1
+        bcs _irv_no
         sec
+        rts
+_irv_no:
+        clc
         rts
 
 ; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it is a road.
@@ -360,8 +361,7 @@ road_refresh:
         jsr road_at_ptr
         bcc _rr_done
         lda #0
-        sta road_count
-        sta road_ns
+        sta road_mask
         ; north (road_cx, road_cy-1)
         lda road_cy
         beq _rr_south
@@ -373,8 +373,9 @@ road_refresh:
         sta city_ptr_y
         jsr road_at_ptr
         bcc _rr_south
-        inc road_count
-        inc road_ns
+        lda road_mask
+        ora #ROAD_BIT_N
+        sta road_mask
 _rr_south:
         lda road_cy
         cmp #CELL_ROWS-1
@@ -387,8 +388,9 @@ _rr_south:
         sta city_ptr_y
         jsr road_at_ptr
         bcc _rr_west
-        inc road_count
-        inc road_ns
+        lda road_mask
+        ora #ROAD_BIT_S
+        sta road_mask
 _rr_west:
         lda road_cx
         beq _rr_east
@@ -400,7 +402,9 @@ _rr_west:
         sta city_ptr_y
         jsr road_at_ptr
         bcc _rr_east
-        inc road_count
+        lda road_mask
+        ora #ROAD_BIT_W
+        sta road_mask
 _rr_east:
         lda road_cx
         cmp #CELL_COLS-1
@@ -413,20 +417,62 @@ _rr_east:
         sta city_ptr_y
         jsr road_at_ptr
         bcc _rr_decide
-        inc road_count
+        lda road_mask
+        ora #ROAD_BIT_E
+        sta road_mask
 _rr_decide:
-        lda road_count
-        cmp #4
+        lda road_mask
+        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
         beq _rr_4way
-        lda road_ns
+        cmp #(ROAD_BIT_N|ROAD_BIT_W)
+        beq _rr_nw
+        cmp #(ROAD_BIT_N|ROAD_BIT_E)
+        beq _rr_ne
+        cmp #(ROAD_BIT_S|ROAD_BIT_W)
+        beq _rr_sw
+        cmp #(ROAD_BIT_S|ROAD_BIT_E)
+        beq _rr_se
+        cmp #(ROAD_BIT_N|ROAD_BIT_E|ROAD_BIT_W)
+        beq _rr_tn
+        cmp #(ROAD_BIT_S|ROAD_BIT_E|ROAD_BIT_W)
+        beq _rr_ts
+        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_E)
+        beq _rr_te
+        cmp #(ROAD_BIT_N|ROAD_BIT_S|ROAD_BIT_W)
+        beq _rr_tw
+        and #(ROAD_BIT_N|ROAD_BIT_S)   ; A still = road_mask
         bne _rr_vertical
-        lda #TILE_ROAD_H
+        lda #ROAD_CELL_H
         bra _rr_store
 _rr_4way:
-        lda #TILE_ROAD_4WAY
+        lda #ROAD_CELL_4WAY
+        bra _rr_store
+_rr_nw:
+        lda #ROAD_CELL_CURVE_NW
+        bra _rr_store
+_rr_ne:
+        lda #ROAD_CELL_CURVE_NE
+        bra _rr_store
+_rr_sw:
+        lda #ROAD_CELL_CURVE_SW
+        bra _rr_store
+_rr_se:
+        lda #ROAD_CELL_CURVE_SE
+        bra _rr_store
+_rr_tn:
+        lda #ROAD_CELL_T_N
+        bra _rr_store
+_rr_ts:
+        lda #ROAD_CELL_T_S
+        bra _rr_store
+_rr_te:
+        lda #ROAD_CELL_T_E
+        bra _rr_store
+_rr_tw:
+        lda #ROAD_CELL_T_W
         bra _rr_store
 _rr_vertical:
-        lda #TILE_ROAD_V
+        lda #ROAD_CELL_V
 _rr_store:
         sta road_tmp
         lda road_cx
@@ -778,9 +824,7 @@ road_cx_save:
         .byte 0
 road_cy_save:
         .byte 0
-road_count:
-        .byte 0
-road_ns:
+road_mask:
         .byte 0
 road_tmp:
         .byte 0

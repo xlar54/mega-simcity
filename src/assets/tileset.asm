@@ -90,9 +90,10 @@ tileset_start:
         .byte $11,$14,$17,$10,$14,$12,$10,$14
         .byte $16,$10,$10,$15,$13,$11,$17,$15
 
-; TILE_ROAD_H slot (chars 8-11). Char 8 (ROAD_CELL_CHAR) is the horizontal road
-; cell; char 9 (ROAD_CELL_CHAR_V) is the same art rotated 90 deg for vertical
-; road. The renderer picks H or V per cell from its neighbours (see city.asm).
+; Road tile block (chars 8-14; the road cell value equals its char index -- see
+; platform.asm ROAD_CELL_*): 8 horizontal, 9 vertical (char 8 rotated 90 deg),
+; 10 four-way (plain asphalt), 11-14 curves NW/NE/SW/SE. The renderer picks the
+; orientation per cell from its road neighbours (see city.asm road_refresh).
         .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F   ; char 8 row 0: top edge brown
         .byte $20,$20,$20,$20,$20,$20,$20,$20   ; rows 1-5: asphalt
         .byte $20,$20,$20,$20,$20,$20,$20,$20
@@ -112,12 +113,83 @@ tileset_start:
         .byte $23,$22,$20,$20,$20,$20,$20,$1F
         .byte $23,$22,$20,$20,$20,$20,$20,$1F
         .fill 64, $20                           ; char 10 = 4-way junction (plain asphalt)
-        .fill 64, $05                           ; char 11 unused
+        ; char 11 = curve NW (connects N+W; ground rounds the SE outside corner)
+        .byte $20,$20,$20,$20,$21,$20,$20,$1F
+        .byte $20,$20,$20,$20,$21,$20,$20,$1F
+        .byte $20,$20,$20,$21,$20,$20,$20,$1F
+        .byte $20,$20,$21,$20,$20,$20,$20,$1F
+        .byte $20,$21,$20,$20,$20,$20,$20,$1F
+        .byte $20,$20,$20,$20,$20,$20,$20,$13
+        .byte $20,$20,$20,$20,$20,$20,$11,$16
+        .byte $1F,$1F,$1F,$1F,$1F,$12,$15,$14
+        ; char 12 = curve NE (connects N+E; ground rounds the SW outside corner)
+        .byte $1F,$20,$20,$21,$20,$20,$20,$20
+        .byte $1F,$20,$20,$21,$20,$20,$20,$20
+        .byte $1F,$20,$20,$20,$21,$20,$20,$20
+        .byte $1F,$20,$20,$20,$20,$21,$20,$20
+        .byte $1F,$20,$20,$20,$20,$20,$21,$20
+        .byte $13,$20,$20,$20,$20,$20,$20,$20
+        .byte $16,$11,$20,$20,$20,$20,$20,$20
+        .byte $14,$15,$12,$1F,$1F,$1F,$1F,$1F
+        ; char 13 = curve SW (connects S+W; ground rounds the NE outside corner)
+        .byte $1F,$1F,$1F,$1F,$1F,$12,$15,$14
+        .byte $20,$20,$20,$20,$20,$20,$11,$16
+        .byte $20,$20,$20,$20,$20,$20,$20,$13
+        .byte $20,$21,$20,$20,$20,$20,$20,$1F
+        .byte $20,$20,$21,$20,$20,$20,$20,$1F
+        .byte $20,$20,$20,$21,$20,$20,$20,$1F
+        .byte $20,$20,$20,$20,$21,$20,$20,$1F
+        .byte $20,$20,$20,$20,$21,$20,$20,$1F
+        ; char 14 = curve SE (connects S+E; ground rounds the NW outside corner)
+        .byte $14,$15,$12,$1F,$1F,$1F,$1F,$1F
+        .byte $16,$11,$20,$20,$20,$20,$20,$20
+        .byte $13,$20,$20,$20,$20,$20,$20,$20
+        .byte $1F,$20,$20,$20,$20,$20,$21,$20
+        .byte $1F,$20,$20,$20,$20,$21,$20,$20
+        .byte $1F,$20,$20,$20,$21,$20,$20,$20
+        .byte $1F,$20,$20,$21,$20,$20,$20,$20
+        .byte $1F,$20,$20,$21,$20,$20,$20,$20
 
-; Chars 12-23 (the old 16x16 residential/commercial/industrial "box" tiles) are
-; unused: zones now render from the 3x3 bordered cells at chars 32-58 below. The
-; 12 slots are kept blank only so TILE_POWER stays at chars 24-27.
-        .fill 12 * 64, $00                      ; chars 12-23: unused
+        ; char 15 = T-junction T_N (connects N+E+W; dark border 1px in from south)
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        ; char 16 = T-junction T_S (connects S+E+W; ground on the closed north edge)
+        .byte $13,$15,$15,$11,$11,$10,$17,$14
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        ; char 17 = T-junction T_E (connects N+S+E; dark border 1px in from west)
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        .byte $20,$22,$20,$20,$20,$20,$20,$20
+        ; char 18 = T-junction T_W (connects N+S+W; ground on the closed east edge)
+        .byte $20,$20,$20,$20,$20,$20,$20,$13
+        .byte $20,$20,$20,$20,$20,$20,$20,$11
+        .byte $20,$20,$20,$20,$20,$20,$20,$16
+        .byte $20,$20,$20,$20,$20,$20,$20,$12
+        .byte $20,$20,$20,$20,$20,$20,$20,$15
+        .byte $20,$20,$20,$20,$20,$20,$20,$10
+        .byte $20,$20,$20,$20,$20,$20,$20,$14
+        .byte $20,$20,$20,$20,$20,$20,$20,$17
+
+; Chars 19-23 are unused road-block headroom (room for more road tiles). Kept
+; blank so TILE_POWER stays at chars 24-27.
+        .fill 5 * 64, $00                       ; chars 19-23: unused
 
 ; TILE_POWER
         .byte $02,$02,$02,$0A,$0A,$02,$02,$02
