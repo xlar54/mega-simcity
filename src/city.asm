@@ -170,6 +170,31 @@ city_stamp_2x2:
         sta [MAP_PTR],z
         rts
 
+; Carry SET if all four cells of the 2x2 block at MAP_PTR are TILE_GROUND, so a
+; 16x16 tile (water/power) may be placed there; carry CLEAR if any is occupied.
+city_2x2_all_ground:
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _c2g_no
+        ldz #1
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _c2g_no
+        ldz #CELL_COLS
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _c2g_no
+        ldz #CELL_COLS+1
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _c2g_no
+        sec
+        rts
+_c2g_no:
+        clc
+        rts
+
 game_apply_input:
         lda input_action
         beq _gai_done
@@ -234,7 +259,7 @@ city_paint_selected:
         jmp _cps_zone               ; residential / commercial / industrial
 
 _cps_2x2:
-        ; 16x16 tool: stamp the 2x2 cell block at the cursor tile.
+        ; 16x16 tool (water/power): stamp the 2x2 block only on all-ground cells.
         lda cursor_x
         asl
         sta city_ptr_x              ; cell_x = cursor_x * 2
@@ -242,6 +267,10 @@ _cps_2x2:
         asl
         sta city_ptr_y              ; cell_y = cursor_y * 2
         jsr city_cell_ptr
+        jsr city_2x2_all_ground
+        bcs _cps_2x2_write
+        rts
+_cps_2x2_write:
         lda selected_tile
         jsr city_stamp_2x2
         jmp render_redraw_cell_tile     ; city_ptr_* still = cursor cell
@@ -259,10 +288,26 @@ _cps_road:
         adc mouse_cell_y
         sta city_ptr_y
         jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z             ; A = existing cell
+        ; The bulldozer (TILE_GROUND tool) clears anything but water; every other
+        ; 1x1 tool may only build on ground.
+        ldx selected_tile
+        cpx #TILE_GROUND
+        bne _cps_road_build
+        cmp #TILE_WATER
+        beq _cps_road_skip          ; bulldozer can't touch water
+        bra _cps_road_write
+_cps_road_build:
+        cmp #TILE_GROUND
+        bne _cps_road_skip          ; non-bulldozer: only on ground
+_cps_road_write:
         lda selected_tile
         ldz #0
         sta [MAP_PTR],z
         jmp render_redraw_cell_tile     ; city_ptr_* still = painted cell
+_cps_road_skip:
+        rts
 
 _cps_zone:
         ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
@@ -285,6 +330,10 @@ _cps_zone_setx:
 _cps_zone_sety:
         sta zone_org_y
 
+        jsr city_zone_all_ground    ; a zone may only be placed on all-ground cells
+        bcs _cps_zone_do
+        rts
+_cps_zone_do:
         lda selected_tile
         jsr city_stamp_zone
 
@@ -373,6 +422,43 @@ _csz_col:
         lda zone_dy
         cmp #ZONE_SIZE
         bne _csz_row
+        rts
+
+; Carry SET if all nine cells of the 3x3 zone at (zone_org_x, zone_org_y) are
+; TILE_GROUND, so a zone may be placed there; carry CLEAR if any is occupied.
+; Clobbers zone_dx/dy and city_ptr_* (re-set by city_stamp_zone on the way in).
+city_zone_all_ground:
+        lda #0
+        sta zone_dy
+_czg_row:
+        lda #0
+        sta zone_dx
+_czg_col:
+        clc
+        lda zone_org_x
+        adc zone_dx
+        sta city_ptr_x
+        clc
+        lda zone_org_y
+        adc zone_dy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _czg_no
+        inc zone_dx
+        lda zone_dx
+        cmp #ZONE_SIZE
+        bne _czg_col
+        inc zone_dy
+        lda zone_dy
+        cmp #ZONE_SIZE
+        bne _czg_row
+        sec
+        rts
+_czg_no:
+        clc
         rts
 
 city_clamp_view_to_cursor:
