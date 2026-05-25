@@ -149,7 +149,9 @@ clear_color_ram_fcm:
         asl
         asl
         asl
-        ora #$08
+        ; byte 1 holds the foreground colour only; bit 3 (the NCM-enable bit,
+        ; inherited from the m65-fcm/NCM source) is left CLEAR so characters
+        ; render as FCM full-byte pixels rather than 16px nibble pairs.
         sta _ccrn_color
 
         ldx #0
@@ -311,66 +313,4 @@ _snc_col:
 _snc_row:
         .byte 0
 _snc_pos:
-        .word 0
-
-set_fcm_palette:
-        pha
-        stx _snp_col
-        sty _snp_row
-
-        lda _snp_row
-        sta MULTINA
-        lda #0
-        sta MULTINA+1
-        sta MULTINA+2
-        sta MULTINA+3
-
-        lda screen_mode
-        asl
-        sta MULTINB
-        lda #0
-        sta MULTINB+1
-        sta MULTINB+2
-        sta MULTINB+3
-
-        clc
-        lda MULTOUT
-        adc _snp_col
-        sta _snp_pos
-        lda MULTOUT+1
-        adc #0
-        sta _snp_pos+1
-
-        asl _snp_pos
-        rol _snp_pos+1
-
-        clc
-        lda _snp_pos
-        sta PTR
-        lda _snp_pos+1
-        sta PTR+1
-        lda #$F8
-        sta PTR+2
-        lda #$0F
-        sta PTR+3
-
-        ldz #0
-        lda #0
-        sta [PTR],z
-        inz
-        pla
-        and #$0F
-        asl
-        asl
-        asl
-        asl
-        ora #$08
-        sta [PTR],z
-        rts
-
-_snp_col:
-        .byte 0
-_snp_row:
-        .byte 0
-_snp_pos:
         .word 0
