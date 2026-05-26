@@ -549,38 +549,72 @@ PLACEHOLDER_BOX .macro
 .endmacro
 
 ui_btn_bulldozer:
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$1D,$1D,$1D,$1D,$1D,$1D,$1D
-        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
-        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
-        .byte $0C,$0C,$1D,$1C,$1D,$1D,$0C,$1C
-        .byte $0C,$0C,$1D,$1C,$1D,$1C,$1C,$1C
-        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $1D,$1D,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$1D,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$1D,$1D,$0C,$0C,$0C,$0C
-        .byte $1C,$1C,$1C,$1D,$1D,$0C,$1E,$1E
-        .byte $1C,$1C,$1C,$1C,$1C,$1D,$1E,$1E
-        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C   ; bl
-        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C
-        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
-        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
-        .byte $0C,$1E,$1D,$1C,$1D,$1C,$1D,$1C
-        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
-        .byte $0C,$0C,$1D,$0C,$1D,$0C,$1D,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E   ; br
-        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E
-        .byte $1C,$1C,$1C,$1C,$1C,$0C,$1E,$1E
-        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
-        .byte $1D,$1C,$1D,$1E,$0C,$0C,$1E,$1E
-        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
-        .byte $1D,$0C,$1D,$0C,$0C,$0C,$0C,$0C
-        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$1d,$1d,$1d,$1d,$1d,$1d,$1d
+.byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
+.byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
+.byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$1c
+.byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$0c
+.byte $0c,$0c,$1d,$1c,$1d,$1d,$1c,$1c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $1d,$1d,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$1d,$0c,$0c,$0c,$0c,$0c
+.byte $1c,$0c,$1d,$0c,$0c,$0c,$0b,$0c
+.byte $1c,$1c,$1c,$1c,$0c,$0c,$0b,$0c
+.byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
+.byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
+.byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
+.byte $0c,$0c,$1c,$0b,$04,$0b,$04,$0b
+.byte $0c,$0c,$04,$1c,$1c,$04,$04,$04
+.byte $0c,$0c,$0b,$1c,$1c,$04,$1c,$04
+.byte $0c,$0c,$0c,$04,$0b,$04,$0b,$04
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
+.byte $1c,$1c,$1c,$1c,$1c,$0b,$0b,$0c
+.byte $04,$0b,$04,$1c,$1c,$0b,$0b,$0c
+.byte $04,$04,$04,$0b,$0c,$0c,$0b,$0c
+.byte $1c,$1c,$04,$04,$0c,$0c,$0b,$04
+.byte $0b,$04,$0b,$0c,$0c,$0c,$0c,$0b
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+;        .byte $0C,$1D,$1D,$1D,$1D,$1D,$1D,$1D
+;        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
+;        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
+;        .byte $0C,$0C,$1D,$1C,$1D,$1D,$0C,$1C
+;        .byte $0C,$0C,$1D,$1C,$1D,$1C,$1C,$1C
+;        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+;        .byte $1D,$1D,$0C,$0C,$0C,$0C,$0C,$0C
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+;        .byte $0C,$0C,$0C,$1D,$0C,$0C,$0C,$0C
+;        .byte $0C,$0C,$1D,$1D,$0C,$0C,$0C,$0C
+;        .byte $1C,$1C,$1C,$1D,$1D,$0C,$1E,$1E
+;        .byte $1C,$1C,$1C,$1C,$1C,$1D,$1E,$1E
+;        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C   ; bl
+;        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C
+;        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
+;        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
+;        .byte $0C,$1E,$1D,$1C,$1D,$1C,$1D,$1C
+;        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
+;        .byte $0C,$0C,$1D,$0C,$1D,$0C,$1D,$0C
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+;        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E   ; br
+;        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E
+;        .byte $1C,$1C,$1C,$1C,$1C,$0C,$1E,$1E
+;        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
+;        .byte $1D,$1C,$1D,$1E,$0C,$0C,$1E,$1E
+;        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
+;        .byte $1D,$0C,$1D,$0C,$0C,$0C,$0C,$0C
+;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 ui_btn_road:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
