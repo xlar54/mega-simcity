@@ -254,6 +254,16 @@ cell_to_char:
         bcc _ctc_type
         cmp #POWERLINE_CELL_LAST+1
         bcc _ctc_done               ; power line: A already holds the char
+        cmp #COALPP_CELL_FIRST
+        bcc _ctc_type
+        cmp #COALPP_CELL_LAST+1
+        bcs _ctc_type
+        ; coal plant cell: char = (value - COALPP_CELL_FIRST) + COALPP_CHAR_BASE
+        sec
+        sbc #COALPP_CELL_FIRST
+        clc
+        adc #COALPP_CHAR_BASE
+        rts
 _ctc_type:
         ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
         ; appear as a base type here -- they are painted/seeded as literal chars.

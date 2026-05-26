@@ -71,10 +71,17 @@ UI_TEXT_COUNT           = (UI_TEXT_COLON - UI_TEXT_A) + 1
 UI_BTN_COUNT            = 16
 UI_BTN_BASE             = UI_TEXT_COLON + 1
 
+; Coal-plant tile bitmaps live just above the UI buttons in char RAM (the zone
+; "literal" map encoding can't reach this high, so the plant uses a translated
+; value range -- see platform.asm COALPP_CELL_* and render.asm cell_to_char).
+COALPP_CHAR_BASE        = UI_BTN_BASE + UI_BTN_COUNT * 4
+
 ; --- Attic load address + asset sizing ---
+; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large
+; enough with the coal plant to exceed $1000 -- has room below it.
 ATTIC_UI_TILE_MB        = $80
 ATTIC_UI_TILE_BANK      = $00
-ATTIC_UI_TILE_ADDR      = $1000
+ATTIC_UI_TILE_ADDR      = $2000
 UI_TILE_CHAR_SIZE       = 64
 UI_BTN_CELLS_X          = 2
 UI_BTN_CELLS_Y          = 2

@@ -80,6 +80,82 @@ _pcap_yes:
         sec
         rts
 
+; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it is a "structure" a
+; power line points toward: a zone cell (literal char) or the coal plant. Used to
+; orient an isolated line between two facing zones.
+is_structure_at_ptr:
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #ZONE_CELL_LITERAL
+        bcs _isa_yes                ; zone (bit 7 set)
+        cmp #COALPP_CELL_FIRST
+        bcc _isa_no
+        cmp #COALPP_CELL_LAST+1
+        bcs _isa_no
+_isa_yes:
+        sec
+        rts
+_isa_no:
+        clc
+        rts
+
+; Carry SET if a structure sits on BOTH the N and S of (powerline_cx, powerline_cy).
+powerline_struct_ns:
+        lda powerline_cy
+        beq _psns_no
+        cmp #CELL_ROWS-1
+        bcs _psns_no
+        lda powerline_cx
+        sta city_ptr_x
+        lda powerline_cy
+        sec
+        sbc #1
+        sta city_ptr_y
+        jsr is_structure_at_ptr
+        bcc _psns_no
+        lda powerline_cx
+        sta city_ptr_x
+        lda powerline_cy
+        clc
+        adc #1
+        sta city_ptr_y
+        jsr is_structure_at_ptr
+        bcc _psns_no
+        sec
+        rts
+_psns_no:
+        clc
+        rts
+
+; Carry SET if a structure sits on BOTH the E and W of (powerline_cx, powerline_cy).
+powerline_struct_ew:
+        lda powerline_cx
+        beq _psew_no
+        cmp #CELL_COLS-1
+        bcs _psew_no
+        lda powerline_cx
+        sec
+        sbc #1
+        sta city_ptr_x
+        lda powerline_cy
+        sta city_ptr_y
+        jsr is_structure_at_ptr
+        bcc _psew_no
+        lda powerline_cx
+        clc
+        adc #1
+        sta city_ptr_x
+        lda powerline_cy
+        sta city_ptr_y
+        jsr is_structure_at_ptr
+        bcc _psew_no
+        sec
+        rts
+_psew_no:
+        clc
+        rts
+
 ; Offsets for the 8 surrounding cells, order NW,N,NE,W,E,SW,S,SE. (dx/dy are
 ; signed; cmp against CELL_COLS/ROWS rejects both underflow and overflow at the
 ; edges.) The bits reuse the generic ROAD_BIT_* direction flags from platform.asm.
@@ -184,6 +260,24 @@ _plr_chk_dropw:
         and #(255-ROAD_BIT_W)
         sta powerline_mask
 _plr_decide:
+        ; No power-line connections? Orient an isolated line by structures (zones
+        ; or the plant) sitting on two opposite sides: between two stacked zones it
+        ; runs vertical, between two side-by-side zones horizontal. A line already
+        ; wired to other lines (mask != 0) keeps that orientation, so a line running
+        ; alongside a single zone is unaffected.
+        lda powerline_mask
+        bne _plr_dec_go
+        jsr powerline_struct_ns
+        bcc _plr_dec_ew
+        lda #(ROAD_BIT_N|ROAD_BIT_S)
+        sta powerline_mask
+        bra _plr_dec_go
+_plr_dec_ew:
+        jsr powerline_struct_ew
+        bcc _plr_dec_go
+        lda #(ROAD_BIT_E|ROAD_BIT_W)
+        sta powerline_mask
+_plr_dec_go:
         ; vertical orientation if any N/S connection; an intersection (also E/W)
         ; forces a pole. Otherwise horizontal (includes the isolated case).
         lda powerline_mask

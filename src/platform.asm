@@ -92,6 +92,9 @@ CHAR_CODE_BASE          = $1000
 
 PTR2                    = $FA
 PTR                     = $FC
+; 4-byte zero-page pointer for the power flood-fill's Attic work stack (power.asm).
+; Sits in the free $F0-$F5 block, below MAP_PTR; only used during a power recompute.
+POWER_STACK_PTR         = $F0
 ; 4-byte zero-page pointer for 32-bit indirect access to the world map in Attic.
 ; Sits below PTR2 and survives set_fcm_char (which only clobbers PTR at $FC-$FF).
 ; Safe here because the runtime never calls KERNAL (only boot loading does).
@@ -220,6 +223,7 @@ TILE_RESIDENTIAL        = 3
 TILE_COMMERCIAL         = 4
 TILE_INDUSTRIAL         = 5
 TILE_POWER              = 6     ; tool id for the power-LINE tool (1x1, see below)
+TILE_COALPP             = 7     ; tool id for the coal power plant (3x4 structure)
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is not a
 ; base tile type but a 3x3 block of literal zone-cell chars (see below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -283,11 +287,24 @@ ZONE_GEN_BASE           = 32
 ZONE_CELL_LITERAL       = $80
 ZONE_TYPE_COUNT         = 3      ; residential, commercial, industrial
 ZONE_CELL_CHAR_COUNT    = ZONE_TYPE_COUNT * ZONE_SIZE * ZONE_SIZE   ; 27 distinct cells
-; Tileset disk asset = base tiles (chars 0-27) followed by the 3x3 zone cells
-; (loaded to chars ZONE_GEN_BASE..+26). TILESET_ASSET_SIZE is the whole blob.
+; Coal power plant: a 3-wide x 4-tall (24x32 px) structure of 12 distinct cells.
+; Char ids 32..58 are taken by zones and 64..173 by the UI tileset, and the zone
+; "literal" encoding only reaches char 127, so the plant's bitmaps live ABOVE the
+; UI at chars COALPP_CHAR_BASE.. (see ui_tile_layout.asm). On the map each cell is
+; stored as a non-literal value COALPP_CELL_FIRST+position (position = dy*3+dx);
+; cell_to_char translates that range to the char id (render.asm).
+COALPP_COLS             = 3
+COALPP_ROWS             = 4
+COALPP_CELL_COUNT       = COALPP_COLS * COALPP_ROWS                 ; 12
+COALPP_CELL_FIRST       = 71     ; map-cell value of position 0 (free, non-literal)
+COALPP_CELL_LAST        = COALPP_CELL_FIRST + COALPP_CELL_COUNT - 1 ; 82
+; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
+; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
+; the whole blob.
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 TILESET_ZONE_SIZE       = ZONE_CELL_CHAR_COUNT * 64
-TILESET_ASSET_SIZE      = TILESET_BODY_SIZE + TILESET_ZONE_SIZE
+TILESET_COALPP_SIZE     = COALPP_CELL_COUNT * 64
+TILESET_ASSET_SIZE      = TILESET_BODY_SIZE + TILESET_ZONE_SIZE + TILESET_COALPP_SIZE
 
 ; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.
 ; Bank 5 ($50000, the top 64K of the MEGA65's 384K) keeps it clear of program
@@ -306,6 +323,15 @@ ATTIC_MAP_MB            = $82
 ATTIC_MAP_BANK          = $00
 ATTIC_MAP_ADDR          = $0000
 ATTIC_MAP_PHYS          = $8200000
+
+; Power-propagation scratch (power.asm), one MB each past the world map:
+;   $83 = "powered" marker, 1 byte/cell (flood-fill visited + result).
+;   $84 = flood-fill work stack of (cx,cy) byte pairs.
+ATTIC_POWER_MB          = $83
+ATTIC_POWER_BANK        = $00
+ATTIC_POWER_ADDR        = $0000
+ATTIC_POWER_PHYS        = $8300000
+ATTIC_PSTACK_PHYS       = $8400000
 
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)

@@ -166,6 +166,23 @@ tiles_dma_city_from_attic:
         .byte `CHAR_DATA
         .byte $00
         .word $0000
+
+        ; Coal-plant cells: they follow the zone cells in the asset (Attic +
+        ; TILESET_BODY_SIZE + TILESET_ZONE_SIZE) -> CHAR_DATA + COALPP_CHAR_BASE*64
+        ; (above the UI tiles).
+        lda #$00
+        sta $D707
+        .byte $80, ATTIC_TILE_MB
+        .byte $81, $00
+        .byte $00
+        .byte $00
+        .word TILESET_COALPP_SIZE
+        .word ATTIC_TILE_ADDR + TILESET_BODY_SIZE + TILESET_ZONE_SIZE
+        .byte ATTIC_TILE_BANK
+        .word COALPP_CHAR_BASE * 64
+        .byte `CHAR_DATA
+        .byte $00
+        .word $0000
         rts
 
 tiles_load_cursor:

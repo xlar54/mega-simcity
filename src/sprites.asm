@@ -154,10 +154,17 @@ sprites_refresh:
         beq _sr_road                ; bulldozer also uses the 8x8 cursor
         cmp #TILE_POWER
         beq _sr_road                ; power lines are 1x1 -> 8x8 cursor
+        cmp #TILE_COALPP
+        beq _sr_coalpp              ; coal plant -> 24x32 cursor
         cmp #TILE_RESIDENTIAL
         bcc _sr_block               ; water -> 16x16
         jsr mouse_hide_block_sprite
         jsr sprite3_use_zone_shape
+        jmp mouse_position_road_cursor
+
+_sr_coalpp:
+        jsr mouse_hide_block_sprite
+        jsr sprite3_use_coalpp_shape
         jmp mouse_position_road_cursor
 
 _sr_block:
@@ -182,6 +189,17 @@ sprite3_use_road_shape:
         sta mouse_sprite_ptrs+7
         lda SPRITE_Y_EXPAND
         and #%11110111
+        sta SPRITE_Y_EXPAND
+        rts
+
+; Shape sprite 3 as the 24x32 coal-plant cursor (Y-expanded: 16 rows -> 32px tall).
+sprite3_use_coalpp_shape:
+        lda #<(sprite_coalpp_cursor_shape / 64)
+        sta mouse_sprite_ptrs+6
+        lda #>(sprite_coalpp_cursor_shape / 64)
+        sta mouse_sprite_ptrs+7
+        lda SPRITE_Y_EXPAND
+        ora #%00001000
         sta SPRITE_Y_EXPAND
         rts
 
@@ -241,6 +259,12 @@ _btu_col:
         beq _btu_found
         bra _btu_next
 _btu_found:
+        ; only round-robin over UNPOWERED zones (power.asm marked the powered ones).
+        ; city_cell_ptr above left the cell offset, so reuse it for the power array.
+        jsr power_ptr_into_map
+        ldz #0
+        lda [MAP_PTR],z
+        bne _btu_next               ; powered -> no bolt
         ldx bolt_zone_count
         cpx #BOLT_ZONE_MAX
         bcs _btu_next
@@ -936,6 +960,33 @@ sprite_lightning_outline_shape:
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Coal-plant cursor (sprite 3): a 24x32 box. 16 rows (full sprite width),
+        ; Y-expanded x2 by sprite3_use_coalpp_shape to reach 32px tall.
+        .align 64
+sprite_coalpp_cursor_shape:
+        .byte %11111111,%11111111,%11111111
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %10000000,%00000000,%00000001
+        .byte %11111111,%11111111,%11111111
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000

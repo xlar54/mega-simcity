@@ -43,7 +43,8 @@ app_loop:
         jsr game_tick
         jsr render_frame
         jsr sprites_refresh
-        jsr bolt_test_update        ; TEMP: round-robin the bolt over visible zones
+        jsr power_update            ; recompute zone power if the network changed
+        jsr bolt_test_update        ; round-robin the bolt over UNPOWERED zones
         jmp app_loop
 
 shutdown:
@@ -182,6 +183,7 @@ _mhu_done:
         .include "city.asm"
         .include "roads.asm"
         .include "powerlines.asm"
+        .include "power.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"

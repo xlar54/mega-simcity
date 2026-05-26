@@ -212,6 +212,18 @@ _rr_v_plain:
         lda #ROAD_CELL_V
 _rr_store:
         sta road_tmp
+        ; A power crossing being created or removed changes the power network.
+        lda road_was_cross
+        bne _rr_pdirty
+        lda road_tmp
+        cmp #ROAD_CELL_H_POWER
+        beq _rr_pdirty
+        cmp #ROAD_CELL_V_POWER
+        bne _rr_pstore
+_rr_pdirty:
+        lda #1
+        sta power_dirty
+_rr_pstore:
         lda road_cx
         sta city_ptr_x
         lda road_cy

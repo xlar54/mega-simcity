@@ -143,6 +143,8 @@ _thc_row:
         beq _thc_commercial         ; slot 6 -> commercial zone (3x3)
         cmp #7
         beq _thc_industrial         ; slot 7 -> industrial zone (3x3)
+        cmp #12
+        beq _thc_coalpp             ; slot 12 -> coal power plant (3x4)
         rts                         ; other slots: selected, no paint tile yet
 
 _thc_road:
@@ -163,6 +165,10 @@ _thc_commercial:
         rts
 _thc_industrial:
         lda #TILE_INDUSTRIAL
+        sta selected_tile
+        rts
+_thc_coalpp:
+        lda #TILE_COALPP
         sta selected_tile
         rts
 
