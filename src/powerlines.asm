@@ -88,9 +88,9 @@ is_structure_at_ptr:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
-        cmp #ZONE_CELL_LITERAL
-        bcs _isa_yes                ; zone literal (R/C/I)
-        jmp is_structure_cell       ; any structure table row
+        jsr is_zone_value           ; any of the 27 zone cells counts
+        bcs _isa_yes
+        jmp is_structure_cell       ; otherwise: structure table
 _isa_yes:
         sec
         rts

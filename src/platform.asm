@@ -228,8 +228,8 @@ TILE_NUCLEARPP          = 8     ; tool id for the nuclear power plant (3x4 struc
 TILE_INSPECT            = 9     ; pointer/inspect mode (no placement, queries the map)
 TILE_LOAD               = 10    ; menu action: load city (no map paint)
 TILE_SAVE               = 11    ; menu action: save city (no map paint)
-; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is not a
-; base tile type but a 3x3 block of literal zone-cell chars (see below).
+; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is a
+; 3x3 block of zone cells (see ZONE_CELL_* below).
 ZONE_SIZE               = 3      ; 3x3 cells
 
 CITY_TILE_TYPE_COUNT    = 7
@@ -283,12 +283,15 @@ POWERLINE_CELL_POLE_V   = 27    ; pole (crossarm) on a vertical run
 POWERLINE_CELL_FIRST    = POWERLINE_CELL_H
 POWERLINE_CELL_LAST     = POWERLINE_CELL_POLE_V
 POWERLINE_POLE_EVERY    = 4     ; every 4th placed line becomes a pole
-; 3x3 zone cells: 3 zones x 9 positions at char offsets 32..58. Their bitmaps are
-; part of the tileset disk asset (after the base tiles) and DMA'd into char RAM.
-; A painted zone cell stores (ZONE_GEN_BASE + zone_index*9 + position) | $80;
-; bit 7 marks the cell byte as a literal char (see cell_to_char).
+; 3x3 zone cells: 3 zone types (R/C/I) x 9 positions at char offsets 32..58.
+; Bitmaps are part of the tileset disk asset (after the base tiles) and DMA'd
+; into char RAM. A painted zone cell stores ZONE_CELL_FIRST + zone_index*9 +
+; position; cell_to_char (render.asm) translates the range to char ids the same
+; way structures/trees/water-shore do. ZONE_CELL_FIRST + offset gives the cell
+; value; ZONE_GEN_BASE + offset gives the matching char id. The TL cell of each
+; zone is at offset 0 within its zone block, so is_zone_origin_value checks
+; offsets {0, 9, 18}.
 ZONE_GEN_BASE           = 32
-ZONE_CELL_LITERAL       = $80
 ZONE_TYPE_COUNT         = 3      ; residential, commercial, industrial
 ZONE_CELL_CHAR_COUNT    = ZONE_TYPE_COUNT * ZONE_SIZE * ZONE_SIZE   ; 27 distinct cells
 ; Coal power plant: a 3-wide x 4-tall (24x32 px) structure of 12 distinct cells.
@@ -336,14 +339,21 @@ WATER_BIT_E             = $04
 WATER_BIT_S             = $02
 WATER_BIT_W             = $08
 
-; Encoding guard. The map cell is one byte: bit 7 set is a zone literal (cells
-; render as the low 7 bits as a char id directly); the structure descriptor table
-; (structures.asm) uses non-literal values, so the highest structure cell value
-; must stay below ZONE_CELL_LITERAL ($80). Today we're at 110 / 128 with trees;
-; room left for one more 3x4 structure before the encoding redesign becomes urgent.
-        .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_LITERAL, "structure cell values must stay below ZONE_CELL_LITERAL ($80)"
-        .cerror TREE_CELL_LAST >= ZONE_CELL_LITERAL, "tree cell range crosses ZONE_CELL_LITERAL ($80)"
-        .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_LITERAL, "water shore cell range crosses ZONE_CELL_LITERAL ($80)"
+; Zone cells: 27 = 3 zone types * 9 positions, all reached via cell_to_char's
+; range-translation path (same model as trees / water-shore / structures). The
+; old `bit-7 = literal char` convention is gone, which frees up 153..255 for
+; future terrain and buildings.
+ZONE_CELL_FIRST         = WATER_SHORE_CELL_LAST + 1                 ; 126
+ZONE_CELL_COUNT         = ZONE_CELL_CHAR_COUNT                      ; 27
+ZONE_CELL_LAST          = ZONE_CELL_FIRST + ZONE_CELL_COUNT - 1     ; 152
+
+; Encoding guards. cell_to_char checks each range in order, so the contiguous
+; building/terrain ranges must stay below ZONE_CELL_FIRST (or each other), and
+; the whole encoded space must stay inside a single byte.
+        .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_FIRST, "structure cell range overlaps zones"
+        .cerror TREE_CELL_LAST >= ZONE_CELL_FIRST,      "tree cell range overlaps zones"
+        .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_FIRST, "water-shore cell range overlaps zones"
+        .cerror ZONE_CELL_LAST > 255,                   "zone cell range crosses 8-bit cell value ceiling"
 ; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
 ; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
 ; the whole blob.

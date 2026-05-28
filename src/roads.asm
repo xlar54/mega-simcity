@@ -369,7 +369,7 @@ road_cross_side_at_ptr:
         lda #2                      ; power line
         rts
 _rcs_chkzone:
-        cmp #ZONE_CELL_LITERAL      ; bit 7 set -> zone literal
+        jsr is_zone_value
         bcc _rcs_none
         lda #1                      ; zone
         rts

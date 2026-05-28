@@ -244,12 +244,14 @@ render_draw_tile:
         rts
 
 ; A = cell value, X = parity (0-3) -> A = char to draw.
-;   bit 7 set       -> literal char (low 7 bits)
-;   ROAD_CELL_FIRST..LAST -> road; the value IS the char (no arithmetic)
-;   otherwise       -> 2x2 tile type: char = type*4 + parity (water/ground/power)
+;   ROAD_CELL_FIRST..LAST       -> road; the value IS the char (no arithmetic)
+;   POWERLINE_CELL_FIRST..LAST  -> power line; the value IS the char
+;   TREE_CELL_FIRST..LAST       -> tree;        char = TREE_CHAR_BASE + (value - TREE_CELL_FIRST)
+;   WATER_SHORE_CELL_FIRST..LAST -> shoreline;  char = WATER_SHORE_CHAR_BASE + (value - WATER_SHORE_CELL_FIRST)
+;   ZONE_CELL_FIRST..LAST       -> zone;        char = ZONE_GEN_BASE + (value - ZONE_CELL_FIRST)
+;   COALPP_CELL_FIRST..LAST / NUCLEARPP_CELL_FIRST..LAST -> structure table
+;   otherwise (water/ground/power base types) -> 2x2 tile, char = type*4 + parity
 cell_to_char:
-        cmp #$80                    ; bit 7 set -> literal char (N flag from the
-        bcs _ctc_literal            ; caller's ldx is unreliable, so test via cmp)
         cmp #ROAD_CELL_FIRST
         bcc _ctc_type
         cmp #ROAD_CELL_LAST+1
@@ -269,13 +271,23 @@ cell_to_char:
         rts
 _ctc_check_water_shore:
         cmp #WATER_SHORE_CELL_FIRST
-        bcc _ctc_struct_scan        ; below water shore -> structures (none in this gap today)
+        bcc _ctc_struct_scan
         cmp #WATER_SHORE_CELL_LAST+1
-        bcs _ctc_struct_scan        ; above water shore -> ditto
+        bcs _ctc_check_zone
         sec                         ; shore: char = (value - WATER_SHORE_CELL_FIRST) + WATER_SHORE_CHAR_BASE
         sbc #WATER_SHORE_CELL_FIRST
         clc
         adc #WATER_SHORE_CHAR_BASE
+        rts
+_ctc_check_zone:
+        cmp #ZONE_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #ZONE_CELL_LAST+1
+        bcs _ctc_struct_scan        ; above the zone range -> 153..255 are unallocated today
+        sec                         ; zone: char = (value - ZONE_CELL_FIRST) + ZONE_GEN_BASE
+        sbc #ZONE_CELL_FIRST
+        clc
+        adc #ZONE_GEN_BASE
         rts
 _ctc_struct_scan:
         ; Structure table: scan rows for a value in [base, base + count). For each
@@ -303,8 +315,7 @@ _ctc_struct_hit:
 _ctc_no_struct:
         lda ctc_value               ; restore original cell value for type path
 _ctc_type:
-        ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
-        ; appear as a base type here -- they are painted/seeded as literal chars.
+        ; water / ground / power: 2x2 tile, char = type*4 + parity.
         asl
         asl
         sta render_char_base
@@ -312,9 +323,6 @@ _ctc_type:
         clc
         adc render_char_base
 _ctc_done:
-        rts
-_ctc_literal:
-        and #$7F
         rts
 
 ; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if

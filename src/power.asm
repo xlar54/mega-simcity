@@ -19,8 +19,8 @@
 ;=======================================================================================
 
 ; Carry SET if map cell value A conducts/holds power: a power line, a road
-; carrying power across it, a zone (literal char), or any structure tagged as a
-; power source (currently coal / nuclear plants). Plant cells are recognised via
+; carrying power across it, any of the 27 zone cells, or any structure tagged
+; as a power source (currently coal / nuclear plants). Plant cells go through
 ; the structure table so adding a new power source is just a table-row flag.
 is_power_node:
         cmp #POWERLINE_CELL_FIRST
@@ -32,8 +32,8 @@ _ipn_cross:
         beq _ipn_yes
         cmp #ROAD_CELL_V_POWER
         beq _ipn_yes                ; road with a power crossing
-        cmp #ZONE_CELL_LITERAL
-        bcs _ipn_yes                ; zone literal
+        jsr is_zone_value           ; any zone cell counts as a power node
+        bcs _ipn_yes
         jmp is_power_source_cell    ; structure table: any power-source row
 _ipn_yes:
         sec
@@ -345,12 +345,8 @@ _pac_col:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
-        cmp #(ZONE_GEN_BASE | ZONE_CELL_LITERAL)
-        beq _pac_is_tl
-        cmp #((ZONE_GEN_BASE + 9) | ZONE_CELL_LITERAL)
-        beq _pac_is_tl
-        cmp #((ZONE_GEN_BASE + 18) | ZONE_CELL_LITERAL)
-        bne _pac_next_cell
+        jsr is_zone_origin_value    ; only TL cells -> each zone counted exactly once
+        bcc _pac_next_cell
 _pac_is_tl:
         jsr power_ptr_into_map      ; reuse the cell offset to read the power array
         ldz #0

@@ -355,7 +355,47 @@ _cps_power:
         ldz #0
         lda [MAP_PTR],z             ; A = existing cell
         cmp #TILE_GROUND
-        bne _cps_power_skip         ; only build on ground (skip water/road/zones)
+        beq _cps_power_on_ground
+        cmp #ROAD_CELL_H
+        beq _cps_power_cross        ; H road -> H_POWER (vertical power across)
+        cmp #ROAD_CELL_V
+        beq _cps_power_cross        ; V road -> V_POWER (horizontal power across)
+        rts                         ; everything else (water, curves/Ts/4-way,
+                                    ; existing crossings, zones, structures,
+                                    ; trees, shore, other power lines) -> skip
+
+; Crossing path: A is ROAD_CELL_H or ROAD_CELL_V on entry. The crossing variant
+; for each is +11 (H->H_POWER 19, V->V_POWER 20). Charge the normal power-line
+; cost; if affordable, overwrite the road with its _POWER variant. road_refresh
+; treats H_POWER/V_POWER as a sticky crossing -- it won't un-cross on the
+; neighbor scan -- so the power network sees a new on-axis connection through
+; the road without any further hinting.
+_cps_power_cross:
+        clc
+        adc #(ROAD_CELL_H_POWER - ROAD_CELL_H)
+        pha                         ; save the crossing cell value across funds calls
+        lda #<COST_POWERLINE
+        sta cost_amount
+        lda #>COST_POWERLINE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcs _cps_power_cross_pay
+        pla
+        rts
+_cps_power_cross_pay:
+        jsr funds_subtract
+        pla
+        ldz #0
+        sta [MAP_PTR],z
+        jsr power_mark_dirty
+        lda powerline_cx
+        sta road_cx
+        lda powerline_cy
+        sta road_cy
+        jsr road_refresh_neighbors
+        jmp powerline_refresh_neighbors
+
+_cps_power_on_ground:
         lda #<COST_POWERLINE        ; check + deduct power-line cost
         sta cost_amount
         lda #>COST_POWERLINE
@@ -466,11 +506,12 @@ _cps_zone_do:
         sta zrb_h
         jmp city_zone_refresh_border    ; re-tile power lines/roads bordering it
 
-; Stamp a 3x3 bordered zone whose top-left cell is (zone_org_x, zone_org_y).
+; Stamp a 3x3 zone whose top-left cell is (zone_org_x, zone_org_y).
 ; A = zone type (TILE_RESIDENTIAL / COMMERCIAL / INDUSTRIAL). Writes the 9
-; position-specific literal chars (ZONE_GEN_BASE + type_index*9 + position) | $80
-; into the map. Does not redraw -- callers handle that (paint redraws the covered
-; tiles; the seed runs before the first full render).
+; cells as ZONE_CELL_FIRST + type_index*9 + position; cell_to_char translates
+; them to chars ZONE_GEN_BASE+offset at render time. Does not redraw -- callers
+; handle that (paint redraws the covered tiles; the seed runs before the first
+; full render).
 city_stamp_zone:
         sec
         sbc #TILE_RESIDENTIAL
@@ -481,8 +522,8 @@ city_stamp_zone:
         clc
         adc zone_tmp                ; index * 9
         clc
-        adc #ZONE_GEN_BASE
-        sta zone_char_base
+        adc #ZONE_CELL_FIRST
+        sta zone_char_base          ; (mis-named for history; now a cell-value base)
 
         lda #0
         sta zone_dy
@@ -499,7 +540,7 @@ _csz_col:
         adc zone_dy
         sta city_ptr_y
         jsr city_cell_ptr
-        ; literal char = zone_char_base + position(dy*3 + dx), bit 7 set.
+        ; cell value = zone_char_base + position(dy*3 + dx).
         lda zone_dy
         asl
         clc
@@ -508,7 +549,6 @@ _csz_col:
         adc zone_dx                 ; + dx = position 0..8
         clc
         adc zone_char_base
-        ora #ZONE_CELL_LITERAL
         ldz #0
         sta [MAP_PTR],z
         inc zone_dx
@@ -522,6 +562,45 @@ _csz_col:
         rts
 
 ; Carry SET if every cell of the 3x3 zone at (zone_org_x, zone_org_y) is buildable
+;---------------------------------------------------------------------------------------
+; Zone predicates (used by render, sprites, power, powerlines, roads, etc.).
+;
+;   is_zone_value         -- carry SET if A is any of the 27 zone cells.
+;                            Use this for "is this cell occupied / a building /
+;                            a power node?" checks and adjacency logic.
+;
+;   is_zone_origin_value  -- carry SET only for the 3 top-left zone cells
+;                            (residential / commercial / industrial origins).
+;                            Use this when scanning for zones to count or
+;                            decorate the WHOLE zone exactly once (power
+;                            capacity, unpowered-bolt placement, etc.).
+;
+; Both preserve A.
+;---------------------------------------------------------------------------------------
+is_zone_value:
+        cmp #ZONE_CELL_FIRST
+        bcc _izv_no
+        cmp #ZONE_CELL_LAST+1
+        bcs _izv_no
+        sec
+        rts
+_izv_no:
+        clc
+        rts
+
+is_zone_origin_value:
+        cmp #ZONE_CELL_FIRST                ; R origin (offset 0)
+        beq _izov_yes
+        cmp #(ZONE_CELL_FIRST + 9)          ; C origin (offset 9)
+        beq _izov_yes
+        cmp #(ZONE_CELL_FIRST + 18)         ; I origin (offset 18)
+        beq _izov_yes
+        clc
+        rts
+_izov_yes:
+        sec
+        rts
+
 ; -- TILE_GROUND or a power line (zones overwrite power lines) -- so a zone may be
 ; placed there; carry CLEAR if any cell is water/road/another zone. Clobbers
 ; zone_dx/dy and city_ptr_* (re-set by city_stamp_zone on the way in).

@@ -230,11 +230,10 @@ sprites_shutdown:
 
 ;=======================================================================================
 ; TEMP test: each frame, move the lightning bolt (sprites 4 & 5) to the top-left
-; cell of one visible zone, cycling through them round-robin. Zone top-left cells
-; are literal chars ZONE_GEN_BASE + zone_index*9 with bit 7 set (residential $A0,
-; commercial $A9, industrial $B2). Scans the visible cell window, collects the
-; view-relative cell of each top-left into bolt_zx/bolt_zy, then picks one by
-; bolt_rr mod count. Speed is unimportant; this is throwaway.
+; cell of one visible zone, cycling through them round-robin. Scans the visible
+; cell window; is_zone_origin_value (city.asm) is true ONLY for the 3 TL cell
+; values (one per R/C/I), so each 3x3 zone is found exactly once. Speed is
+; unimportant; this is throwaway.
 ;=======================================================================================
 BOLT_ZONE_MAX = 64
 
@@ -259,13 +258,8 @@ _btu_col:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
-        cmp #(ZONE_GEN_BASE | ZONE_CELL_LITERAL)
-        beq _btu_found
-        cmp #((ZONE_GEN_BASE + 9) | ZONE_CELL_LITERAL)
-        beq _btu_found
-        cmp #((ZONE_GEN_BASE + 18) | ZONE_CELL_LITERAL)
-        beq _btu_found
-        bra _btu_next
+        jsr is_zone_origin_value
+        bcc _btu_next
 _btu_found:
         ; only round-robin over UNPOWERED zones (power.asm marked the powered ones).
         ; city_cell_ptr above left the cell offset, so reuse it for the power array.
