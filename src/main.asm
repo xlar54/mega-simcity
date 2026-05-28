@@ -186,6 +186,7 @@ _mhu_done:
         .include "powerlines.asm"
         .include "power.asm"
         .include "cost-management.asm"
+        .include "structures.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"

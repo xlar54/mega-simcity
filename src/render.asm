@@ -256,16 +256,30 @@ cell_to_char:
         bcc _ctc_type
         cmp #POWERLINE_CELL_LAST+1
         bcc _ctc_done               ; power line: A already holds the char
-        cmp #COALPP_CELL_FIRST
-        bcc _ctc_type
-        cmp #COALPP_CELL_LAST+1
-        bcs _ctc_type
-        ; coal plant cell: char = (value - COALPP_CELL_FIRST) + COALPP_CHAR_BASE
+        ; Structure table: scan rows for a value in [base, base + count). For each
+        ; match: char = (value - base) + char_base_lo. Char-base high byte is in
+        ; the table for future >255 chars; cell_to_char still returns 8-bit today.
+        sta ctc_value
+        ldy #0
+_ctc_struct_loop:
+        cpy #struct_count
+        bcs _ctc_no_struct
+        lda ctc_value
+        cmp struct_cell_base,y
+        bcc _ctc_struct_next
         sec
-        sbc #COALPP_CELL_FIRST
+        sbc struct_cell_base,y
+        cmp struct_cell_count,y
+        bcc _ctc_struct_hit
+_ctc_struct_next:
+        iny
+        bra _ctc_struct_loop
+_ctc_struct_hit:
         clc
-        adc #COALPP_CHAR_BASE
+        adc struct_char_base_lo,y
         rts
+_ctc_no_struct:
+        lda ctc_value               ; restore original cell value for type path
 _ctc_type:
         ; water / ground / power: 2x2 tile, char = type*4 + parity. Zones never
         ; appear as a base type here -- they are painted/seeded as literal chars.
@@ -332,6 +346,8 @@ render_tile_y:
 render_tile_id:
         .byte 0
 render_char_base:
+        .byte 0
+ctc_value:                  ; cell_to_char: saved cell value across the struct loop
         .byte 0
 render_screen_col:
         .byte 0

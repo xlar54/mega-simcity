@@ -246,13 +246,14 @@ city_paint_selected:
         beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
         cmp #TILE_POWER
         beq _cps_power              ; power lines are 1x1 (8x8), like roads
-        cmp #TILE_COALPP
-        bne _cps_not_coalpp
-        jmp cps_coalpp              ; coal power plant (3x4 structure)
-_cps_not_coalpp:
+        jsr structure_find_by_tool  ; preserves A; X = row idx if carry set
+        bcs _cps_struct
         cmp #TILE_RESIDENTIAL
         bcc _cps_2x2                ; water -> 2x2
         jmp cps_zone                ; residential / commercial / industrial
+_cps_struct:
+        txa                         ; cps_structure takes A = row index
+        jmp cps_structure
 
 _cps_2x2:
         ; 16x16 tool (water/power): stamp the 2x2 block only on all-ground cells.
@@ -309,8 +310,7 @@ _cps_road:
         lda #TILE_GROUND
         ldz #0
         sta [MAP_PTR],z
-        lda #1
-        sta power_dirty                 ; demolition may break the power network
+        jsr power_mark_dirty            ; demolition may break the power network
         lda road_cx
         sta city_ptr_x
         lda road_cy
@@ -420,8 +420,7 @@ _cps_power_line:
 _cps_power_write:
         ldz #0
         sta [MAP_PTR],z
-        lda #1
-        sta power_dirty             ; the power network changed
+        jsr power_mark_dirty        ; the power network changed
         ; First let adjacent straight roads detect a new crossing (they read the
         ; raw power placeholder just written). Then orient this line and its power
         ; neighbours, which now see any crossing tile as an on-axis connection.
@@ -472,8 +471,7 @@ _cps_zone_no:
 _cps_zone_do:
         lda selected_tile
         jsr city_stamp_zone
-        lda #1
-        sta power_dirty                 ; a new zone changes the power network
+        jsr power_mark_dirty            ; a new zone changes the power network
         jsr audio_construct             ; zone placed -> construction sound
 
         ; Redraw the (up to) 2x2 tiles covering the 3x3 cell zone, by its four
@@ -681,154 +679,8 @@ _czrb_p_next:
         bne _czrb_p_row
         rts
 
-; Coal power plant paint path: a COALPP_COLS x COALPP_ROWS (3x4 / 24x32) structure.
-; Origin = pointer cell, clamped so the block fits; placed on ground or power
-; lines (overwriting power, like a zone). Reuses zone_org_x/y and the zone border
-; re-tiler. Cells store COALPP_CELL_FIRST + (dy*COALPP_COLS + dx).
-cps_coalpp:
-        lda view_x
-        asl
-        clc
-        adc mouse_cell_x
-        cmp #(CELL_COLS - COALPP_COLS + 1)
-        bcc _cpc_setx
-        lda #(CELL_COLS - COALPP_COLS)
-_cpc_setx:
-        sta zone_org_x
-        lda view_y
-        asl
-        clc
-        adc mouse_cell_y
-        cmp #(CELL_ROWS - COALPP_ROWS + 1)
-        bcc _cpc_sety
-        lda #(CELL_ROWS - COALPP_ROWS)
-_cpc_sety:
-        sta zone_org_y
-
-        jsr city_coalpp_can_place
-        bcc _cpc_no
-        lda #<COST_COALPP           ; check + deduct coal-plant cost
-        sta cost_amount
-        lda #>COST_COALPP
-        sta cost_amount+1
-        jsr funds_can_afford
-        bcc _cpc_no
-        jsr funds_subtract
-        bra _cpc_do
-_cpc_no:
-        rts
-_cpc_do:
-        jsr city_stamp_coalpp
-        lda #1
-        sta power_dirty                 ; a new plant powers the network
-        jsr audio_construct             ; plant placed -> construction sound
-        ; Redraw the footprint: each cell's containing tile (dups are harmless).
-        lda #0
-        sta coalpp_dy
-_cpc_rrow:
-        lda #0
-        sta coalpp_dx
-_cpc_rcol:
-        clc
-        lda zone_org_x
-        adc coalpp_dx
-        sta city_ptr_x
-        clc
-        lda zone_org_y
-        adc coalpp_dy
-        sta city_ptr_y
-        jsr render_redraw_cell_tile
-        inc coalpp_dx
-        lda coalpp_dx
-        cmp #COALPP_COLS
-        bne _cpc_rcol
-        inc coalpp_dy
-        lda coalpp_dy
-        cmp #COALPP_ROWS
-        bne _cpc_rrow
-        lda #COALPP_COLS+2              ; re-tile the (3+2) x (4+2) border
-        sta zrb_w
-        lda #COALPP_ROWS+2
-        sta zrb_h
-        jmp city_zone_refresh_border
-
-; Carry SET if every cell of the COALPP_COLS x COALPP_ROWS block at
-; (zone_org_x, zone_org_y) is buildable (ground or a power line). Clobbers
-; coalpp_dx/dy and city_ptr_*.
-city_coalpp_can_place:
-        lda #0
-        sta coalpp_dy
-_cpcp_row:
-        lda #0
-        sta coalpp_dx
-_cpcp_col:
-        clc
-        lda zone_org_x
-        adc coalpp_dx
-        sta city_ptr_x
-        clc
-        lda zone_org_y
-        adc coalpp_dy
-        sta city_ptr_y
-        jsr city_cell_ptr
-        ldz #0
-        lda [MAP_PTR],z
-        cmp #TILE_GROUND
-        beq _cpcp_ok
-        jsr is_powerline_value
-        bcc _cpcp_no
-_cpcp_ok:
-        inc coalpp_dx
-        lda coalpp_dx
-        cmp #COALPP_COLS
-        bne _cpcp_col
-        inc coalpp_dy
-        lda coalpp_dy
-        cmp #COALPP_ROWS
-        bne _cpcp_row
-        sec
-        rts
-_cpcp_no:
-        clc
-        rts
-
-; Stamp the COALPP_COLS x COALPP_ROWS plant at (zone_org_x, zone_org_y). Each cell
-; stores COALPP_CELL_FIRST + position (position = dy*3 + dx; COALPP_COLS is 3).
-city_stamp_coalpp:
-        lda #0
-        sta coalpp_dy
-_csc_row:
-        lda #0
-        sta coalpp_dx
-_csc_col:
-        clc
-        lda zone_org_x
-        adc coalpp_dx
-        sta city_ptr_x
-        clc
-        lda zone_org_y
-        adc coalpp_dy
-        sta city_ptr_y
-        jsr city_cell_ptr
-        lda coalpp_dy
-        asl
-        clc
-        adc coalpp_dy               ; dy * 3
-        clc
-        adc coalpp_dx               ; + dx = position 0..11
-        clc
-        adc #COALPP_CELL_FIRST
-        ldz #0
-        sta [MAP_PTR],z
-        inc coalpp_dx
-        lda coalpp_dx
-        cmp #COALPP_COLS
-        bne _csc_col
-        inc coalpp_dy
-        lda coalpp_dy
-        cmp #COALPP_ROWS
-        bne _csc_row
-        rts
+; (The coal-plant placement path used to live here. It now goes through the
+; generic cps_structure in structures.asm via the dispatch above.)
 
 city_clamp_view_to_cursor:
         lda cursor_x
@@ -970,10 +822,6 @@ zone_rdy:
 zrb_w:                          ; border-refresh scan size (footprint + 2)
         .byte 0
 zrb_h:
-        .byte 0
-coalpp_dx:                      ; coal-plant stamp/redraw loop counters
-        .byte 0
-coalpp_dy:
         .byte 0
 zone_char_base:
         .byte 0
