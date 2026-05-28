@@ -32,6 +32,12 @@ Tracking known issues. Severity from the code review; line numbers are on
 
 ## Low
 
+- [ ] **World-gen seed is fixed at `$ACE1`.** `src/world_gen.asm` hardcodes a
+      deterministic seed so test maps are reproducible during development. Ship
+      a per-boot fresh seed sourced from the MEGA65 RTC seconds register
+      (`$D6:10` area) or a free-running CIA timer captured at first city_init.
+      Keep the dev seed as a `WORLDGEN_DEV_SEED` constant for repro tests.
+
 - [x] **Toolbar slot-0 redraw workaround removed.** Root cause was the 45GS02
       `stz` bug (stores Z, not zero) corrupting render/loop counters. After the
       codebase-wide `stz` -> `lda #0`/`sta` fix, slot 0 renders correctly and the

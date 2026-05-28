@@ -90,6 +90,16 @@ LOAD_INSET_CHAR_BASE    = LOAD_CHAR_BASE + 4        ; disk + down-arrow, selecte
 SAVE_CHAR_BASE          = LOAD_INSET_CHAR_BASE + 4  ; disk + up-arrow, idle
 SAVE_INSET_CHAR_BASE    = SAVE_CHAR_BASE + 4        ; disk + up-arrow, selected
 
+; Tree autotile chars. 16 bitmaps, one per 4-neighbor mask. cell_to_char in
+; render.asm maps cell value TREE_CELL_FIRST+mask to TREE_CHAR_BASE+mask.
+TREE_CHAR_BASE          = SAVE_INSET_CHAR_BASE + 4      ; 222 -> 222..237
+
+; Water-shoreline chars. 15 bitmaps, one per shoreline mask (0..14). Mask 15
+; (interior, fully surrounded by water) keeps the existing TILE_WATER quadrant
+; chars (0..3). cell_to_char maps WATER_SHORE_CELL_FIRST+mask to
+; WATER_SHORE_CHAR_BASE+mask.
+WATER_SHORE_CHAR_BASE   = TREE_CHAR_BASE + TREE_CELL_COUNT      ; 238 -> 238..252
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 LOAD_ICON_COL           = 2
@@ -106,6 +116,8 @@ TOP_BTN_H               = 2
         .cerror COALPP_CHAR_BASE + 12 > 256, "coal plant chars cross 256: cell_to_char needs 16-bit support"
         .cerror NUCLEARPP_CHAR_BASE + 12 > 256, "nuclear plant chars cross 256: cell_to_char needs 16-bit support"
         .cerror SAVE_INSET_CHAR_BASE + 4 > 256, "top-strip button chars cross 256: cell_to_char needs 16-bit support"
+        .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 256, "tree chars cross 256: cell_to_char needs 16-bit support"
+        .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 256, "water shore chars cross 256: cell_to_char needs 16-bit support"
 
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large

@@ -258,6 +258,26 @@ cell_to_char:
         bcc _ctc_type
         cmp #POWERLINE_CELL_LAST+1
         bcc _ctc_done               ; power line: A already holds the char
+        cmp #TREE_CELL_FIRST
+        bcc _ctc_struct_scan        ; below trees -> fall through to structure table
+        cmp #TREE_CELL_LAST+1
+        bcs _ctc_check_water_shore
+        sec                         ; tree: char = (value - TREE_CELL_FIRST) + TREE_CHAR_BASE
+        sbc #TREE_CELL_FIRST
+        clc
+        adc #TREE_CHAR_BASE
+        rts
+_ctc_check_water_shore:
+        cmp #WATER_SHORE_CELL_FIRST
+        bcc _ctc_struct_scan        ; below water shore -> structures (none in this gap today)
+        cmp #WATER_SHORE_CELL_LAST+1
+        bcs _ctc_struct_scan        ; above water shore -> ditto
+        sec                         ; shore: char = (value - WATER_SHORE_CELL_FIRST) + WATER_SHORE_CHAR_BASE
+        sbc #WATER_SHORE_CELL_FIRST
+        clc
+        adc #WATER_SHORE_CHAR_BASE
+        rts
+_ctc_struct_scan:
         ; Structure table: scan rows for a value in [base, base + count). For each
         ; match: char = (value - base) + char_base_lo. Char-base high byte is in
         ; the table for future >255 chars; cell_to_char still returns 8-bit today.

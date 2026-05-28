@@ -134,6 +134,8 @@ tiles_load:
         jsr tiles_dma_city_from_attic
         jsr tiles_load_cursor
         jsr tiles_load_top_buttons
+        jsr tiles_load_trees
+        jsr tiles_load_water_shore
         rts
 
 tiles_dma_city_from_attic:
@@ -636,3 +638,470 @@ ui_load:
         #UI_TILE_DMA (UI_BTN_BASE + i * 4), UI_BTN_TILE_SIZE, UI_BTN_OFF_BASE + i * UI_BTN_TILE_SIZE
 .next
         rts
+
+;---------------------------------------------------------------------------------------
+; Trees: 16 bitmaps, indexed by 4-neighbor mask. The mask's low 4 bits encode
+; (W:E:S:N); cell value TREE_CELL_FIRST+mask maps to char TREE_CHAR_BASE+mask
+; via cell_to_char.
+;
+; Per-tile rule: each corner of the 8x8 char (NW/NE/SW/SE, 3 pixels each) is
+; either FILLED (dark green $03) or ROUNDED (brown $04). The corner is filled
+; iff EITHER adjacent edge has a tree neighbor:
+;
+;     nw_filled = N || W      ne_filled = N || E
+;     sw_filled = S || W      se_filled = S || E
+;
+; All non-corner pixels are always dark green. So fully-surrounded cells render
+; as solid green blocks (correct: they're interior forest), and only the 9
+; visually-distinct edge/corner masks change shape.
+;
+; Layout of each 8x8 tile:
+;     row 0:  [NW NW][G G G G][NE NE]
+;     row 1:  [NW   ][G G G G G G][   NE]
+;     rows 2-5: all green
+;     row 6:  [SW   ][G G G G G G][   SE]
+;     row 7:  [SW SW][G G G G][SE SE]
+;
+; Where [NW NW] = $03 $03 if NW filled, else $04 $04 (brown); same idea for the
+; other corners. Two pixels on the outer ring + 1 on the inner ring = 3 corner
+; pixels per corner, giving a chunky-but-readable rounded silhouette at 8x8.
+;---------------------------------------------------------------------------------------
+
+; Macro: emit one 8x8 tree tile from 4 cardinal-neighbor flags (n, s, e, w).
+; Compared to the previous version, this drives BOTH the corner rounding AND
+; the edge silhouette darkening from the same flags, so every forest patch gets
+; a darker green outline against the brown ground -- the cue that makes the
+; reference image read as "organic" instead of "tiled".
+;
+; Pixel-zone responsibilities:
+;   * 2x2 corner outer pixels (3 per corner): brown $04 if !N&&!W (etc.), else
+;     match the edge color so the silhouette continues smoothly.
+;   * 1 inner-corner pixel per corner: dark $03 if the corner is rounded
+;     (1-pixel silhouette curve), else interior mid green $02.
+;   * 4-pixel mid stretches on each of the 4 edges: dark $03 silhouette if the
+;     corresponding cardinal neighbor is absent, mid $02 otherwise (so adjacent
+;     filled tiles join with no visible seam).
+;   * Interior 6x4 region (rows 2-5, cols 1-6): static dithered scatter of
+;     $02/$03/$07 -- mask-independent, identical across all 16 tiles.
+;
+; The macro derives the 4 corner-filled flags inline as (n|w), (n|e), (s|w),
+; (s|e); see the comments on the 16 calls below for the per-mask shape.
+TREE_TILE .macro n, s, e, w
+        ; --- Row 0: NW corner (2) + top-edge stripe (4) + NE corner (2) ---
+.if (\n)|(\w)
+        .byte $02, $02
+.else
+        .byte $04, $04
+.fi
+.if \n
+        .byte $02, $02, $02, $02
+.else
+        .byte $03, $03, $03, $03        ; top-edge silhouette
+.fi
+.if (\n)|(\e)
+        .byte $02, $02
+.else
+        .byte $04, $04
+.fi
+        ; --- Row 1: NW edge (1) + inner-NW (1) + interior (4) + inner-NE (1) + NE edge (1) ---
+.if (\n)|(\w)
+        .byte $02
+.else
+        .byte $04
+.fi
+.if (\n)|(\w)
+        .byte $02                       ; inner-NW: filled -> blend
+.else
+        .byte $03                       ; inner-NW: rounded -> silhouette curve
+.fi
+        .byte $07, $02, $02, $07
+.if (\n)|(\e)
+        .byte $03                       ; inner-NE: rounded -> silhouette
+.else
+        .byte $03
+.fi
+.if (\n)|(\e)
+        .byte $02
+.else
+        .byte $04
+.fi
+        ; --- Rows 2..5: W edge (1) + interior 6x4 scatter (6) + E edge (1) ---
+.if \w
+        .byte $02
+.else
+        .byte $03
+.fi
+        .byte $03, $02, $07, $02, $02, $03
+.if \e
+        .byte $02
+.else
+        .byte $03
+.fi
+
+.if \w
+        .byte $02
+.else
+        .byte $03
+.fi
+        .byte $02, $07, $02, $03, $07, $02
+.if \e
+        .byte $02
+.else
+        .byte $03
+.fi
+
+.if \w
+        .byte $02
+.else
+        .byte $03
+.fi
+        .byte $07, $02, $03, $02, $02, $07
+.if \e
+        .byte $02
+.else
+        .byte $03
+.fi
+
+.if \w
+        .byte $02
+.else
+        .byte $03
+.fi
+        .byte $02, $03, $02, $07, $02, $03
+.if \e
+        .byte $02
+.else
+        .byte $03
+.fi
+
+        ; --- Row 6: SW edge (1) + inner-SW (1) + interior (4) + inner-SE (1) + SE edge (1) ---
+.if (\s)|(\w)
+        .byte $02
+.else
+        .byte $04
+.fi
+.if (\s)|(\w)
+        .byte $02
+.else
+        .byte $03
+.fi
+        .byte $07, $02, $02, $07
+.if (\s)|(\e)
+        .byte $02
+.else
+        .byte $03
+.fi
+.if (\s)|(\e)
+        .byte $02
+.else
+        .byte $04
+.fi
+
+        ; --- Row 7: SW corner (2) + bottom-edge stripe (4) + SE corner (2) ---
+.if (\s)|(\w)
+        .byte $02, $02
+.else
+        .byte $04, $04
+.fi
+.if \s
+        .byte $02, $02, $02, $02
+.else
+        .byte $03, $03, $03, $03        ; bottom-edge silhouette
+.fi
+.if (\s)|(\e)
+        .byte $02, $02
+.else
+        .byte $04, $04
+.fi
+.endmacro
+
+; The 16 tiles, indexed by mask. mask bit 0 = N, 1 = S, 2 = E, 3 = W.
+;
+;     mask  N S E W
+;     0     0 0 0 0   isolated single bush
+;     1     1 0 0 0   N only -> south end of vertical run
+;     2     0 1 0 0   S only -> north end
+;     3     1 1 0 0   NS -> vertical middle (solid interior)
+;     4     0 0 1 0   E only -> west end of horizontal run
+;     5     1 0 1 0   NE -> SW corner rounded (forest opens SW)
+;     6     0 1 1 0   SE -> NW corner rounded
+;     7     1 1 1 0   NSE -> W edge of solid forest
+;     8     0 0 0 1   W only -> east end
+;     9     1 0 0 1   NW -> SE corner rounded
+;     10    0 1 0 1   SW -> NE corner rounded
+;     11    1 1 0 1   NSW -> E edge of solid forest
+;     12    0 0 1 1   EW horizontal middle (solid)
+;     13    1 0 1 1   NEW -> S edge of solid forest
+;     14    0 1 1 1   SEW -> N edge of solid forest
+;     15    1 1 1 1   surrounded (fully solid interior)
+;
+fcm_tree_tiles:
+        #TREE_TILE 0, 0, 0, 0       ; mask  0
+        #TREE_TILE 1, 0, 0, 0       ; mask  1
+        #TREE_TILE 0, 1, 0, 0       ; mask  2
+        #TREE_TILE 1, 1, 0, 0       ; mask  3
+        #TREE_TILE 0, 0, 1, 0       ; mask  4
+        #TREE_TILE 1, 0, 1, 0       ; mask  5
+        #TREE_TILE 0, 1, 1, 0       ; mask  6
+        #TREE_TILE 1, 1, 1, 0       ; mask  7
+        #TREE_TILE 0, 0, 0, 1       ; mask  8
+        #TREE_TILE 1, 0, 0, 1       ; mask  9
+        #TREE_TILE 0, 1, 0, 1       ; mask 10
+        #TREE_TILE 1, 1, 0, 1       ; mask 11
+        #TREE_TILE 0, 0, 1, 1       ; mask 12
+        #TREE_TILE 1, 0, 1, 1       ; mask 13
+        #TREE_TILE 0, 1, 1, 1       ; mask 14
+        #TREE_TILE 1, 1, 1, 1       ; mask 15
+
+;---------------------------------------------------------------------------------------
+; Water shoreline: 15 bitmaps for masks 0..14 (mask 15 = interior, served by
+; the existing TILE_WATER quadrant chars 0..3). Mirror of TREE_TILE -- same
+; N/S/E/W geometry, but the "outside" pixels are brown ground and the "inside"
+; pixels match the existing water tile's palette and ripple style:
+;
+;   $18 = base water (matches assets\tileset.asm TILE_WATER fill)
+;   $19 = dark band  (used for the depth-line silhouette at no-neighbor edges
+;                     AND as natural ripple flecks scattered in the interior)
+;   $1A = light band (interior ripples)
+;   $1B = ripple glint (rare interior highlights)
+;
+; The interior pattern is sampled from the same dark-band/light-band/glint
+; vocabulary as the existing water chars, so a shoreline cell sitting next to
+; an interior water cell reads as the same body of water with a faint extra
+; depth line where the bottom rises up to the shore.
+WATER_SHORE_TILE .macro n, s, e, w
+        ; --- Row 0: NW corner (2) + top edge (4) + NE corner (2) ---
+.if (\n)|(\w)
+        .byte $18, $18
+.else
+        .byte $04, $04
+.fi
+.if \n
+        .byte $18, $18, $18, $18
+.else
+        .byte $19, $19, $19, $19        ; depth line along the shore
+.fi
+.if (\n)|(\e)
+        .byte $18, $18
+.else
+        .byte $04, $04
+.fi
+        ; --- Row 1: NW edge (1) + inner-NW (1) + interior (4) + inner-NE (1) + NE edge (1) ---
+.if (\n)|(\w)
+        .byte $18
+.else
+        .byte $04
+.fi
+.if (\n)|(\w)
+        .byte $18
+.else
+        .byte $19                        ; inner-corner depth pixel
+.fi
+        .byte $18, $1A, $1A, $18
+.if (\n)|(\e)
+        .byte $18
+.else
+        .byte $19
+.fi
+.if (\n)|(\e)
+        .byte $18
+.else
+        .byte $04
+.fi
+        ; --- Rows 2..5: W edge (1) + interior 6 + E edge (1) ---
+.if \w
+        .byte $18
+.else
+        .byte $19
+.fi
+        .byte $18, $18, $18, $1B, $1B, $18
+.if \e
+        .byte $18
+.else
+        .byte $19
+.fi
+
+.if \w
+        .byte $18
+.else
+        .byte $19
+.fi
+        .byte $18, $18, $18, $18, $18, $18
+.if \e
+        .byte $18
+.else
+        .byte $19
+.fi
+
+.if \w
+        .byte $18
+.else
+        .byte $19
+.fi
+        .byte $1A, $1A, $1A, $18, $18, $18
+.if \e
+        .byte $18
+.else
+        .byte $19
+.fi
+
+.if \w
+        .byte $18
+.else
+        .byte $19
+.fi
+        .byte $18, $18, $18, $18, $19, $19
+.if \e
+        .byte $18
+.else
+        .byte $19
+.fi
+
+        ; --- Row 6: SW edge (1) + inner-SW (1) + interior (4) + inner-SE (1) + SE edge (1) ---
+.if (\s)|(\w)
+        .byte $18
+.else
+        .byte $04
+.fi
+.if (\s)|(\w)
+        .byte $18
+.else
+        .byte $19
+.fi
+        .byte $18, $1A, $1A, $18
+.if (\s)|(\e)
+        .byte $18
+.else
+        .byte $19
+.fi
+.if (\s)|(\e)
+        .byte $18
+.else
+        .byte $04
+.fi
+        ; --- Row 7: SW corner (2) + bottom edge (4) + SE corner (2) ---
+.if (\s)|(\w)
+        .byte $18, $18
+.else
+        .byte $04, $04
+.fi
+.if \s
+        .byte $18, $18, $18, $18
+.else
+        .byte $19, $19, $19, $19
+.fi
+.if (\s)|(\e)
+        .byte $18, $18
+.else
+        .byte $04, $04
+.fi
+.endmacro
+
+; 15 shoreline tiles, masks 0..14 (mask 15 = interior, served by chars 0..3).
+fcm_water_shore_tiles:
+        #WATER_SHORE_TILE 0, 0, 0, 0       ; mask  0  isolated
+        #WATER_SHORE_TILE 1, 0, 0, 0       ; mask  1  N
+        #WATER_SHORE_TILE 0, 1, 0, 0       ; mask  2  S
+        #WATER_SHORE_TILE 1, 1, 0, 0       ; mask  3  NS
+        #WATER_SHORE_TILE 0, 0, 1, 0       ; mask  4  E
+        #WATER_SHORE_TILE 1, 0, 1, 0       ; mask  5  NE
+        #WATER_SHORE_TILE 0, 1, 1, 0       ; mask  6  SE
+        #WATER_SHORE_TILE 1, 1, 1, 0       ; mask  7  NSE
+        #WATER_SHORE_TILE 0, 0, 0, 1       ; mask  8  W
+        #WATER_SHORE_TILE 1, 0, 0, 1       ; mask  9  NW
+        #WATER_SHORE_TILE 0, 1, 0, 1       ; mask 10  SW
+        #WATER_SHORE_TILE 1, 1, 0, 1       ; mask 11  NSW
+        #WATER_SHORE_TILE 0, 0, 1, 1       ; mask 12  EW
+        #WATER_SHORE_TILE 1, 0, 1, 1       ; mask 13  NEW
+        #WATER_SHORE_TILE 0, 1, 1, 1       ; mask 14  SEW
+
+; Loader: chars WATER_SHORE_CHAR_BASE..+14 from fcm_water_shore_tiles. Same
+; pattern as tiles_load_trees.
+tiles_load_water_shore:
+        lda #0
+        sta tlws_idx
+_tlws_loop:
+        lda tlws_idx
+        cmp #WATER_SHORE_CELL_COUNT
+        bcs _tlws_done
+
+        lda tlws_idx
+        sta tlws_src_lo
+        lda #0
+        sta tlws_src_hi
+.for i = 0, i < 6, i = i + 1
+        asl tlws_src_lo
+        rol tlws_src_hi
+.next
+        clc
+        lda tlws_src_lo
+        adc #<fcm_water_shore_tiles
+        sta tlws_src_lo
+        lda tlws_src_hi
+        adc #>fcm_water_shore_tiles
+        sta tlws_src_hi
+
+        lda tlws_idx
+        clc
+        adc #WATER_SHORE_CHAR_BASE
+        ldx tlws_src_lo
+        ldy tlws_src_hi
+        jsr create_fcm_char
+
+        inc tlws_idx
+        bra _tlws_loop
+_tlws_done:
+        rts
+
+tlws_idx:
+        .byte 0
+tlws_src_lo:
+        .byte 0
+tlws_src_hi:
+        .byte 0
+
+; Load chars TREE_CHAR_BASE..+15 from the 16 bitmaps above. fcm_tree_tiles is
+; contiguous (1024 bytes), so tile N starts at fcm_tree_tiles + N*64.
+; Compute idx*64 by shifting a 16-bit value left 6 times.
+tiles_load_trees:
+        lda #0
+        sta tlt_idx
+_tlt_loop:
+        lda tlt_idx
+        cmp #TREE_CELL_COUNT
+        bcs _tlt_done
+
+        lda tlt_idx
+        sta tlt_src_lo
+        lda #0
+        sta tlt_src_hi
+.for i = 0, i < 6, i = i + 1
+        asl tlt_src_lo
+        rol tlt_src_hi
+.next
+        clc
+        lda tlt_src_lo
+        adc #<fcm_tree_tiles
+        sta tlt_src_lo
+        lda tlt_src_hi
+        adc #>fcm_tree_tiles
+        sta tlt_src_hi
+
+        lda tlt_idx
+        clc
+        adc #TREE_CHAR_BASE
+        ldx tlt_src_lo
+        ldy tlt_src_hi
+        jsr create_fcm_char
+
+        inc tlt_idx
+        bra _tlt_loop
+_tlt_done:
+        rts
+
+tlt_idx:
+        .byte 0
+tlt_src_lo:
+        .byte 0
+tlt_src_hi:
+        .byte 0

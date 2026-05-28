@@ -9,24 +9,6 @@
 ; and view_x/y stay in 16x16 tile units.
 ;=======================================================================================
 
-; Stamp a 16x16 tile (2x2 same-type cell block). Args: type, tile_x, tile_y.
-SEED_TILE .macro type, tx, ty
-        lda #\type
-        ldx #\tx
-        ldy #\ty
-        jsr city_stamp_tile
-.endmacro
-
-; Stamp a 3x3 bordered zone at a CELL origin. Args: type, cell_x, cell_y.
-SEED_ZONE .macro type, cx, cy
-        lda #\cx
-        sta zone_org_x
-        lda #\cy
-        sta zone_org_y
-        lda #\type
-        jsr city_stamp_zone
-.endmacro
-
 city_init:
         lda #8
         sta view_x
@@ -69,95 +51,12 @@ city_fill_ground:
         .word $0000                  ; modulo
         rts
 
+; The initial map is just water + ground + trees -- no demo roads, zones or
+; structures. Generation lives in world_gen.asm so this file can stay focused
+; on cell I/O and tool dispatch.
 city_seed_terrain:
-        ; Coastal water band (tile rows 0-4).
-        lda #0
-        sta seed_y
-_cst_water_rows:
-        lda seed_y
-        cmp #5
-        bcs _cst_roads
-        lda #0
-        sta seed_x
-_cst_water_cols:
-        lda seed_x
-        cmp #CITY_COLS
-        beq _cst_next_water_row
-        lda #TILE_WATER
-        jsr city_set_seed_tile
-        inc seed_x
-        jmp _cst_water_cols
-_cst_next_water_row:
-        inc seed_y
-        jmp _cst_water_rows
+        jmp world_gen_run
 
-_cst_roads:
-        lda #0
-        sta seed_x
-        lda #14
-        sta seed_y
-_cst_road_h:
-        lda seed_x
-        cmp #CITY_COLS
-        beq _cst_road_v_setup
-        lda #ROAD_CELL_H
-        jsr city_set_seed_tile
-        inc seed_x
-        jmp _cst_road_h
-
-_cst_road_v_setup:
-        lda #0
-        sta seed_y
-        lda #22
-        sta seed_x
-_cst_road_v:
-        lda seed_y
-        cmp #CITY_ROWS
-        beq _cst_zones
-        lda #ROAD_CELL_V            ; vertical road segment
-        jsr city_set_seed_tile
-        inc seed_y
-        jmp _cst_road_v
-
-_cst_zones:
-        ; Demo 3x3 bordered zones (cell origins): one of each type, two rows.
-        #SEED_ZONE TILE_RESIDENTIAL, 20, 18
-        #SEED_ZONE TILE_RESIDENTIAL, 20, 24
-        #SEED_ZONE TILE_COMMERCIAL, 28, 18
-        #SEED_ZONE TILE_COMMERCIAL, 28, 24
-        #SEED_ZONE TILE_INDUSTRIAL, 36, 18
-        #SEED_ZONE TILE_INDUSTRIAL, 36, 24
-
-        #SEED_TILE TILE_WATER, 47, 6
-        #SEED_TILE TILE_WATER, 48, 6
-        #SEED_TILE TILE_WATER, 48, 7
-        #SEED_TILE TILE_WATER, 49, 8
-        rts
-
-; Stamp a 16x16 tile as a 2x2 same-type cell block. A=type, X=tile_x, Y=tile_y.
-city_stamp_tile:
-        sta stamp_type
-        txa
-        asl
-        sta city_ptr_x              ; cell_x = tile_x * 2
-        tya
-        asl
-        sta city_ptr_y              ; cell_y = tile_y * 2
-        jsr city_cell_ptr
-        lda stamp_type
-        jmp city_stamp_2x2
-
-; Stamp a 2x2 same-type block from seed_x/seed_y (tile coords). A=type.
-city_set_seed_tile:
-        pha
-        lda seed_x
-        asl
-        sta city_ptr_x
-        lda seed_y
-        asl
-        sta city_ptr_y
-        jsr city_cell_ptr
-        pla
 ; Write A into the 2x2 cell block whose top-left cell is MAP_PTR (in Attic).
 city_stamp_2x2:
         ldz #0
@@ -281,7 +180,48 @@ _cps_2x2:
 _cps_2x2_write:
         lda selected_tile
         jsr city_stamp_2x2
-        jmp render_redraw_cell_tile     ; city_ptr_* still = cursor cell
+        jsr render_redraw_cell_tile     ; city_ptr_* still = cursor cell
+        ; If we just painted water, re-tile shorelines on the 4 placed cells
+        ; (each call also touches that cell's 4 neighbors, so the outer ring of
+        ; ground cells gets covered too).
+        lda selected_tile
+        cmp #TILE_WATER
+        bne _cps_2x2_done
+        ; (city_ptr_x, city_ptr_y) is still the TL cell of the 2x2 block.
+        lda city_ptr_x
+        sta cps_2x2_orig_x
+        lda city_ptr_y
+        sta cps_2x2_orig_y
+        ; TL
+        jsr water_shore_refresh_neighbors
+        ; TR (TL_x + 1, TL_y)
+        lda cps_2x2_orig_x
+        clc
+        adc #1
+        sta city_ptr_x
+        lda cps_2x2_orig_y
+        sta city_ptr_y
+        jsr water_shore_refresh_neighbors
+        ; BL (TL_x, TL_y + 1)
+        lda cps_2x2_orig_x
+        sta city_ptr_x
+        lda cps_2x2_orig_y
+        clc
+        adc #1
+        sta city_ptr_y
+        jsr water_shore_refresh_neighbors
+        ; BR (TL_x + 1, TL_y + 1)
+        lda cps_2x2_orig_x
+        clc
+        adc #1
+        sta city_ptr_x
+        lda cps_2x2_orig_y
+        clc
+        adc #1
+        sta city_ptr_y
+        jsr water_shore_refresh_neighbors
+_cps_2x2_done:
+        rts
 
 _cps_road:
         ; 1x1: absolute cell = view (tiles)*2 + cell-within-view.
@@ -333,7 +273,12 @@ _cps_road:
         sta powerline_cx
         lda road_cy
         sta powerline_cy
-        jmp powerline_refresh_neighbors
+        jsr powerline_refresh_neighbors
+        lda road_cx                     ; ...and adjacent trees re-pick edge/corner art
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jmp tree_refresh_neighbors
 _cps_road_build:
         sta road_cross_save         ; save the existing cell value (re-used below)
         lda #<COST_ROAD             ; check road affordability up front
@@ -800,10 +745,6 @@ selected_tool:
 sim_tick:
         .word 0
 
-seed_x:
-        .byte 0
-seed_y:
-        .byte 0
 view_limit:
         .byte 0
 city_ptr_x:
@@ -814,7 +755,9 @@ city_ptr_lo:
         .byte 0
 city_ptr_hi:
         .byte 0
-stamp_type:
+cps_2x2_orig_x:                 ; saved 2x2 origin across the 4 shoreline refreshes
+        .byte 0
+cps_2x2_orig_y:
         .byte 0
 road_cross_save:                ; cell overwritten while testing a road/power cross
         .byte 0

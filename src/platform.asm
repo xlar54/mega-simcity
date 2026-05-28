@@ -310,12 +310,40 @@ NUCLEARPP_CELL_COUNT    = NUCLEARPP_COLS * NUCLEARPP_ROWS           ; 12
 NUCLEARPP_CELL_FIRST    = COALPP_CELL_LAST + 1                      ; 83
 NUCLEARPP_CELL_LAST     = NUCLEARPP_CELL_FIRST + NUCLEARPP_CELL_COUNT - 1 ; 94
 
+; Tree cells (1x1) scattered at world-gen time and auto-tiled the way roads
+; are: the cell value carries a 4-neighbor mask (N|E|S|W) of adjacent trees so
+; cell_to_char can pick the right outline/edge/corner bitmap with no per-frame
+; mask recompute. The mask occupies the low 4 bits; value = TREE_CELL_FIRST +
+; mask. Bulldozing a tree (and only that) refreshes the 4 neighbors.
+TREE_CELL_FIRST         = 95
+TREE_CELL_COUNT         = 16    ; one variant per 4-neighbor mask (0..15)
+TREE_CELL_LAST          = TREE_CELL_FIRST + TREE_CELL_COUNT - 1     ; 110
+TREE_BIT_N              = $01   ; same bit layout as roads (ROAD_BIT_*) so
+TREE_BIT_E              = $04   ; future shared helpers can switch on type only
+TREE_BIT_S              = $02
+TREE_BIT_W              = $08
+
+; Water shoreline cells (1x1) for the curved boundary between water and ground.
+; Same autotile model as trees, but the mask counts WATER neighbors (a set bit
+; = that neighbor is also water -> no shoreline there). Mask 15 = fully
+; surrounded by water = keep as plain TILE_WATER (no per-cell value needed).
+; So we only need 15 shoreline-cell values, one per mask 0..14.
+WATER_SHORE_CELL_FIRST  = TREE_CELL_LAST + 1                        ; 111
+WATER_SHORE_CELL_COUNT  = 15
+WATER_SHORE_CELL_LAST   = WATER_SHORE_CELL_FIRST + WATER_SHORE_CELL_COUNT - 1   ; 125
+WATER_BIT_N             = $01
+WATER_BIT_E             = $04
+WATER_BIT_S             = $02
+WATER_BIT_W             = $08
+
 ; Encoding guard. The map cell is one byte: bit 7 set is a zone literal (cells
 ; render as the low 7 bits as a char id directly); the structure descriptor table
 ; (structures.asm) uses non-literal values, so the highest structure cell value
-; must stay below ZONE_CELL_LITERAL ($80). Today we're at 94 / 128, with room for
-; ~3 more 3x4 structures before the encoding redesign in TODO.md becomes urgent.
+; must stay below ZONE_CELL_LITERAL ($80). Today we're at 110 / 128 with trees;
+; room left for one more 3x4 structure before the encoding redesign becomes urgent.
         .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_LITERAL, "structure cell values must stay below ZONE_CELL_LITERAL ($80)"
+        .cerror TREE_CELL_LAST >= ZONE_CELL_LITERAL, "tree cell range crosses ZONE_CELL_LITERAL ($80)"
+        .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_LITERAL, "water shore cell range crosses ZONE_CELL_LITERAL ($80)"
 ; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
 ; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
 ; the whole blob.
