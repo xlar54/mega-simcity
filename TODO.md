@@ -96,6 +96,28 @@ cells = 8 KB, currently `city_cells` at the end of `main.asm`.)
       land value + power + RCI demand decide zone growth/decline -> growth feeds
       population density -> density regenerates traffic and pollution.
 
+## Power plant simulation (planned)
+
+The power flood-fill is in (`src/power.asm`); these extend it.
+
+- [ ] **Plant power-output capacity.** Each plant powers a limited number of
+      zones (coal ~40, nuclear ~120, per `docs/TILE_RULES.md`). Add a per-row
+      output field to the structure descriptor table and, during `power_recompute`,
+      tally zones as the flood marks them; once a plant's tally exceeds its
+      output, further reached zones stay unpowered even though the flood touched
+      them (the lightning bolt should reappear on them). Which zones drop has to
+      be deterministic -- simplest is "last-marked first" (flood order = BFS
+      distance from the plant), with overflow zones recorded so the UI knows.
+      Multiple plants on one network share their pool (or compete -- decide).
+
+- [ ] **Plant aging + failure.** Track a per-plant age (game-months since
+      placement) alongside `plant_origin_x/y`; once it exceeds a lifetime
+      constant the plant stops seeding the flood. Coal ~50 game-years, nuclear
+      ~80. Nuclear "meltdown" is a more dramatic failure (clears surrounding
+      cells / triggers a disaster event) -- coal just goes dark. Plant tile art
+      could progressively swap to an "aged" variant near end-of-life as a visual
+      warning. Needs `clock.asm` -- already in.
+
 ## Resolved this session
 
 - [x] **45GS02 STZ bug (the big one).** `stz` stores the Z register, not zero
