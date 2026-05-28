@@ -48,6 +48,7 @@ city_init:
         jsr city_seed_terrain
         jsr city_clamp_view_to_cursor
         jsr funds_init
+        jsr clock_init
         rts
 
 ; Fill every cell in the Attic world map with TILE_GROUND via one DMA fill.

@@ -41,11 +41,13 @@ app_loop:
         beq shutdown
         jsr game_apply_input
         jsr game_tick
+        jsr clock_tick              ; advance the in-game month every 3 wall minutes
         jsr render_frame
         jsr sprites_refresh
         jsr power_update            ; recompute zone power if the network changed
         jsr bolt_test_update        ; round-robin the bolt over UNPOWERED zones
         jsr funds_update            ; redraw FUNDS readout if it changed
+        jsr clock_update            ; redraw DATE readout if it changed
         jmp app_loop
 
 shutdown:
@@ -187,6 +189,7 @@ _mhu_done:
         .include "power.asm"
         .include "cost-management.asm"
         .include "structures.asm"
+        .include "clock.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"

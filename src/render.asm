@@ -98,6 +98,7 @@ render_ui:
         ldy #0
         jsr set_fcm_char
         jsr funds_render            ; FUNDS: $xxx,xxx at cols 18+
+        jsr clock_render            ; DATE: MMM YYYY on row 1, cols 18+
 
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS
