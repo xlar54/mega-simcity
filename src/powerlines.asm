@@ -81,9 +81,9 @@ _pcap_yes:
         rts
 
 ; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it is a "structure" a
-; power line points toward -- a zone cell (literal char) or any row in the
-; structure table (coal / nuclear / future buildings). Used to orient an isolated
-; line between two facing structures.
+; power line points toward -- any of the 27 zone cells or any row in the
+; structure table (coal / nuclear / future buildings). Used to orient an
+; isolated line between two facing structures.
 is_structure_at_ptr:
         jsr city_cell_ptr
         ldz #0

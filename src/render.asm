@@ -315,7 +315,14 @@ _ctc_struct_hit:
 _ctc_no_struct:
         lda ctc_value               ; restore original cell value for type path
 _ctc_type:
-        ; water / ground / power: 2x2 tile, char = type*4 + parity.
+        ; Base-type render: char = value*4 + parity. Valid only for TILE_WATER
+        ; (0) and TILE_GROUND (1); every other map cell goes through one of the
+        ; range translations above. Trap anything else here (unallocated values
+        ; in 153..255 reach this via the no-struct fall-through; gaps like
+        ; 21..23 reach it via the road/powerline bcc) so an accidental write
+        ; doesn't render as `value*4` wrapped into an arbitrary char.
+        cmp #2
+        bcs _ctc_unknown
         asl
         asl
         sta render_char_base
@@ -323,6 +330,11 @@ _ctc_type:
         clc
         adc render_char_base
 _ctc_done:
+        rts
+_ctc_unknown:
+        ; Sentinel: render water-TL (char 0). A blue square showing up on land
+        ; is a clear "this cell value didn't map to anything" signal in xemu.
+        lda #0
         rts
 
 ; Redraw the single viewport tile containing cell (city_ptr_x, city_ptr_y), if

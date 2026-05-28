@@ -38,6 +38,16 @@ Tracking known issues. Severity from the code review; line numbers are on
       (`$D6:10` area) or a free-running CIA timer captured at first city_init.
       Keep the dev seed as a `WORLDGEN_DEV_SEED` constant for repro tests.
 
+- [ ] **Map save-file format version + migration hook.** When load/save lands,
+      stamp a small header on the saved map (magic + format version + zone
+      encoding flag). The bit-7 zone-literal encoding was retired in c191d14;
+      any save written before that has zone cells like `$A0` / `$A9` / `$B2`
+      that today's `cell_to_char` would route through `_ctc_unknown` (i.e.
+      render as water-TL). Loader can either reject old saves with a clear
+      message or convert literal-zone cells to `ZONE_CELL_FIRST + offset` on
+      the fly. No existing saves today; add this before the LOAD/SAVE icons
+      get wired to actual disk I/O.
+
 - [x] **Toolbar slot-0 redraw workaround removed.** Root cause was the 45GS02
       `stz` bug (stores Z, not zero) corrupting render/loop counters. After the
       codebase-wide `stz` -> `lda #0`/`sta` fix, slot 0 renders correctly and the

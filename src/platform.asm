@@ -353,7 +353,10 @@ ZONE_CELL_LAST          = ZONE_CELL_FIRST + ZONE_CELL_COUNT - 1     ; 152
         .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_FIRST, "structure cell range overlaps zones"
         .cerror TREE_CELL_LAST >= ZONE_CELL_FIRST,      "tree cell range overlaps zones"
         .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_FIRST, "water-shore cell range overlaps zones"
-        .cerror ZONE_CELL_LAST > 255,                   "zone cell range crosses 8-bit cell value ceiling"
+        ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
+        ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
+        ; truncates to `cmp #0` and corrupts the range test.
+        .cerror ZONE_CELL_LAST >= 255,                  "zone cell range LAST is 255; cmp #LAST+1 idiom truncates -- shrink the range or rework the test"
 ; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
 ; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
 ; the whole blob.

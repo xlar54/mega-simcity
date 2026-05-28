@@ -263,8 +263,9 @@ tileset_base_end:
 ; tiles. Each zone is 9 distinct 8x8 cells (TL,T,TR,L,C,R,BL,B,BR): solid zone
 ; colour, grey ($0C) only on the OUTWARD-facing edges so a placed zone shows a
 ; single grey border around the whole 24x24 block, with the white (R/C/I) letter
-; in the center cell. The map stores the literal char per zone cell (bit 7 set;
-; see cell_to_char and the zone paint in city.asm).
+; in the center cell. The map stores ZONE_CELL_FIRST + type*9 + position per
+; zone cell; cell_to_char translates each value to the matching char id (see
+; render.asm and the zone paint in city.asm).
 ;=======================================================================================
 tileset_zones:
         ; residential zone cells (chars 32-40)

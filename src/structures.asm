@@ -4,9 +4,9 @@
 ; Each row describes one multi-cell building's footprint, map-cell encoding, art
 ; location, cost, and behaviour flags, so generic code (cps_structure, the
 ; structure branch of cell_to_char) can handle every entry without per-building
-; branches. R/C/I zones stay on their own literal-encoded path for now
-; (cps_zone in city.asm); 1x1 tools (road / power line / bulldoze / water) stay
-; on theirs.
+; branches. R/C/I zones use a separate range translation (ZONE_CELL_FIRST..LAST
+; in platform.asm) handled directly by cell_to_char and cps_zone in city.asm;
+; 1x1 tools (road / power line / bulldoze / water) stay on theirs.
 ;
 ; Adding a new building from here is mostly: one row in this table; tile art in
 ; tileset.asm; a DMA entry in assets.asm; a toolbar slot wire in toolbar.asm; and
