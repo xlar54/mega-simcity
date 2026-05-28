@@ -244,12 +244,23 @@ _cnc_loop:
 _cnc_char_idx:
         .byte 0
 
+; Two entries:
+;   set_fcm_char   (8-bit char id, A=char 0..255) -- clears the high byte and
+;                  falls into the 16-bit body. Existing callers are unchanged.
+;   set_fcm_char16 (16-bit char id) -- caller pre-sets snc_char_hi and passes
+;                  the low byte in A. Used for structure tiles whose bitmaps live
+;                  above char id 255 in char RAM (bank 4 holds up to 1024 chars).
 set_fcm_char:
-        sta _snc_char
-        stx _snc_col
-        sty _snc_row
+        pha
+        lda #0
+        sta snc_char_hi
+        pla
+set_fcm_char16:
+        sta snc_char
+        stx snc_col
+        sty snc_row
 
-        lda _snc_row
+        lda snc_row
         sta MULTINA
         lda #0
         sta MULTINA+1
@@ -266,21 +277,21 @@ set_fcm_char:
 
         clc
         lda MULTOUT
-        adc _snc_col
-        sta _snc_pos
+        adc snc_col
+        sta snc_pos
         lda MULTOUT+1
         adc #0
-        sta _snc_pos+1
+        sta snc_pos+1
 
-        asl _snc_pos
-        rol _snc_pos+1
+        asl snc_pos
+        rol snc_pos+1
 
         clc
         lda #<SCREEN_RAM
-        adc _snc_pos
+        adc snc_pos
         sta PTR
         lda #>SCREEN_RAM
-        adc _snc_pos+1
+        adc snc_pos+1
         sta PTR+1
         lda #`SCREEN_RAM
         adc #0
@@ -291,19 +302,21 @@ set_fcm_char:
         ldz #0
         clc
         lda #<CHAR_CODE_BASE
-        adc _snc_char
+        adc snc_char
         sta [PTR],z
         inz
         lda #>CHAR_CODE_BASE
-        adc #0
+        adc snc_char_hi            ; (was: adc #0) supports char ids > 255
         sta [PTR],z
         rts
 
-_snc_char:
+snc_char:                          ; low byte of the char id
         .byte 0
-_snc_col:
+snc_char_hi:                       ; high byte; cleared by set_fcm_char, kept by set_fcm_char16
         .byte 0
-_snc_row:
+snc_col:
         .byte 0
-_snc_pos:
+snc_row:
+        .byte 0
+snc_pos:
         .word 0
