@@ -91,10 +91,33 @@ toolbar_handle_click:
         lsr
         lsr
         sta toolbar_ui_col
-        bra _thc_row
+        bra _thc_check_inspect
 _thc_col0:
         lda #0
         sta toolbar_ui_col
+
+        ; Top-strip inspect icon (cols INSPECT_ICON_COL..+1, rows INSPECT_ICON_ROW..+1)
+        ; sits inside the left-toolbar X band but above the button rows. Handle it
+        ; first so the row check below doesn't reject it as "above the toolbar".
+_thc_check_inspect:
+        lda toolbar_ui_col
+        cmp #INSPECT_ICON_COL
+        bcc _thc_row
+        cmp #INSPECT_ICON_COL+2
+        bcs _thc_row
+        lda mouse_y
+        lsr
+        lsr
+        lsr
+        cmp #INSPECT_ICON_ROW
+        bcc _thc_row
+        cmp #INSPECT_ICON_ROW+2
+        bcs _thc_row
+        ; click is on the inspect icon
+        lda #TILE_INSPECT
+        sta selected_tile
+        jsr audio_click
+        rts
 
 _thc_row:
         lda mouse_y

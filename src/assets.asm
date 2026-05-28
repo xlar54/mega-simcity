@@ -133,6 +133,7 @@ tiles_init_palette:
 tiles_load:
         jsr tiles_dma_city_from_attic
         jsr tiles_load_cursor
+        jsr tiles_load_inspect_icon
         rts
 
 tiles_dma_city_from_attic:
@@ -260,6 +261,68 @@ fcm_cursor_br:
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
         .byte $00,$00,$00,$00,$00,$00,$00,$0F
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+; 2x2 inspect/select icon: 3D inset frame (black top + left, white right + bottom)
+; with a mouse-pointer arrow on a light-gray fill. Built at boot via
+; create_fcm_char into chars INSPECT_CHAR_BASE..+3 (TL, TR, BL, BR).
+tiles_load_inspect_icon:
+        lda #INSPECT_CHAR_BASE
+        ldx #<fcm_inspect_tl
+        ldy #>fcm_inspect_tl
+        jsr create_fcm_char
+        lda #INSPECT_CHAR_BASE+1
+        ldx #<fcm_inspect_tr
+        ldy #>fcm_inspect_tr
+        jsr create_fcm_char
+        lda #INSPECT_CHAR_BASE+2
+        ldx #<fcm_inspect_bl
+        ldy #>fcm_inspect_bl
+        jsr create_fcm_char
+        lda #INSPECT_CHAR_BASE+3
+        ldx #<fcm_inspect_br
+        ldy #>fcm_inspect_br
+        jsr create_fcm_char
+        rts
+
+fcm_inspect_tl:
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$0C,$00,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$0C,$00,$00,$0C,$0C,$0C,$0C
+        .byte $00,$0C,$00,$00,$00,$0C,$0C,$0C
+        .byte $00,$0C,$00,$00,$00,$00,$0C,$0C
+        .byte $00,$0C,$00,$00,$00,$00,$00,$0C
+        .byte $00,$0C,$00,$00,$00,$00,$00,$00
+
+fcm_inspect_tr:
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+
+fcm_inspect_bl:
+        .byte $00,$0C,$00,$00,$00,$00,$00,$00
+        .byte $00,$0C,$00,$00,$00,$00,$0C,$0C
+        .byte $00,$0C,$00,$0C,$00,$00,$0C,$0C
+        .byte $00,$0C,$0C,$0C,$0C,$00,$00,$0C
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$00,$0C
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+fcm_inspect_br:
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
 
 UI_TILE_DMA .macro index, size, offset

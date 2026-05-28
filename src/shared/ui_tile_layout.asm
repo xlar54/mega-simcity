@@ -76,6 +76,11 @@ UI_BTN_BASE             = UI_TEXT_COLON + 1
 ; value range -- see platform.asm COALPP_CELL_* and render.asm cell_to_char).
 COALPP_CHAR_BASE        = UI_BTN_BASE + UI_BTN_COUNT * 4
 NUCLEARPP_CHAR_BASE     = COALPP_CHAR_BASE + 12     ; right after the 12 coal-plant chars
+INSPECT_CHAR_BASE       = NUCLEARPP_CHAR_BASE + 12  ; 2x2 inspect/select icon (4 chars)
+; Top-strip placement (rows 1-2, the two lines under MEGACITY); columns 1-2 keep
+; the inspect icon left of the FUNDS/DATE readouts that start at col 18.
+INSPECT_ICON_COL        = 1
+INSPECT_ICON_ROW        = 1
 
 ; cell_to_char (render.asm) returns an 8-bit char id, so each structure's tile
 ; range must fit at char ids 0..255. Pushing past needs 16-bit-aware rendering
