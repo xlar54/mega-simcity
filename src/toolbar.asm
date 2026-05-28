@@ -1,12 +1,22 @@
 ;=======================================================================================
-; Toolbar: button-grid rendering and click handling.
+; Toolbar: rendering and click handling for both UI button regions.
 ;
-; Rendering is driven from render_ui (chrome) via toolbar_render. On a left-click
-; that mouse.asm confirms lands in the toolbar band, mouse.asm calls
-; toolbar_handle_click, which maps the pointer to a slot and sets selected_tool.
-; The selector sprite (sprite 2) is owned by sprites.asm; toolbar_handle_click
-; calls sprite_position_selector to move it on a click (sprites_refresh does not
-; track it). This module only changes selected_tool / selected_tile.
+; Two regions live here so the click dispatch can share one entry point and the
+; selection state (selected_tile) has a single owner:
+;
+;   * Left toolbar -- the 16-slot 2-col paint-tool grid down the left edge.
+;     Rendered by toolbar_render; click dispatch in _thc_row maps mouse to slot
+;     and moves the yellow selector sprite (sprite 2) via sprite_position_selector.
+;
+;   * Top strip -- the small menu icons under MEGACITY (inspect / load / save).
+;     Rendered by render_top_buttons; click dispatch in _thc_check_top runs a
+;     table-driven hit test. No selector sprite; the active button shows its
+;     SELECTED (pressed) char bitmap instead.
+;
+; render_ui calls toolbar_render then render_top_buttons. mouse.asm forwards
+; any confirmed left-click in either Y band to toolbar_handle_click (see
+; mouse_handle_ui_click in main.asm). Adding a top-strip button is a one-line
+; append to the top_btn_* table below + new bitmaps in assets.asm.
 ;=======================================================================================
 
 ; Draw the UI_BTN_COUNT toolbar buttons in a 2-column grid of 2x2 icons.
@@ -79,10 +89,104 @@ toolbar_draw_icon:
         jsr set_fcm_char
         rts
 
-; Called from mouse.asm once a left-click in the toolbar band is confirmed.
-; Maps the pointer (mouse_x/mouse_y) to a slot 0..UI_BTN_COUNT-1, selects that
-; tool, and moves the selector sprite to it. The selector only moves here (on a
-; click), never on hover. Placeholders select but assign no tile.
+;---------------------------------------------------------------------------------------
+; Top-strip menu buttons (inspect / load / save). Table-driven so adding a button
+; is a one-line append below + new IDLE/SELECTED char bases and bitmaps. Each
+; button is 2x2 cells. The same table feeds the click hit-test in
+; _thc_check_top further down.
+;---------------------------------------------------------------------------------------
+TOP_BTN_COUNT = 3
+
+top_btn_col:
+        .byte INSPECT_ICON_COL, LOAD_ICON_COL, SAVE_ICON_COL
+top_btn_row:
+        .byte INSPECT_ICON_ROW, LOAD_ICON_ROW, SAVE_ICON_ROW
+top_btn_tile:
+        .byte TILE_INSPECT, TILE_LOAD, TILE_SAVE
+top_btn_base_idle:
+        .byte INSPECT_CHAR_BASE, LOAD_CHAR_BASE, SAVE_CHAR_BASE
+top_btn_base_sel:
+        .byte INSPECT_INSET_CHAR_BASE, LOAD_INSET_CHAR_BASE, SAVE_INSET_CHAR_BASE
+
+; Redraw every top-strip button. The button whose tile id matches selected_tile
+; gets its SELECTED (pressed) chars; the rest get IDLE (raised). Called from
+; render_ui after the panel fill, and as a tail-call from toolbar_handle_click
+; whenever a click might have changed the selection.
+render_top_buttons:
+        lda #0
+        sta rtb_idx
+_rtb_loop:
+        ldy rtb_idx
+        cpy #TOP_BTN_COUNT
+        bcs _rtb_done
+
+        lda selected_tile
+        cmp top_btn_tile,y
+        beq _rtb_pick_sel
+        lda top_btn_base_idle,y
+        bra _rtb_have_base
+_rtb_pick_sel:
+        lda top_btn_base_sel,y
+_rtb_have_base:
+        ; A = base, Y = loop idx. Set up X = col + Y = row before the jsr.
+        ; (`ldy abs,y` doesn't exist, so we stash the base and let Y get clobbered;
+        ; rtb_idx is the source of truth for the loop index, reloaded at the top.)
+        sta tbd_base
+        ldx top_btn_col,y
+        lda top_btn_row,y
+        tay
+        lda tbd_base
+        jsr top_btn_draw_tile
+
+        inc rtb_idx
+        bra _rtb_loop
+_rtb_done:
+        rts
+
+; Stamp a 2x2 button's four chars. A = base char id, X = left col, Y = top row.
+top_btn_draw_tile:
+        sta tbd_base
+        stx tbd_col
+        sty tbd_row
+
+        lda tbd_base
+        ldx tbd_col
+        ldy tbd_row
+        jsr set_fcm_char
+
+        lda tbd_base
+        clc
+        adc #1
+        ldx tbd_col
+        inx
+        ldy tbd_row
+        jsr set_fcm_char
+
+        lda tbd_base
+        clc
+        adc #2
+        ldx tbd_col
+        ldy tbd_row
+        iny
+        jsr set_fcm_char
+
+        lda tbd_base
+        clc
+        adc #3
+        ldx tbd_col
+        inx
+        ldy tbd_row
+        iny
+        jsr set_fcm_char
+        rts
+
+;---------------------------------------------------------------------------------------
+; Click dispatch (shared entry for both regions).
+;---------------------------------------------------------------------------------------
+; Called from mouse.asm once a left-click in either toolbar band is confirmed.
+; Top-strip hit test runs first; on miss, falls through to the left-toolbar
+; grid. All exit paths tail-call render_top_buttons so the IDLE/SELECTED state
+; flips on every selection change.
 toolbar_handle_click:
         lda mouse_x+1
         bmi _thc_col0
@@ -91,45 +195,53 @@ toolbar_handle_click:
         lsr
         lsr
         sta toolbar_ui_col
-        bra _thc_check_inspect
+        bra _thc_check_top
 _thc_col0:
         lda #0
         sta toolbar_ui_col
 
-        ; Top-strip inspect icon (cols INSPECT_ICON_COL..+1, rows INSPECT_ICON_ROW..+1)
-        ; sits inside the left-toolbar X band but above the button rows. Handle it
-        ; first so the row check below doesn't reject it as "above the toolbar".
-_thc_check_inspect:
-        lda toolbar_ui_col
-        cmp #INSPECT_ICON_COL
-        bcc _thc_row
-        cmp #INSPECT_ICON_COL+2
-        bcs _thc_row
+        ; Top-strip menu buttons (inspect / load / save). They live above the
+        ; left-toolbar grid in the rows under MEGACITY, so we check them BEFORE
+        ; the "above the toolbar band" row test in _thc_row -- otherwise that
+        ; test would reject them. Table is shared with render.asm; each row is
+        ; (col, row, tile id, idle char base, selected char base), all 2x2 cells.
+_thc_check_top:
         lda mouse_y
         lsr
         lsr
         lsr
-        cmp #INSPECT_ICON_ROW
-        bcc _thc_row
-        cmp #INSPECT_ICON_ROW+2
-        bcs _thc_row
-        ; click is on the inspect icon
-        lda #TILE_INSPECT
+        sta toolbar_ui_row
+        ldy #0
+_thct_loop:
+        cpy #TOP_BTN_COUNT
+        bcs _thc_row                ; no top button hit -> fall through
+        lda toolbar_ui_col
+        sec
+        sbc top_btn_col,y
+        bcc _thct_next              ; col < button col
+        cmp #TOP_BTN_W
+        bcs _thct_next              ; col >= button col + W
+        lda toolbar_ui_row
+        sec
+        sbc top_btn_row,y
+        bcc _thct_next              ; row < button row
+        cmp #TOP_BTN_H
+        bcs _thct_next              ; row >= button row + H
+        ; hit
+        lda top_btn_tile,y
         sta selected_tile
         jsr audio_click
-        rts
+        jmp render_top_buttons      ; flip idle <-> selected for the new state
+_thct_next:
+        iny
+        bra _thct_loop
 
 _thc_row:
         lda mouse_y
         cmp #MAIN_PIXEL_Y
         bcc _thc_done
 
-        lda mouse_y
-        lsr
-        lsr
-        lsr
-        sta toolbar_ui_row
-
+        ; toolbar_ui_row was already set by the top-button scan above.
         lda toolbar_ui_col
         cmp #UI_LEFT_COLS
         bcs _thc_done
@@ -170,42 +282,42 @@ _thc_row:
         beq _thc_coalpp             ; slot 12 -> coal power plant (3x4)
         cmp #13
         beq _thc_nuclearpp          ; slot 13 -> nuclear power plant (3x4)
-        rts                         ; other slots: selected, no paint tile yet
+        bra _thc_done               ; other slots: selected, no paint tile yet
 
 _thc_road:
         lda #TILE_ROAD
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_power:
         lda #TILE_POWER
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_residential:
         lda #TILE_RESIDENTIAL
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_commercial:
         lda #TILE_COMMERCIAL
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_industrial:
         lda #TILE_INDUSTRIAL
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_coalpp:
         lda #TILE_COALPP
         sta selected_tile
-        rts
+        bra _thc_done
 _thc_nuclearpp:
         lda #TILE_NUCLEARPP
         sta selected_tile
-        rts
+        bra _thc_done
 
 _thc_bulldoze:
         lda #TILE_GROUND
         sta selected_tile
 _thc_done:
-        rts
+        jmp render_top_buttons      ; flip raised <-> pressed for any selection change
 
 toolbar_btn_slot:
         .byte 0
@@ -220,4 +332,12 @@ toolbar_icon_top:
 toolbar_ui_col:
         .byte 0
 toolbar_ui_row:
+        .byte 0
+rtb_idx:                    ; render_top_buttons: loop index
+        .byte 0
+tbd_base:                   ; top_btn_draw_tile: scratch for the 4-char stamp
+        .byte 0
+tbd_col:
+        .byte 0
+tbd_row:
         .byte 0

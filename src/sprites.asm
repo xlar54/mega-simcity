@@ -147,6 +147,10 @@ sprites_refresh:
         lda selected_tile
         cmp #TILE_INSPECT
         beq _sr_hide_cursors        ; inspect mode: no map cursor, just the pointer
+        cmp #TILE_LOAD
+        beq _sr_hide_cursors        ; load/save are menu actions, not paint tools
+        cmp #TILE_SAVE
+        beq _sr_hide_cursors
 
         ; Cursor size follows the tool footprint: road -> 8x8 (sprite 3),
         ; zones -> 24x24 (sprite 3, Y-expanded), everything else -> 16x16 (sprite 1).

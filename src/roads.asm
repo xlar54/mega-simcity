@@ -221,8 +221,7 @@ _rr_store:
         cmp #ROAD_CELL_V_POWER
         bne _rr_pstore
 _rr_pdirty:
-        lda #1
-        sta power_dirty
+        jsr power_mark_dirty
 _rr_pstore:
         lda road_cx
         sta city_ptr_x

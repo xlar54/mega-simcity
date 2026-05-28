@@ -161,13 +161,24 @@ _md_done:
 
 ; Gate: a confirmed left-click in the toolbar band hands off to toolbar.asm.
 ; The high-byte guard rejects pointer X >= 256 (right side of screen) so only
-; the real toolbar columns register.
+; the real toolbar columns register. Two Y bands forward to toolbar.asm:
+;   * Top-strip rows (rows 1..1+TOP_BTN_H-1, the menu icons under MEGACITY) --
+;     forwarded regardless of X, because top buttons can sit past col 4
+;     (e.g. SAVE at col 4 = pixel 32, beyond UI_TOOL_PIXEL_RIGHT). The
+;     table-driven hit test in toolbar_handle_click decides hit vs miss.
+;   * Left-toolbar X band (cols 0..UI_LEFT_COLS-1) for the button grid below.
 mouse_handle_ui_click:
         lda mouse_left_click
         beq _mhu_done
         lda mouse_x+1
         bmi _mhu_toolbar            ; offscreen-left clamp = column 0 = toolbar
         bne _mhu_done
+        lda mouse_y
+        cmp #INSPECT_ICON_ROW * 8
+        bcc _mhu_check_left         ; above the top-strip Y band
+        cmp #(INSPECT_ICON_ROW + TOP_BTN_H) * 8
+        bcc _mhu_toolbar            ; inside top-strip rows -> forward regardless of X
+_mhu_check_left:
         lda mouse_x
         cmp #UI_TOOL_PIXEL_RIGHT
         bcs _mhu_done

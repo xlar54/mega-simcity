@@ -7,9 +7,9 @@
 ; commit. Setting funds_dirty asks funds_update (called from the game loop) to
 ; redraw the FUNDS readout on the top menu bar.
 ;
-; The readout is "FUNDS: $X,XXX,XXX" rendered at row 0 starting at column 18,
-; right-aligned with leading-zero suppression (so $500,000 reads as "  500,000"
-; in the 7-digit field and the leading comma vanishes with it).
+; The readout is "$XXXXXXX" rendered at row 0 starting at column 30, right-
+; aligned with leading-zero suppression (so $500,000 reads as "  500000" in the
+; 7-digit field). The DATE field sits to the left at cols 20..27.
 ;=======================================================================================
 
 ; --- per-tile costs (dollars, 16-bit) ---
@@ -22,19 +22,17 @@ COST_NUCLEARPP  = 5000
 
 FUNDS_INITIAL   = 500000
 
-; Menu-bar layout (row 0) for the "FUNDS: $X,XXX,XXX" field. The static prefix
-; "FUNDS: $" takes cols 18..25 (col 24 is the space, drawn as menu background).
-FUNDS_COL_F     = 18
-FUNDS_COL_DOL   = 25
-FUNDS_COL_MIL   = 26    ; millions digit       (blank if value < 1,000,000)
-FUNDS_COL_C1    = 27    ; , after millions     (blank if value < 1,000,000)
-FUNDS_COL_HT    = 28    ; hundred-thousands    (blank if value < 100,000)
-FUNDS_COL_TT    = 29    ; ten-thousands        (blank if value < 10,000)
-FUNDS_COL_T     = 30    ; thousands            (blank if value < 1,000)
-FUNDS_COL_C2    = 31    ; , after thousands    (blank if value < 1,000)
-FUNDS_COL_H     = 32    ; hundreds             (blank if value < 100)
-FUNDS_COL_TE    = 33    ; tens                 (blank if value < 10)
-FUNDS_COL_U     = 34    ; units                (always shown)
+; Menu-bar layout (row 0) for the "$XXXXXXX" field. No commas; leading zeros
+; are blanked so a value below 1,000,000 doesn't look like it has padding zeros.
+FUNDS_ROW       = 0
+FUNDS_COL_DOL   = 30
+FUNDS_COL_MIL   = 31    ; millions digit       (blank if value < 1,000,000)
+FUNDS_COL_HT    = 32    ; hundred-thousands    (blank if value < 100,000)
+FUNDS_COL_TT    = 33    ; ten-thousands        (blank if value < 10,000)
+FUNDS_COL_T     = 34    ; thousands            (blank if value < 1,000)
+FUNDS_COL_H     = 35    ; hundreds             (blank if value < 100)
+FUNDS_COL_TE    = 36    ; tens                 (blank if value < 10)
+FUNDS_COL_U     = 37    ; units                (always shown)
 
 ;---------------------------------------------------------------------------------------
 ; Public API
@@ -153,194 +151,142 @@ fd_powers_hi:  .byte $42,$86,$27,$03,$00,$00,$00
 fd_powers_up:  .byte $0F,$01,$00,$00,$00,$00,$00
 
 ;---------------------------------------------------------------------------------------
-; Render the "FUNDS: $X,XXX,XXX" field on the menu bar (row 0). Self-contained:
-; redraws the static prefix and the dynamic digits each call, so callers don't
-; have to track which parts may have been clobbered.
+; Render the "$XXXXXXX" field on the menu bar (row 0). Idempotent: redraws
+; both the $ glyph and the 7 digits each call. Leading-zero blanking keeps
+; smaller numbers from looking padded.
 ;---------------------------------------------------------------------------------------
 
 funds_render:
         jsr funds_to_digits
 
-        ; --- static prefix "FUNDS: $" (cols 18..25, with col 24 blank) ---
-        lda #UI_TEXT_F
-        ldx #FUNDS_COL_F
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TEXT_U
-        ldx #FUNDS_COL_F+1
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TEXT_N
-        ldx #FUNDS_COL_F+2
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TEXT_D
-        ldx #FUNDS_COL_F+3
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TEXT_S
-        ldx #FUNDS_COL_F+4
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TEXT_COLON
-        ldx #FUNDS_COL_F+5
-        ldy #0
-        jsr set_fcm_char
-        lda #UI_TILE_MENU                ; blank between ':' and '$'
-        ldx #FUNDS_COL_F+6
-        ldy #0
-        jsr set_fcm_char
+        ; $ glyph (col 20)
         lda #UI_TEXT_DOLLAR
         ldx #FUNDS_COL_DOL
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-        ; --- dynamic digits, with leading-zero blanking ---
+        ; --- digits 0..6 = millions..units, with leading-zero blanking ---
         lda #0
         sta fd_seen
 
-        ; millions (col 26)
+        ; millions (col 21)
         lda fd_digits
-        beq _fr_mil_blank
+        beq _fr_d0_blank
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_MIL
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_c1
-_fr_mil_blank:
+        bra _fr_d1
+_fr_d0_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_MIL
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_c1:
-        ; comma after millions (col 27): show only if anything before it is shown
-        lda fd_seen
-        bne _fr_c1_show
-        lda #UI_TILE_MENU
-        bra _fr_c1_put
-_fr_c1_show:
-        lda #UI_TEXT_COMMA
-_fr_c1_put:
-        ldx #FUNDS_COL_C1
-        ldy #0
-        jsr set_fcm_char
-
-        ; hundred-thousands (col 28)
+_fr_d1:
+        ; hundred-thousands (col 22)
         lda fd_digits+1
         ora fd_seen
-        beq _fr_ht_blank
+        beq _fr_d1_blank
         lda fd_digits+1
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_HT
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_tt
-_fr_ht_blank:
+        bra _fr_d2
+_fr_d1_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_HT
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_tt:
-        ; ten-thousands (col 29)
+_fr_d2:
+        ; ten-thousands (col 23)
         lda fd_digits+2
         ora fd_seen
-        beq _fr_tt_blank
+        beq _fr_d2_blank
         lda fd_digits+2
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_TT
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_t
-_fr_tt_blank:
+        bra _fr_d3
+_fr_d2_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_TT
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_t:
-        ; thousands (col 30)
+_fr_d3:
+        ; thousands (col 24)
         lda fd_digits+3
         ora fd_seen
-        beq _fr_t_blank
+        beq _fr_d3_blank
         lda fd_digits+3
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_T
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_c2
-_fr_t_blank:
+        bra _fr_d4
+_fr_d3_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_T
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_c2:
-        ; comma after thousands (col 31)
-        lda fd_seen
-        bne _fr_c2_show
-        lda #UI_TILE_MENU
-        bra _fr_c2_put
-_fr_c2_show:
-        lda #UI_TEXT_COMMA
-_fr_c2_put:
-        ldx #FUNDS_COL_C2
-        ldy #0
-        jsr set_fcm_char
-
-        ; hundreds (col 32)
+_fr_d4:
+        ; hundreds (col 25)
         lda fd_digits+4
         ora fd_seen
-        beq _fr_h_blank
+        beq _fr_d4_blank
         lda fd_digits+4
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_H
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_te
-_fr_h_blank:
+        bra _fr_d5
+_fr_d4_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_H
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_te:
-        ; tens (col 33)
+_fr_d5:
+        ; tens (col 26)
         lda fd_digits+5
         ora fd_seen
-        beq _fr_te_blank
+        beq _fr_d5_blank
         lda fd_digits+5
         jsr fr_set_seen
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_TE
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
-        bra _fr_u
-_fr_te_blank:
+        bra _fr_d6
+_fr_d5_blank:
         lda #UI_TILE_MENU
         ldx #FUNDS_COL_TE
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
 
-_fr_u:
-        ; units (col 34) -- always shown, even if value is zero
+_fr_d6:
+        ; units (col 27) -- always shown, even if value is zero
         lda fd_digits+6
         clc
         adc #UI_TEXT_0
         ldx #FUNDS_COL_U
-        ldy #0
+        ldy #FUNDS_ROW
         jsr set_fcm_char
         rts
 

@@ -242,8 +242,14 @@ game_tick:
 city_paint_selected:
         lda selected_tile
         cmp #TILE_INSPECT
-        bne _cps_not_inspect
-        rts                         ; inspect mode: clicks don't place (Phase 2 will query)
+        beq _cps_no_paint           ; inspect mode: clicks don't place (Phase 2 will query)
+        cmp #TILE_LOAD
+        beq _cps_no_paint           ; load/save are menu actions, not paint tools
+        cmp #TILE_SAVE
+        beq _cps_no_paint
+        bra _cps_not_inspect
+_cps_no_paint:
+        rts
 _cps_not_inspect:
         cmp #TILE_ROAD
         beq _cps_road

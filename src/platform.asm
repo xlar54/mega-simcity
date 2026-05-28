@@ -226,6 +226,8 @@ TILE_POWER              = 6     ; tool id for the power-LINE tool (1x1, see belo
 TILE_COALPP             = 7     ; tool id for the coal power plant (3x4 structure)
 TILE_NUCLEARPP          = 8     ; tool id for the nuclear power plant (3x4 structure)
 TILE_INSPECT            = 9     ; pointer/inspect mode (no placement, queries the map)
+TILE_LOAD               = 10    ; menu action: load city (no map paint)
+TILE_SAVE               = 11    ; menu action: save city (no map paint)
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is not a
 ; base tile type but a 3x3 block of literal zone-cell chars (see below).
 ZONE_SIZE               = 3      ; 3x3 cells

@@ -76,11 +76,28 @@ UI_BTN_BASE             = UI_TEXT_COLON + 1
 ; value range -- see platform.asm COALPP_CELL_* and render.asm cell_to_char).
 COALPP_CHAR_BASE        = UI_BTN_BASE + UI_BTN_COUNT * 4
 NUCLEARPP_CHAR_BASE     = COALPP_CHAR_BASE + 12     ; right after the 12 coal-plant chars
-INSPECT_CHAR_BASE       = NUCLEARPP_CHAR_BASE + 12  ; 2x2 inspect/select icon (4 chars)
-; Top-strip placement (rows 1-2, the two lines under MEGACITY); columns 1-2 keep
-; the inspect icon left of the FUNDS/DATE readouts that start at col 18.
-INSPECT_ICON_COL        = 1
+
+; --- Top-strip menu buttons (2x2 each) ---
+; All buttons live on rows 1-2 in the strip under MEGACITY. They are listed in
+; a table in render.asm/toolbar.asm so adding more is a one-line append (col +
+; tile id + char-base pair). Each button has an IDLE bitmap (raised: white top +
+; left) and a SELECTED bitmap (pressed: black top + left); render_top_buttons
+; picks between them based on selected_tile.
+INSPECT_CHAR_BASE       = NUCLEARPP_CHAR_BASE + 12  ; pointer icon, idle (4 chars)
+INSPECT_INSET_CHAR_BASE = INSPECT_CHAR_BASE + 4     ; pointer icon, selected (4 chars)
+LOAD_CHAR_BASE          = INSPECT_INSET_CHAR_BASE + 4  ; disk + down-arrow, idle
+LOAD_INSET_CHAR_BASE    = LOAD_CHAR_BASE + 4        ; disk + down-arrow, selected
+SAVE_CHAR_BASE          = LOAD_INSET_CHAR_BASE + 4  ; disk + up-arrow, idle
+SAVE_INSET_CHAR_BASE    = SAVE_CHAR_BASE + 4        ; disk + up-arrow, selected
+
+INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
+LOAD_ICON_COL           = 2
+LOAD_ICON_ROW           = 1
+SAVE_ICON_COL           = 4
+SAVE_ICON_ROW           = 1
+TOP_BTN_W               = 2     ; all top buttons are 2x2 cells
+TOP_BTN_H               = 2
 
 ; cell_to_char (render.asm) returns an 8-bit char id, so each structure's tile
 ; range must fit at char ids 0..255. Pushing past needs 16-bit-aware rendering
@@ -88,6 +105,7 @@ INSPECT_ICON_ROW        = 1
 ; the high byte through). See TODO.md.
         .cerror COALPP_CHAR_BASE + 12 > 256, "coal plant chars cross 256: cell_to_char needs 16-bit support"
         .cerror NUCLEARPP_CHAR_BASE + 12 > 256, "nuclear plant chars cross 256: cell_to_char needs 16-bit support"
+        .cerror SAVE_INSET_CHAR_BASE + 4 > 256, "top-strip button chars cross 256: cell_to_char needs 16-bit support"
 
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large

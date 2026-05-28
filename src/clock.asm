@@ -6,9 +6,8 @@
 ; counter resets and sim_month advances, rolling over to January / sim_year+1.
 ; Start of game = January 2026.
 ;
-; The readout "DATE: MMM YYYY" sits on row 1, just under the FUNDS line, and is
-; redrawn only when clock_dirty is set (initial render + each month tick + each
-; UI refresh).
+; The readout "Mmm YYYY" sits on row 0 alongside the FUNDS field. Redrawn only
+; when clock_dirty is set (initial render + each month tick + each UI refresh).
 ;
 ; A real-time-clock-driven version is a clean swap-in: replace clock_tick with
 ; logic that reads the MEGA65 RTC minutes and advances on a 3-minute delta.
@@ -16,11 +15,11 @@
 
 FRAMES_PER_MONTH = 9000     ; 3 minutes * 50 Hz (PAL); 60 Hz NTSC advances ~2.5min
 
-; Menu-bar layout, row 1 (status strip 1). The static "DATE:" prefix matches
-; the FUNDS column so the two lines align.
-CLK_COL_D    = 18
-CLK_COL_MON  = 24           ; month: 3 chars starting here
-CLK_COL_YR   = 28           ; year:  4 digits starting here
+; Menu-bar layout, row 0: "Mmm YYYY" centered on the menu line (date starts at
+; col 20), then a small gap before the $ funds field.
+CLK_ROW      = 0
+CLK_COL_MON  = 20           ; month: 3 chars starting here (cols 20..22)
+CLK_COL_YR   = 24           ; year:  4 digits starting here (cols 24..27)
 
 ;---------------------------------------------------------------------------------------
 ; Public API
@@ -82,37 +81,12 @@ _cu_done:
         rts
 
 ;---------------------------------------------------------------------------------------
-; Render "DATE: MMM YYYY" at row 1. Idempotent and self-contained -- redraws both
-; static and dynamic parts each call.
+; Render "Mmm YYYY" on row 0. Idempotent: redraws each call. The space between
+; month and year is provided by the menu-bar fill (drawn before us), so we
+; don't need to stamp it ourselves.
 ;---------------------------------------------------------------------------------------
 
 clock_render:
-        ; "DATE:" prefix (cols 18..22) and a status-strip blank at col 23
-        lda #UI_TEXT_D
-        ldx #CLK_COL_D
-        ldy #1
-        jsr set_fcm_char
-        lda #UI_TEXT_A
-        ldx #CLK_COL_D+1
-        ldy #1
-        jsr set_fcm_char
-        lda #UI_TEXT_T
-        ldx #CLK_COL_D+2
-        ldy #1
-        jsr set_fcm_char
-        lda #UI_TEXT_E
-        ldx #CLK_COL_D+3
-        ldy #1
-        jsr set_fcm_char
-        lda #UI_TEXT_COLON
-        ldx #CLK_COL_D+4
-        ldy #1
-        jsr set_fcm_char
-        lda #UI_TILE_STATUS_LIGHT
-        ldx #CLK_COL_D+5
-        ldy #1
-        jsr set_fcm_char
-
         ; Month: 3 chars from month_chars[(sim_month-1) * 3 ..]
         lda sim_month
         sec
@@ -126,26 +100,20 @@ clock_render:
         ldx clk_mon_base
         lda month_chars,x
         ldx #CLK_COL_MON
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         ldx clk_mon_base
         inx
         lda month_chars,x
         ldx #CLK_COL_MON+1
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         ldx clk_mon_base
         inx
         inx
         lda month_chars,x
         ldx #CLK_COL_MON+2
-        ldy #1
-        jsr set_fcm_char
-
-        ; Blank between month and year (col 27)
-        lda #UI_TILE_STATUS_LIGHT
-        ldx #CLK_COL_YR-1
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
 
         ; Year: 4 digits. Year starts at 2026 and only grows, so no leading-zero
@@ -156,25 +124,25 @@ clock_render:
         clc
         adc #UI_TEXT_0
         ldx #CLK_COL_YR
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         lda year_d+1
         clc
         adc #UI_TEXT_0
         ldx #CLK_COL_YR+1
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         lda year_d+2
         clc
         adc #UI_TEXT_0
         ldx #CLK_COL_YR+2
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         lda year_d+3
         clc
         adc #UI_TEXT_0
         ldx #CLK_COL_YR+3
-        ldy #1
+        ldy #CLK_ROW
         jsr set_fcm_char
         rts
 

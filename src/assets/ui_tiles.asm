@@ -24,7 +24,7 @@
 ui_tiles_start:
 
 UI_TEXT_BG = $0E
-UI_TEXT_FG = $08
+UI_TEXT_FG = $00    ; black foreground; bakes into every glyph at asset-build time
 
 UI_TEXT_ROW .macro p0, p1, p2, p3, p4
         .byte UI_TEXT_BG, \p0, \p1, \p2, \p3, \p4, UI_TEXT_BG, UI_TEXT_BG

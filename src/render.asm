@@ -100,25 +100,6 @@ render_ui:
         jsr funds_render            ; FUNDS: $xxx,xxx at cols 18+
         jsr clock_render            ; DATE: MMM YYYY on row 1, cols 18+
 
-        ; 2x2 inspect icon at (INSPECT_ICON_COL, INSPECT_ICON_ROW). 4 chars
-        ; INSPECT_CHAR_BASE..+3 laid out TL, TR, BL, BR.
-        lda #INSPECT_CHAR_BASE
-        ldx #INSPECT_ICON_COL
-        ldy #INSPECT_ICON_ROW
-        jsr set_fcm_char
-        lda #INSPECT_CHAR_BASE+1
-        ldx #INSPECT_ICON_COL+1
-        ldy #INSPECT_ICON_ROW
-        jsr set_fcm_char
-        lda #INSPECT_CHAR_BASE+2
-        ldx #INSPECT_ICON_COL
-        ldy #INSPECT_ICON_ROW+1
-        jsr set_fcm_char
-        lda #INSPECT_CHAR_BASE+3
-        ldx #INSPECT_ICON_COL+1
-        ldy #INSPECT_ICON_ROW+1
-        jsr set_fcm_char
-
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS
         sta render_fill_w
@@ -139,6 +120,7 @@ render_ui:
         jsr render_fill_rect
 
         jsr toolbar_render
+        jsr render_top_buttons      ; on top of the panel + status fills (toolbar.asm)
         rts
 
 render_fill_rect:
