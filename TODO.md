@@ -37,6 +37,28 @@ Tracking known issues. Severity from the code review; line numbers are on
       codebase-wide `stz` -> `lda #0`/`sta` fix, slot 0 renders correctly and the
       redraw-after-loop hack in `toolbar_render` is gone.
 
+## Encoding ceilings (scaling, guarded today)
+
+Both are guarded by `.cerror` lines (see `src/platform.asm` and
+`src/shared/ui_tile_layout.asm`); the build will fail with a pointed message
+when we cross either limit.
+
+- [ ] **`cell_to_char` returns an 8-bit char id.** `set_fcm_char16` already
+      exists, but `cell_to_char` (`src/render.asm`) only `adc`s
+      `struct_char_base_lo,y` and `render_draw_tile` calls plain
+      `set_fcm_char`. The next wave of structure art that pushes past char 255
+      would silently truncate. Fix: widen `cell_to_char` to return the high
+      byte (e.g. in `snc_char_hi`) and have `render_draw_tile` route through
+      `set_fcm_char16`. The `.cerror` guard catches the day this matters.
+
+- [ ] **Map-cell `$80` zone-literal collision.** Structure cell values live
+      below `ZONE_CELL_LITERAL` ($80); today the highest is 94. A handful more
+      3x4 structures will push past $80 and clash with the zone-literal bit. Fix
+      options: (a) reserve a sub-range below $80 for power sources and a higher
+      one above for non-power structures; (b) repack to a `(struct_idx<<4 |
+      position)` byte (16 structures, ≤16 cells each); (c) widen the map cell to
+      2 bytes (most invasive). Decide before the encoding actually overflows.
+
 ## Deferred (scaling)
 
 - [ ] **Stream tiles from Attic when char RAM fills up.** Today every tile is

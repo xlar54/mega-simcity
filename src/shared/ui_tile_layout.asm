@@ -77,6 +77,13 @@ UI_BTN_BASE             = UI_TEXT_COLON + 1
 COALPP_CHAR_BASE        = UI_BTN_BASE + UI_BTN_COUNT * 4
 NUCLEARPP_CHAR_BASE     = COALPP_CHAR_BASE + 12     ; right after the 12 coal-plant chars
 
+; cell_to_char (render.asm) returns an 8-bit char id, so each structure's tile
+; range must fit at char ids 0..255. Pushing past needs 16-bit-aware rendering
+; (set_fcm_char16 already exists; cell_to_char + render_draw_tile need to plumb
+; the high byte through). See TODO.md.
+        .cerror COALPP_CHAR_BASE + 12 > 256, "coal plant chars cross 256: cell_to_char needs 16-bit support"
+        .cerror NUCLEARPP_CHAR_BASE + 12 > 256, "nuclear plant chars cross 256: cell_to_char needs 16-bit support"
+
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large
 ; enough with the coal plant to exceed $1000 -- has room below it.

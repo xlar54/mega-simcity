@@ -306,6 +306,13 @@ NUCLEARPP_ROWS          = 4
 NUCLEARPP_CELL_COUNT    = NUCLEARPP_COLS * NUCLEARPP_ROWS           ; 12
 NUCLEARPP_CELL_FIRST    = COALPP_CELL_LAST + 1                      ; 83
 NUCLEARPP_CELL_LAST     = NUCLEARPP_CELL_FIRST + NUCLEARPP_CELL_COUNT - 1 ; 94
+
+; Encoding guard. The map cell is one byte: bit 7 set is a zone literal (cells
+; render as the low 7 bits as a char id directly); the structure descriptor table
+; (structures.asm) uses non-literal values, so the highest structure cell value
+; must stay below ZONE_CELL_LITERAL ($80). Today we're at 94 / 128, with room for
+; ~3 more 3x4 structures before the encoding redesign in TODO.md becomes urgent.
+        .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_LITERAL, "structure cell values must stay below ZONE_CELL_LITERAL ($80)"
 ; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
 ; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
 ; the whole blob.
