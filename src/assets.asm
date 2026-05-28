@@ -183,6 +183,21 @@ tiles_dma_city_from_attic:
         .byte `CHAR_DATA
         .byte $00
         .word $0000
+
+        ; Nuclear-plant cells: right after the coal-plant cells in the asset.
+        lda #$00
+        sta $D707
+        .byte $80, ATTIC_TILE_MB
+        .byte $81, $00
+        .byte $00
+        .byte $00
+        .word TILESET_NUCLEARPP_SIZE
+        .word ATTIC_TILE_ADDR + TILESET_BODY_SIZE + TILESET_ZONE_SIZE + TILESET_COALPP_SIZE
+        .byte ATTIC_TILE_BANK
+        .word NUCLEARPP_CHAR_BASE * 64
+        .byte `CHAR_DATA
+        .byte $00
+        .word $0000
         rts
 
 tiles_load_cursor:

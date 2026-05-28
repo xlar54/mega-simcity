@@ -18,18 +18,18 @@ STRUCT_FLAG_OVERWRITE_POWER = $01    ; may overwrite power-line cells (zone-like
 STRUCT_FLAG_IS_POWER_SOURCE = $02    ; register origin with power_register_plant
 
 ; --- The table (parallel byte arrays; one column per row). ---
-struct_tool_id:        .byte TILE_COALPP
-struct_cols:           .byte COALPP_COLS
-struct_rows:           .byte COALPP_ROWS
-struct_cell_base:      .byte COALPP_CELL_FIRST
-struct_cell_count:     .byte COALPP_CELL_COUNT
-struct_char_base_lo:   .byte <COALPP_CHAR_BASE
-struct_char_base_hi:   .byte >COALPP_CHAR_BASE
-struct_cost_lo:        .byte <COST_COALPP
-struct_cost_hi:        .byte >COST_COALPP
-struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE
+struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP
+struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS
+struct_rows:           .byte COALPP_ROWS,                    NUCLEARPP_ROWS
+struct_cell_base:      .byte COALPP_CELL_FIRST,              NUCLEARPP_CELL_FIRST
+struct_cell_count:     .byte COALPP_CELL_COUNT,              NUCLEARPP_CELL_COUNT
+struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BASE
+struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE
+struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP
+struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP
+struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE
 
-struct_count           = 1
+struct_count           = 2
 
 ; Locate a structure by its tool_id. In: A = tool_id. Out: carry SET and X = row
 ; index if matched; carry CLEAR if no structure handles this tool. A is preserved.

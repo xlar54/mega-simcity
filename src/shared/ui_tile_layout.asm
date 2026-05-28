@@ -75,6 +75,7 @@ UI_BTN_BASE             = UI_TEXT_COLON + 1
 ; "literal" map encoding can't reach this high, so the plant uses a translated
 ; value range -- see platform.asm COALPP_CELL_* and render.asm cell_to_char).
 COALPP_CHAR_BASE        = UI_BTN_BASE + UI_BTN_COUNT * 4
+NUCLEARPP_CHAR_BASE     = COALPP_CHAR_BASE + 12     ; right after the 12 coal-plant chars
 
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large

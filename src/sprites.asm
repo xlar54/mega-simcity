@@ -156,6 +156,8 @@ sprites_refresh:
         beq _sr_road                ; power lines are 1x1 -> 8x8 cursor
         cmp #TILE_COALPP
         beq _sr_coalpp              ; coal plant -> 24x32 cursor
+        cmp #TILE_NUCLEARPP
+        beq _sr_coalpp              ; nuclear plant: same 3x4 footprint, same cursor
         cmp #TILE_RESIDENTIAL
         bcc _sr_block               ; water -> 16x16
         jsr mouse_hide_block_sprite
