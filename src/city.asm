@@ -47,6 +47,7 @@ city_init:
         jsr city_fill_ground
         jsr city_seed_terrain
         jsr city_clamp_view_to_cursor
+        jsr funds_init
         rts
 
 ; Fill every cell in the Attic world map with TILE_GROUND via one DMA fill.
@@ -298,6 +299,13 @@ _cps_road:
         beq _cps_road_skip
         cmp #TILE_GROUND
         beq _cps_road_skip
+        lda #<COST_BULLDOZE             ; charge $1 per demolished cell
+        sta cost_amount
+        lda #>COST_BULLDOZE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_road_skip
+        jsr funds_subtract
         lda #TILE_GROUND
         ldz #0
         sta [MAP_PTR],z
@@ -316,12 +324,19 @@ _cps_road:
         sta powerline_cy
         jmp powerline_refresh_neighbors
 _cps_road_build:
+        sta road_cross_save         ; save the existing cell value (re-used below)
+        lda #<COST_ROAD             ; check road affordability up front
+        sta cost_amount
+        lda #>COST_ROAD
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_road_skip
+        lda road_cross_save
         cmp #TILE_GROUND
         beq _cps_road_place         ; ground: place normally
         ; Not ground. A road may still CROSS an existing power line, but only
         ; perpendicularly. Tentatively drop a road and let road_refresh decide;
         ; keep it only if it became a crossing tile, else restore the power line.
-        sta road_cross_save
         jsr is_powerline_value
         bcc _cps_road_skip          ; occupied by a road/zone/water -> can't build
         lda #ROAD_CELL_H
@@ -345,6 +360,7 @@ _cps_road_build:
         sta [MAP_PTR],z
         jmp render_redraw_cell_tile     ; city_ptr_* still = (road_cx, road_cy)
 _cps_road_crossed:
+        jsr funds_subtract              ; committed crossing -> deduct road cost
         jsr audio_road_build
         jsr road_refresh_neighbors      ; roads around may re-orient
         lda road_cx                     ; ...and the power line on both sides
@@ -356,6 +372,7 @@ _cps_road_place:
         lda #ROAD_CELL_H
         ldz #0
         sta [MAP_PTR],z
+        jsr funds_subtract              ; committed -> deduct road cost
         jsr audio_road_build            ; new road placed -> build blip
         jsr road_refresh                ; pick this cell's orientation + redraw
         jmp road_refresh_neighbors      ; roads above/below may re-orient
@@ -383,6 +400,13 @@ _cps_power:
         lda [MAP_PTR],z             ; A = existing cell
         cmp #TILE_GROUND
         bne _cps_power_skip         ; only build on ground (skip water/road/zones)
+        lda #<COST_POWERLINE        ; check + deduct power-line cost
+        sta cost_amount
+        lda #>COST_POWERLINE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_power_skip
+        jsr funds_subtract
         inc powerline_count
         lda powerline_count
         cmp #POWERLINE_POLE_EVERY
@@ -434,7 +458,16 @@ _cps_zone_sety:
         sta zone_org_y
 
         jsr city_zone_can_place     ; ground or power lines (zones overwrite power)
-        bcs _cps_zone_do
+        bcc _cps_zone_no
+        lda #<COST_ZONE             ; check + deduct zone cost
+        sta cost_amount
+        lda #>COST_ZONE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_zone_no
+        jsr funds_subtract
+        bra _cps_zone_do
+_cps_zone_no:
         rts
 _cps_zone_do:
         lda selected_tile
@@ -673,7 +706,16 @@ _cpc_sety:
         sta zone_org_y
 
         jsr city_coalpp_can_place
-        bcs _cpc_do
+        bcc _cpc_no
+        lda #<COST_COALPP           ; check + deduct coal-plant cost
+        sta cost_amount
+        lda #>COST_COALPP
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cpc_no
+        jsr funds_subtract
+        bra _cpc_do
+_cpc_no:
         rts
 _cpc_do:
         jsr city_stamp_coalpp

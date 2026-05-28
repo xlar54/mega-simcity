@@ -63,39 +63,41 @@ render_ui:
         ldy #2
         jsr render_fill_rect
 
-        ; Centered title on the top menu bar.
+        ; Title at the top-left of the menu bar (cols 1..8); the FUNDS readout
+        ; takes the rest of the bar starting at col 18 (cost-management.asm).
         lda #UI_TEXT_M
-        ldx #16
+        ldx #1
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_E
-        ldx #17
+        ldx #2
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_G
-        ldx #18
+        ldx #3
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_A
-        ldx #19
+        ldx #4
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_C
-        ldx #20
+        ldx #5
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_I
-        ldx #21
+        ldx #6
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_T
-        ldx #22
+        ldx #7
         ldy #0
         jsr set_fcm_char
         lda #UI_TEXT_Y
-        ldx #23
+        ldx #8
         ldy #0
         jsr set_fcm_char
+        jsr funds_render            ; FUNDS: $xxx,xxx at cols 18+
 
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS

@@ -45,6 +45,7 @@ app_loop:
         jsr sprites_refresh
         jsr power_update            ; recompute zone power if the network changed
         jsr bolt_test_update        ; round-robin the bolt over UNPOWERED zones
+        jsr funds_update            ; redraw FUNDS readout if it changed
         jmp app_loop
 
 shutdown:
@@ -184,6 +185,7 @@ _mhu_done:
         .include "roads.asm"
         .include "powerlines.asm"
         .include "power.asm"
+        .include "cost-management.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"
