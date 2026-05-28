@@ -319,6 +319,8 @@ render_redraw_cell_tile:
         bcc _rrct_skip              ; above viewport
         cmp #MAIN_TILE_ROWS
         bcs _rrct_skip              ; below viewport
+        cmp #FIRST_VISIBLE_TILE_ROW
+        bcc _rrct_skip              ; hidden under top chrome (overlap rows)
         sta render_tile_y
 
         clc                         ; cell ptr = (view + tile) * 2 (tile top-left)
