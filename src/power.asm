@@ -18,27 +18,23 @@
 ; recompute is O(map) plus O(connected network) -- fine as a per-edit cost.
 ;=======================================================================================
 
-; Carry SET if map cell value A conducts/holds power: the coal plant (source),
-; a power line, a road carrying power across it, or a zone (literal char).
+; Carry SET if map cell value A conducts/holds power: a power line, a road
+; carrying power across it, a zone (literal char), or any structure tagged as a
+; power source (currently coal / nuclear plants). Plant cells are recognised via
+; the structure table so adding a new power source is just a table-row flag.
 is_power_node:
-        cmp #COALPP_CELL_FIRST
-        bcc _ipn_line
-        cmp #COALPP_CELL_LAST+1
-        bcc _ipn_yes                ; coal plant cell (source)
-_ipn_line:
         cmp #POWERLINE_CELL_FIRST
         bcc _ipn_cross
         cmp #POWERLINE_CELL_LAST+1
         bcc _ipn_yes                ; power line
 _ipn_cross:
         cmp #ROAD_CELL_H_POWER
-        beq _ipn_yes                ; road with a power crossing
-        cmp #ROAD_CELL_V_POWER
         beq _ipn_yes
+        cmp #ROAD_CELL_V_POWER
+        beq _ipn_yes                ; road with a power crossing
         cmp #ZONE_CELL_LITERAL
-        bcs _ipn_yes                ; zone cell (bit 7 set)
-        clc
-        rts
+        bcs _ipn_yes                ; zone literal
+        jmp is_power_source_cell    ; structure table: any power-source row
 _ipn_yes:
         sec
         rts
@@ -137,6 +133,11 @@ _psd_loop:
         ldx ps_idx
         cpx plant_origin_count
         bcs _psd_done
+        ; Pick up the structure row this origin was registered against. Footprint
+        ; dimensions and the cell-value range vary per plant type (coal vs nuclear
+        ; today; possibly more later) and live in the structure table.
+        lda plant_origin_struct,x
+        sta ps_struct
         lda #0
         sta ps_seeds                ; live plant cells pushed for this origin
         sta ps_dy
@@ -156,11 +157,14 @@ _psd_col:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
-        cmp #COALPP_CELL_FIRST
+        ldy ps_struct
+        cmp struct_cell_base,y
         bcc _psd_next_col
-        cmp #COALPP_CELL_LAST+1
+        sec
+        sbc struct_cell_base,y
+        cmp struct_cell_count,y
         bcs _psd_next_col
-        ; plant cell -> mark powered and push as a seed
+        ; plant cell still in range -> mark powered and push as a seed
         jsr power_ptr_into_map
         lda #1
         ldz #0
@@ -168,19 +172,20 @@ _psd_col:
         jsr power_push
         inc ps_seeds
 _psd_next_col:
+        ldy ps_struct
         inc ps_dx
         lda ps_dx
-        cmp #COALPP_COLS
+        cmp struct_cols,y
         bne _psd_col
         inc ps_dy
         lda ps_dy
-        cmp #COALPP_ROWS
+        cmp struct_rows,y
         bne _psd_row
-        ; Finished this origin's 12 cells. If none were still a plant (fully
-        ; bulldozed), drop the entry: swap the last origin into this slot and
-        ; decrement the count; the swapped-in entry is then processed at the
-        ; same ps_idx on the next iteration. Self-swap when this WAS the last
-        ; entry is a harmless no-op write; the cpx check at the top terminates.
+        ; Finished this origin's footprint. If none were still a plant (fully
+        ; bulldozed) drop the entry: swap the last origin into this slot and
+        ; decrement the count; the swapped-in entry is processed at the same
+        ; ps_idx on the next iteration. Self-swap on the last entry is a harmless
+        ; no-op; the cpx check at the top terminates.
         lda ps_seeds
         beq _psd_prune
         inc ps_idx
@@ -193,6 +198,8 @@ _psd_prune:
         sta plant_origin_x,y
         lda plant_origin_y,x
         sta plant_origin_y,y
+        lda plant_origin_struct,x
+        sta plant_origin_struct,y
         jmp _psd_loop
 _psd_done:
         rts
@@ -313,11 +320,12 @@ power_mark_dirty:
         sta power_settle
         rts
 
-; Record a newly-placed coal plant's origin so power_seed can find it without
-; scanning the whole map. Called from city.asm after city_stamp_coalpp. If the
-; tracking list is full (PLANT_MAX origins recorded over the session), the new
-; plant is silently dropped from the seed list; partial bulldozing of a plant is
-; OK because power_seed re-checks each of its 12 cells per recompute.
+; Record a newly-placed plant's origin and which structure row it belongs to so
+; power_seed can find it without scanning the whole map. Called from cps_structure
+; after stamping, with struct_idx already set to the placed row. If the tracking
+; list is full (PLANT_MAX entries this session) the new plant is silently dropped
+; from the seed list; partial bulldozing is OK because power_seed re-reads each
+; footprint cell per recompute and prunes fully-demolished entries.
 power_register_plant:
         ldx plant_origin_count
         cpx #PLANT_MAX
@@ -326,6 +334,8 @@ power_register_plant:
         sta plant_origin_x,x
         lda zone_org_y
         sta plant_origin_y,x
+        lda struct_idx
+        sta plant_origin_struct,x
         inc plant_origin_count
 _prp_full:
         rts
@@ -359,3 +369,7 @@ plant_origin_x:
         .fill PLANT_MAX, 0
 plant_origin_y:
         .fill PLANT_MAX, 0
+plant_origin_struct:            ; struct table index per origin (coal vs nuclear, ...)
+        .fill PLANT_MAX, 0
+ps_struct:                      ; power_seed: structure row for the current origin
+        .byte 0

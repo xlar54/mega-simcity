@@ -31,6 +31,64 @@ struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_
 
 struct_count           = 2
 
+; Carry SET if cell value A is in any structure's [cell_base, cell_base+count)
+; range. A is preserved. Used by powerline orientation (zones/plants are
+; "structures" that a line points toward) and by other table-driven cell tests.
+is_structure_cell:
+        sta isc_value
+        ldy #0
+_isc_loop:
+        cpy #struct_count
+        bcs _isc_no
+        lda isc_value
+        cmp struct_cell_base,y
+        bcc _isc_next
+        sec
+        sbc struct_cell_base,y
+        cmp struct_cell_count,y
+        bcc _isc_yes
+_isc_next:
+        iny
+        bra _isc_loop
+_isc_no:
+        lda isc_value
+        clc
+        rts
+_isc_yes:
+        lda isc_value
+        sec
+        rts
+
+; Carry SET if cell value A is in a structure row whose STRUCT_FLAG_IS_POWER_SOURCE
+; flag is set (i.e., a plant cell of any kind). A is preserved.
+is_power_source_cell:
+        sta isc_value
+        ldy #0
+_ipsc_loop:
+        cpy #struct_count
+        bcs _ipsc_no
+        lda struct_flags,y
+        and #STRUCT_FLAG_IS_POWER_SOURCE
+        beq _ipsc_next
+        lda isc_value
+        cmp struct_cell_base,y
+        bcc _ipsc_next
+        sec
+        sbc struct_cell_base,y
+        cmp struct_cell_count,y
+        bcc _ipsc_yes
+_ipsc_next:
+        iny
+        bra _ipsc_loop
+_ipsc_no:
+        lda isc_value
+        clc
+        rts
+_ipsc_yes:
+        lda isc_value
+        sec
+        rts
+
 ; Locate a structure by its tool_id. In: A = tool_id. Out: carry SET and X = row
 ; index if matched; carry CLEAR if no structure handles this tool. A is preserved.
 structure_find_by_tool:
@@ -269,4 +327,6 @@ cs_max:                         ; cps_structure: max valid origin coord (clamp l
 cs_dx:                          ; W x H stamp/redraw/can_place loop counters
         .byte 0
 cs_dy:
+        .byte 0
+isc_value:                      ; scratch for is_structure_cell / is_power_source_cell
         .byte 0
