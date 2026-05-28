@@ -126,41 +126,75 @@ power_clear:
         .word $0000
         rts
 
-; Scan the whole map; for each coal-plant cell, mark it powered and push it as a
-; flood seed.
+; Seed the flood from the recorded plant origins. For each origin, walk its 12
+; cells (3 wide x 4 tall) and push any that are still a plant value. This is
+; tolerant of partial bulldozing (only the remaining plant cells seed) and of
+; stale list entries (a fully-demolished plant just contributes no seeds).
 power_seed:
         lda #0
-        sta power_sy
+        sta ps_idx
+_psd_loop:
+        ldx ps_idx
+        cpx plant_origin_count
+        bcs _psd_done
+        lda #0
+        sta ps_seeds                ; live plant cells pushed for this origin
+        sta ps_dy
 _psd_row:
         lda #0
-        sta power_sx
+        sta ps_dx
 _psd_col:
-        lda power_sx
+        ldx ps_idx
+        clc
+        lda plant_origin_x,x
+        adc ps_dx
         sta city_ptr_x
-        lda power_sy
+        clc
+        lda plant_origin_y,x
+        adc ps_dy
         sta city_ptr_y
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
         cmp #COALPP_CELL_FIRST
-        bcc _psd_next
+        bcc _psd_next_col
         cmp #COALPP_CELL_LAST+1
-        bcs _psd_next
-        ; plant cell -> seed
+        bcs _psd_next_col
+        ; plant cell -> mark powered and push as a seed
         jsr power_ptr_into_map
         lda #1
         ldz #0
         sta [MAP_PTR],z
         jsr power_push
-_psd_next:
-        inc power_sx
-        lda power_sx
-        cmp #CELL_COLS
+        inc ps_seeds
+_psd_next_col:
+        inc ps_dx
+        lda ps_dx
+        cmp #COALPP_COLS
         bne _psd_col
-        inc power_sy
-        lda power_sy
-        cmp #CELL_ROWS
+        inc ps_dy
+        lda ps_dy
+        cmp #COALPP_ROWS
         bne _psd_row
+        ; Finished this origin's 12 cells. If none were still a plant (fully
+        ; bulldozed), drop the entry: swap the last origin into this slot and
+        ; decrement the count; the swapped-in entry is then processed at the
+        ; same ps_idx on the next iteration. Self-swap when this WAS the last
+        ; entry is a harmless no-op write; the cpx check at the top terminates.
+        lda ps_seeds
+        beq _psd_prune
+        inc ps_idx
+        jmp _psd_loop
+_psd_prune:
+        dec plant_origin_count
+        ldx plant_origin_count
+        ldy ps_idx
+        lda plant_origin_x,x
+        sta plant_origin_x,y
+        lda plant_origin_y,x
+        sta plant_origin_y,y
+        jmp _psd_loop
+_psd_done:
         rts
 
 ; Flood from the seeded cells: pop, then for each in-bounds 4-neighbour that is a
@@ -251,26 +285,77 @@ power_recompute:
         jsr power_seed
         jmp power_flood
 
-; Called once per frame: recompute the power map if the network changed.
+; Called once per frame: recompute the power map if the network changed, but
+; debounce -- wait until power_settle frames have elapsed with no further edits.
+; Each edit calls power_mark_dirty, which resets the settle countdown, so a
+; multi-cell drag (power line / bulldoze) triggers exactly one recompute on
+; release instead of one per frame.
 power_update:
         lda power_dirty
         beq _pu_done
+        lda power_settle
+        beq _pu_go                  ; countdown elapsed -> recompute now
+        dec power_settle
+        rts
+_pu_go:
         lda #0
         sta power_dirty
         jmp power_recompute
 _pu_done:
         rts
 
+; Mark the power network dirty and (re)arm the debounce timer. Called from every
+; placement / bulldoze that can affect connectivity (see city.asm, roads.asm).
+power_mark_dirty:
+        lda #1
+        sta power_dirty
+        lda #POWER_SETTLE_FRAMES
+        sta power_settle
+        rts
+
+; Record a newly-placed coal plant's origin so power_seed can find it without
+; scanning the whole map. Called from city.asm after city_stamp_coalpp. If the
+; tracking list is full (PLANT_MAX origins recorded over the session), the new
+; plant is silently dropped from the seed list; partial bulldozing of a plant is
+; OK because power_seed re-checks each of its 12 cells per recompute.
+power_register_plant:
+        ldx plant_origin_count
+        cpx #PLANT_MAX
+        bcs _prp_full
+        lda zone_org_x
+        sta plant_origin_x,x
+        lda zone_org_y
+        sta plant_origin_y,x
+        inc plant_origin_count
+_prp_full:
+        rts
+
+; --- tuning ---
+POWER_SETTLE_FRAMES = 4         ; frames of edit-idle before a recompute runs
+PLANT_MAX           = 32        ; max distinct plant origins tracked per session
+
 ; --- state ---
-power_dirty:                    ; nonzero -> recompute on the next power_update
+power_dirty:                    ; nonzero -> recompute pending
         .byte 1                 ; start dirty so the first frame computes it
+power_settle:                   ; debounce countdown; reset by power_mark_dirty
+        .byte 0
 flood_cx:
         .byte 0
 flood_cy:
         .byte 0
-power_sx:
+ps_idx:                         ; power_seed: plant_origin index
         .byte 0
-power_sy:
+ps_dx:                          ; power_seed: cell-within-plant offsets
+        .byte 0
+ps_dy:
+        .byte 0
+ps_seeds:                       ; power_seed: live plant cells found this origin
         .byte 0
 pstack_count:
         .word 0
+plant_origin_count:
+        .byte 0
+plant_origin_x:
+        .fill PLANT_MAX, 0
+plant_origin_y:
+        .fill PLANT_MAX, 0
