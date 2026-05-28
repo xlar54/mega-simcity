@@ -17,6 +17,10 @@
 STRUCT_FLAG_OVERWRITE_POWER = $01    ; may overwrite power-line cells (zone-like)
 STRUCT_FLAG_IS_POWER_SOURCE = $02    ; register origin with power_register_plant
 
+; Per-row tuning constants referenced from the table below.
+COAL_OUTPUT       = 40              ; zones powered per coal plant (docs/TILE_RULES.md)
+NUCLEARPP_OUTPUT  = 120             ; zones powered per nuclear plant
+
 ; --- The table (parallel byte arrays; one column per row). ---
 struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP
 struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS
@@ -28,6 +32,7 @@ struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BAS
 struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP
 struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP
 struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE
+struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT
 
 struct_count           = 2
 

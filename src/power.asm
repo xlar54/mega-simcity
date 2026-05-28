@@ -275,7 +275,9 @@ power_try_cell:
 _ptc_no:
         rts
 
-; Full recompute: clear, reset the stack, seed from the plant, flood.
+; Full recompute: clear, reset the stack, seed from the plants, flood, then trim
+; the powered set to the pooled output capacity so each plant's zone limit (e.g.
+; coal=40, nuclear=120) is enforced.
 power_recompute:
         jsr power_clear
         lda #<ATTIC_PSTACK_PHYS
@@ -290,7 +292,123 @@ power_recompute:
         sta pstack_count
         sta pstack_count+1
         jsr power_seed
-        jmp power_flood
+        jsr power_sum_capacity
+        jsr power_flood
+        jmp power_apply_capacity
+
+; Sum every (post-prune) registered plant's struct_output into total_power_capacity.
+; All plants on the connected network share one pooled cap; the apply pass below
+; trims the powered zone count down to this number.
+power_sum_capacity:
+        lda #0
+        sta total_power_capacity
+        sta total_power_capacity+1
+        ldx #0
+_psc_loop:
+        cpx plant_origin_count
+        bcs _psc_done
+        ldy plant_origin_struct,x
+        clc
+        lda total_power_capacity
+        adc struct_output,y
+        sta total_power_capacity
+        lda total_power_capacity+1
+        adc #0
+        sta total_power_capacity+1
+        inx
+        bra _psc_loop
+_psc_done:
+        rts
+
+; Raster scan: for each zone TL (residential / commercial / industrial position-0
+; cell) check the power array; for each one the flood marked powered, increment a
+; running tally and -- once it has exceeded total_power_capacity -- zero the
+; zone's 9 power-array cells so the bolt re-appears on it.
+;
+; Raster order is deterministic but arbitrary (top-left zones keep power, bottom-
+; right drop first). See TODO.md "Power plant simulation" for the v2 swap-in:
+; record zones in flood order (BFS distance from the plant) and drop the
+; farthest-from-plant zones, which feels more SimCity-correct.
+power_apply_capacity:
+        lda #0
+        sta capacity_used
+        sta capacity_used+1
+        sta pac_cy
+_pac_row:
+        lda #0
+        sta pac_cx
+_pac_col:
+        lda pac_cx
+        sta city_ptr_x
+        lda pac_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #(ZONE_GEN_BASE | ZONE_CELL_LITERAL)
+        beq _pac_is_tl
+        cmp #((ZONE_GEN_BASE + 9) | ZONE_CELL_LITERAL)
+        beq _pac_is_tl
+        cmp #((ZONE_GEN_BASE + 18) | ZONE_CELL_LITERAL)
+        bne _pac_next_cell
+_pac_is_tl:
+        jsr power_ptr_into_map      ; reuse the cell offset to read the power array
+        ldz #0
+        lda [MAP_PTR],z
+        beq _pac_next_cell          ; not powered -> flood never reached it
+        inc capacity_used
+        bne +
+        inc capacity_used+1
++
+        ; if capacity_used > total_power_capacity, drop this zone.
+        sec
+        lda total_power_capacity
+        sbc capacity_used
+        lda total_power_capacity+1
+        sbc capacity_used+1
+        bcs _pac_next_cell          ; cap >= used: keep this zone powered
+        ; over capacity: zero the 3x3 power-array cells of this zone.
+        lda pac_cx
+        sta pac_tl_x
+        lda pac_cy
+        sta pac_tl_y
+        lda #0
+        sta pac_dy
+_pac_drop_row:
+        lda #0
+        sta pac_dx
+_pac_drop_col:
+        clc
+        lda pac_tl_x
+        adc pac_dx
+        sta city_ptr_x
+        clc
+        lda pac_tl_y
+        adc pac_dy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        jsr power_ptr_into_map
+        lda #0
+        ldz #0
+        sta [MAP_PTR],z
+        inc pac_dx
+        lda pac_dx
+        cmp #ZONE_SIZE
+        bne _pac_drop_col
+        inc pac_dy
+        lda pac_dy
+        cmp #ZONE_SIZE
+        bne _pac_drop_row
+_pac_next_cell:
+        inc pac_cx
+        lda pac_cx
+        cmp #CELL_COLS
+        bne _pac_col
+        inc pac_cy
+        lda pac_cy
+        cmp #CELL_ROWS
+        bne _pac_row
+        rts
 
 ; Called once per frame: recompute the power map if the network changed, but
 ; debounce -- wait until power_settle frames have elapsed with no further edits.
@@ -372,4 +490,20 @@ plant_origin_y:
 plant_origin_struct:            ; struct table index per origin (coal vs nuclear, ...)
         .fill PLANT_MAX, 0
 ps_struct:                      ; power_seed: structure row for the current origin
+        .byte 0
+total_power_capacity:           ; summed struct_output across all registered plants
+        .word 0
+capacity_used:                  ; powered zones tallied so far by power_apply_capacity
+        .word 0
+pac_cx:                         ; power_apply_capacity raster-scan cursor
+        .byte 0
+pac_cy:
+        .byte 0
+pac_tl_x:                       ; saved zone-TL coords while zeroing the 3x3 footprint
+        .byte 0
+pac_tl_y:
+        .byte 0
+pac_dx:                         ; 3x3 footprint loop counters for zone zero-out
+        .byte 0
+pac_dy:
         .byte 0

@@ -122,15 +122,17 @@ cells = 8 KB, currently `city_cells` at the end of `main.asm`.)
 
 The power flood-fill is in (`src/power.asm`); these extend it.
 
-- [ ] **Plant power-output capacity.** Each plant powers a limited number of
-      zones (coal ~40, nuclear ~120, per `docs/TILE_RULES.md`). Add a per-row
-      output field to the structure descriptor table and, during `power_recompute`,
-      tally zones as the flood marks them; once a plant's tally exceeds its
-      output, further reached zones stay unpowered even though the flood touched
-      them (the lightning bolt should reappear on them). Which zones drop has to
-      be deterministic -- simplest is "last-marked first" (flood order = BFS
-      distance from the plant), with overflow zones recorded so the UI knows.
-      Multiple plants on one network share their pool (or compete -- decide).
+- [x] **Plant power-output capacity (v1, raster-order).** Per-row `struct_output`
+      is in the descriptor table; `power_recompute` sums it across post-prune
+      origins into `total_power_capacity` and `power_apply_capacity` does a
+      raster scan that zeros each zone's power-array cells once the running
+      tally has exceeded the cap. Pooled across plants on the network.
+- [ ] **Power-output capacity v2: pick by flood order, not raster order.** Raster
+      keeps top-left zones powered and drops bottom-right -- feels wrong vs
+      "drop the zones farthest from the plant." Record zones in flood mark-order
+      (e.g. into an Attic list as `power_try_cell` marks them) and trim the tail
+      instead of doing a raster pass. Random is another option if a deterministic
+      visual ranking isn't worth the bookkeeping.
 
 - [ ] **Plant aging + failure.** Track a per-plant age (game-months since
       placement) alongside `plant_origin_x/y`; once it exceeds a lifetime
