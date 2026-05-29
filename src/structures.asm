@@ -320,6 +320,161 @@ _srd_col:
         bne _srd_row
         rts
 
+;---------------------------------------------------------------------------------------
+; Whole-plant demolition. The 1x1 bulldozer in city.asm falls through here when
+; the targeted cell turns out to be inside a multi-cell structure footprint
+; (coal plant, nuclear plant, ...). Tearing the entire footprint down keeps the
+; power model honest: power.asm/power_sum_capacity grants the plant's full
+; struct_output to every still-registered origin, so a one-cell remnant would
+; otherwise keep producing 40/120 zones of power. With the whole footprint
+; cleared to TILE_GROUND, power_seed prunes the origin from plant_origin_* on
+; the next recompute and the output goes to zero.
+;
+; Input:   A = cell value (caller has confirmed it's a structure cell via
+;              is_structure_cell), city_ptr_x/y = cell coords of A.
+; Action:  finds the structure row; recovers its origin from the cell offset;
+;          charges the full footprint bulldoze cost (COST_BULLDOZE * cols * rows);
+;          stamps TILE_GROUND across the entire footprint and redraws every
+;          covered tile; plays the explosion sfx; marks the power network dirty;
+;          refreshes the perimeter (roads + power lines re-orient around the
+;          now-empty rect). Silently bails if the player can't afford the cost.
+;---------------------------------------------------------------------------------------
+structure_demolish_at_cell:
+        sta sdc_value
+        ; Find the struct row whose [cell_base, cell_base+count) contains A.
+        ldy #0
+_sdc_find:
+        cpy #struct_count
+        bcs _sdc_done                   ; defensive: shouldn't happen if caller checked
+        lda sdc_value
+        cmp struct_cell_base,y
+        bcc _sdc_find_next
+        sec
+        sbc struct_cell_base,y          ; A = offset within the structure footprint
+        cmp struct_cell_count,y
+        bcc _sdc_found
+_sdc_find_next:
+        iny
+        bra _sdc_find
+_sdc_found:
+        sta sdc_offset
+        sty sdc_row
+
+        ; (dx, dy) = (offset mod cols, offset / cols) by iterative subtract.
+        ; cols is small (3 today) so this runs at most rows-1 iterations.
+        ldz #0                          ; quotient = dy
+        lda sdc_offset
+_sdc_div:
+        cmp struct_cols,y
+        bcc _sdc_div_done
+        sec
+        sbc struct_cols,y
+        inz
+        bra _sdc_div
+_sdc_div_done:
+        sta sdc_dx                      ; remainder = dx
+        tza
+        sta sdc_dy                      ; quotient = dy
+
+        ; origin = (city_ptr_x - dx, city_ptr_y - dy). The footprint is fully
+        ; on-map by construction (placement clamps origin), so no underflow.
+        sec
+        lda city_ptr_x
+        sbc sdc_dx
+        sta zone_org_x
+        sec
+        lda city_ptr_y
+        sbc sdc_dy
+        sta zone_org_y
+
+        ; cost = COST_BULLDOZE * cols * rows. cols*rows is up to 12 today,
+        ; COST_BULLDOZE is $1, so this fits in a byte today -- but compute with
+        ; the full 16-bit width so growing either constant doesn't bite later.
+        ldx sdc_row
+        lda struct_cols,x
+        sta MULTINA
+        lda #0
+        sta MULTINA+1
+        sta MULTINA+2
+        sta MULTINA+3
+        lda struct_rows,x
+        sta MULTINB
+        lda #0
+        sta MULTINB+1
+        sta MULTINB+2
+        sta MULTINB+3
+        lda MULTOUT
+        sta MULTINA                     ; cols*rows -> first input
+        lda MULTOUT+1
+        sta MULTINA+1
+        lda #0
+        sta MULTINA+2
+        sta MULTINA+3
+        lda #<COST_BULLDOZE
+        sta MULTINB
+        lda #>COST_BULLDOZE
+        sta MULTINB+1
+        lda #0
+        sta MULTINB+2
+        sta MULTINB+3
+        lda MULTOUT
+        sta cost_amount
+        lda MULTOUT+1
+        sta cost_amount+1
+
+        jsr funds_can_afford
+        bcc _sdc_done                   ; can't afford -> silent bail (no change)
+        jsr funds_subtract
+
+        ; Stamp TILE_GROUND across the full footprint + redraw each tile.
+        ldx sdc_row
+        lda #0
+        sta cs_dy
+_sdc_row:
+        lda #0
+        sta cs_dx
+_sdc_col:
+        clc
+        lda zone_org_x
+        adc cs_dx
+        sta city_ptr_x
+        clc
+        lda zone_org_y
+        adc cs_dy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda #TILE_GROUND
+        sta [MAP_PTR],z
+        jsr render_redraw_cell_tile     ; clobbers X
+        ldx sdc_row
+        inc cs_dx
+        lda cs_dx
+        cmp struct_cols,x
+        bne _sdc_col
+        inc cs_dy
+        lda cs_dy
+        cmp struct_rows,x
+        bne _sdc_row
+
+        jsr power_mark_dirty            ; power_seed prunes the origin next pass
+        jsr audio_explosion
+
+        ; Border refresh: roads + power lines around the now-empty footprint
+        ; re-orient. Same idiom cps_structure uses for placement.
+        ldx sdc_row
+        lda struct_cols,x
+        clc
+        adc #2
+        sta zrb_w
+        lda struct_rows,x
+        clc
+        adc #2
+        sta zrb_h
+        jmp city_zone_refresh_border    ; tail call
+_sdc_done:
+        rts
+
 ; --- scratch ---
 struct_idx:                     ; currently-dispatched row in the table
         .byte 0
@@ -334,4 +489,14 @@ cs_dx:                          ; W x H stamp/redraw/can_place loop counters
 cs_dy:
         .byte 0
 isc_value:                      ; scratch for is_structure_cell / is_power_source_cell
+        .byte 0
+sdc_value:                      ; structure_demolish_at_cell scratch
+        .byte 0
+sdc_offset:
+        .byte 0
+sdc_row:
+        .byte 0
+sdc_dx:
+        .byte 0
+sdc_dy:
         .byte 0

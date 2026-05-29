@@ -198,15 +198,52 @@ _ccrn_byte_counts:
 _ccrn_pos_counts:
         .word 1000, 2000
 
+; Macro: stamp a bitmap into char slot \id from src label \src. Always routes
+; through the 16-bit entry so the assembled callsite is the same shape whether
+; \id is 0..255 or above. The extra preamble (PTR2 setup, ldx #>id) is a one-
+; time boot cost. Macro name STAMP_CHAR (not CREATE_FCM_CHAR) avoids the
+; case-insensitive collision with the create_fcm_char routine label.
+STAMP_CHAR .macro id, src
+        ldx #<\src
+        stx PTR2
+        ldx #>\src
+        stx PTR2+1
+        ldx #>(\id)
+        lda #<(\id)
+        jsr create_fcm_char16
+.endmacro
+
+; Build a single FCM character bitmap into CHAR_DATA.
+;
+; Two entry points (matching the set_fcm_char / set_fcm_char16 split):
+;   create_fcm_char   (8-bit char id, A=char, X/Y = src ptr) -- existing callers
+;                     are unchanged. The high byte is cleared internally and the
+;                     routine falls into the 16-bit body.
+;   create_fcm_char16 (16-bit char id, A=char_lo, X=char_hi; caller pre-sets PTR2
+;                     with the src bitmap pointer). Used for bitmaps that live
+;                     above char id 255 in char RAM (bank 4 holds up to 1024
+;                     chars; CHAR_DATA + char_idx*64 must stay below the bank-5
+;                     stage area).
+create_fcm_char16:
+        stx cnc_char_hi
+        bra cnc_body
 create_fcm_char:
-        sta _cnc_char_idx
         stx PTR2
         sty PTR2+1
+        pha
+        lda #0
+        sta cnc_char_hi
+        pla
+cnc_body:
+        sta _cnc_char_idx
 
+        ; offset = char_idx * 64. MULTINA holds the full 16-bit char id so the
+        ; result is 24-bit-safe (1023 * 64 = 65472 fits in 17 bits).
         lda _cnc_char_idx
         sta MULTINA
-        lda #0
+        lda cnc_char_hi
         sta MULTINA+1
+        lda #0
         sta MULTINA+2
         sta MULTINA+3
 
@@ -242,6 +279,8 @@ _cnc_loop:
         rts
 
 _cnc_char_idx:
+        .byte 0
+cnc_char_hi:
         .byte 0
 
 ; Two entries:

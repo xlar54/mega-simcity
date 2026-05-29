@@ -173,7 +173,15 @@ _odtt_done:
 
 ;---------------------------------------------------------------------------------------
 ; Stamp the 4x2 OK button: a raised 3D rectangle with "Ok" baked in. The
-; bitmaps and char-id constants live in assets.asm (BTN_OK_*_CHAR).
+; BTN_OK_*_CHAR constants live in shared/ui_tile_layout.asm (next to the other
+; char-id allocations, where the .cerror guards can keep them in range); the
+; bitmaps live in assets.asm.
+;
+; These stamps use the 8-bit set_fcm_char entry, so every BTN_OK_*_CHAR must fit
+; in a byte. The BK slot is the only one that floats (it's anchored to the end
+; of POWER_BRIDGE_CHAR_BASE in ui_tile_layout.asm), so the .cerror there caps
+; BTN_OK_BK_CHAR at 255 -- if the chain ever grows past that, this routine
+; needs to switch to set_fcm_char16.
 ;
 ; Layout:
 ;   row POPUP_OK_ROW   : [TL][Top-of-O][Top-of-k][TR]

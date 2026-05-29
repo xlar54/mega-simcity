@@ -207,25 +207,10 @@ tiles_dma_city_from_attic:
         rts
 
 tiles_load_cursor:
-        lda #CITY_CHAR_CURSOR
-        ldx #<fcm_cursor_tl
-        ldy #>fcm_cursor_tl
-        jsr create_fcm_char
-
-        lda #CITY_CHAR_CURSOR+1
-        ldx #<fcm_cursor_tr
-        ldy #>fcm_cursor_tr
-        jsr create_fcm_char
-
-        lda #CITY_CHAR_CURSOR+2
-        ldx #<fcm_cursor_bl
-        ldy #>fcm_cursor_bl
-        jsr create_fcm_char
-
-        lda #CITY_CHAR_CURSOR+3
-        ldx #<fcm_cursor_br
-        ldy #>fcm_cursor_br
-        jsr create_fcm_char
+        #STAMP_CHAR CITY_CHAR_CURSOR,   fcm_cursor_tl
+        #STAMP_CHAR CITY_CHAR_CURSOR+1, fcm_cursor_tr
+        #STAMP_CHAR CITY_CHAR_CURSOR+2, fcm_cursor_bl
+        #STAMP_CHAR CITY_CHAR_CURSOR+3, fcm_cursor_br
         rts
 
 fcm_cursor_tl:
@@ -279,112 +264,40 @@ fcm_cursor_br:
 ; the visible IDLE icon is raised and the SELECTED icon is pressed.
 tiles_load_top_buttons:
         ; --- INSPECT idle (raised: white top + left) ---
-        lda #INSPECT_CHAR_BASE
-        ldx #<fcm_inspect_tl_inset
-        ldy #>fcm_inspect_tl_inset
-        jsr create_fcm_char
-        lda #INSPECT_CHAR_BASE+1
-        ldx #<fcm_inspect_tr_inset
-        ldy #>fcm_inspect_tr_inset
-        jsr create_fcm_char
-        lda #INSPECT_CHAR_BASE+2
-        ldx #<fcm_inspect_bl_inset
-        ldy #>fcm_inspect_bl_inset
-        jsr create_fcm_char
-        lda #INSPECT_CHAR_BASE+3
-        ldx #<fcm_inspect_br_inset
-        ldy #>fcm_inspect_br_inset
-        jsr create_fcm_char
+        #STAMP_CHAR INSPECT_CHAR_BASE,   fcm_inspect_tl_inset
+        #STAMP_CHAR INSPECT_CHAR_BASE+1, fcm_inspect_tr_inset
+        #STAMP_CHAR INSPECT_CHAR_BASE+2, fcm_inspect_bl_inset
+        #STAMP_CHAR INSPECT_CHAR_BASE+3, fcm_inspect_br_inset
 
         ; --- INSPECT selected (pressed: black top + left) ---
-        lda #INSPECT_INSET_CHAR_BASE
-        ldx #<fcm_inspect_tl
-        ldy #>fcm_inspect_tl
-        jsr create_fcm_char
-        lda #INSPECT_INSET_CHAR_BASE+1
-        ldx #<fcm_inspect_tr
-        ldy #>fcm_inspect_tr
-        jsr create_fcm_char
-        lda #INSPECT_INSET_CHAR_BASE+2
-        ldx #<fcm_inspect_bl
-        ldy #>fcm_inspect_bl
-        jsr create_fcm_char
-        lda #INSPECT_INSET_CHAR_BASE+3
-        ldx #<fcm_inspect_br
-        ldy #>fcm_inspect_br
-        jsr create_fcm_char
+        #STAMP_CHAR INSPECT_INSET_CHAR_BASE,   fcm_inspect_tl
+        #STAMP_CHAR INSPECT_INSET_CHAR_BASE+1, fcm_inspect_tr
+        #STAMP_CHAR INSPECT_INSET_CHAR_BASE+2, fcm_inspect_bl
+        #STAMP_CHAR INSPECT_INSET_CHAR_BASE+3, fcm_inspect_br
 
         ; --- LOAD idle (down-arrow + disk; raised) ---
-        lda #LOAD_CHAR_BASE
-        ldx #<fcm_load_tl_idle
-        ldy #>fcm_load_tl_idle
-        jsr create_fcm_char
-        lda #LOAD_CHAR_BASE+1
-        ldx #<fcm_load_tr_idle
-        ldy #>fcm_load_tr_idle
-        jsr create_fcm_char
-        lda #LOAD_CHAR_BASE+2
-        ldx #<fcm_disk_bl_idle
-        ldy #>fcm_disk_bl_idle
-        jsr create_fcm_char
-        lda #LOAD_CHAR_BASE+3
-        ldx #<fcm_disk_br_idle
-        ldy #>fcm_disk_br_idle
-        jsr create_fcm_char
+        #STAMP_CHAR LOAD_CHAR_BASE,   fcm_load_tl_idle
+        #STAMP_CHAR LOAD_CHAR_BASE+1, fcm_load_tr_idle
+        #STAMP_CHAR LOAD_CHAR_BASE+2, fcm_disk_bl_idle
+        #STAMP_CHAR LOAD_CHAR_BASE+3, fcm_disk_br_idle
 
         ; --- LOAD selected (pressed) ---
-        lda #LOAD_INSET_CHAR_BASE
-        ldx #<fcm_load_tl_sel
-        ldy #>fcm_load_tl_sel
-        jsr create_fcm_char
-        lda #LOAD_INSET_CHAR_BASE+1
-        ldx #<fcm_load_tr_sel
-        ldy #>fcm_load_tr_sel
-        jsr create_fcm_char
-        lda #LOAD_INSET_CHAR_BASE+2
-        ldx #<fcm_disk_bl_sel
-        ldy #>fcm_disk_bl_sel
-        jsr create_fcm_char
-        lda #LOAD_INSET_CHAR_BASE+3
-        ldx #<fcm_disk_br_sel
-        ldy #>fcm_disk_br_sel
-        jsr create_fcm_char
+        #STAMP_CHAR LOAD_INSET_CHAR_BASE,   fcm_load_tl_sel
+        #STAMP_CHAR LOAD_INSET_CHAR_BASE+1, fcm_load_tr_sel
+        #STAMP_CHAR LOAD_INSET_CHAR_BASE+2, fcm_disk_bl_sel
+        #STAMP_CHAR LOAD_INSET_CHAR_BASE+3, fcm_disk_br_sel
 
         ; --- SAVE idle (up-arrow + disk; raised) ---
-        lda #SAVE_CHAR_BASE
-        ldx #<fcm_save_tl_idle
-        ldy #>fcm_save_tl_idle
-        jsr create_fcm_char
-        lda #SAVE_CHAR_BASE+1
-        ldx #<fcm_save_tr_idle
-        ldy #>fcm_save_tr_idle
-        jsr create_fcm_char
-        lda #SAVE_CHAR_BASE+2
-        ldx #<fcm_disk_bl_idle
-        ldy #>fcm_disk_bl_idle
-        jsr create_fcm_char
-        lda #SAVE_CHAR_BASE+3
-        ldx #<fcm_disk_br_idle
-        ldy #>fcm_disk_br_idle
-        jsr create_fcm_char
+        #STAMP_CHAR SAVE_CHAR_BASE,   fcm_save_tl_idle
+        #STAMP_CHAR SAVE_CHAR_BASE+1, fcm_save_tr_idle
+        #STAMP_CHAR SAVE_CHAR_BASE+2, fcm_disk_bl_idle
+        #STAMP_CHAR SAVE_CHAR_BASE+3, fcm_disk_br_idle
 
         ; --- SAVE selected (pressed) ---
-        lda #SAVE_INSET_CHAR_BASE
-        ldx #<fcm_save_tl_sel
-        ldy #>fcm_save_tl_sel
-        jsr create_fcm_char
-        lda #SAVE_INSET_CHAR_BASE+1
-        ldx #<fcm_save_tr_sel
-        ldy #>fcm_save_tr_sel
-        jsr create_fcm_char
-        lda #SAVE_INSET_CHAR_BASE+2
-        ldx #<fcm_disk_bl_sel
-        ldy #>fcm_disk_bl_sel
-        jsr create_fcm_char
-        lda #SAVE_INSET_CHAR_BASE+3
-        ldx #<fcm_disk_br_sel
-        ldy #>fcm_disk_br_sel
-        jsr create_fcm_char
+        #STAMP_CHAR SAVE_INSET_CHAR_BASE,   fcm_save_tl_sel
+        #STAMP_CHAR SAVE_INSET_CHAR_BASE+1, fcm_save_tr_sel
+        #STAMP_CHAR SAVE_INSET_CHAR_BASE+2, fcm_disk_bl_sel
+        #STAMP_CHAR SAVE_INSET_CHAR_BASE+3, fcm_disk_br_sel
         rts
 
 fcm_inspect_tl:
@@ -1044,12 +957,21 @@ _tlws_loop:
         adc #>fcm_water_shore_tiles
         sta tlws_src_hi
 
+        ; 16-bit char id = WATER_SHORE_CHAR_BASE + tlws_idx, carry into hi byte.
+        ; create_fcm_char16 expects PTR2 preset and reads X (char_hi) + A (char_lo).
+        lda tlws_src_lo
+        sta PTR2
+        lda tlws_src_hi
+        sta PTR2+1
         lda tlws_idx
         clc
-        adc #WATER_SHORE_CHAR_BASE
-        ldx tlws_src_lo
-        ldy tlws_src_hi
-        jsr create_fcm_char
+        adc #<WATER_SHORE_CHAR_BASE
+        sta tlws_char_lo
+        lda #>WATER_SHORE_CHAR_BASE
+        adc #0
+        tax                          ; X = char_hi
+        lda tlws_char_lo             ; A = char_lo
+        jsr create_fcm_char16
 
         inc tlws_idx
         bra _tlws_loop
@@ -1061,6 +983,8 @@ tlws_idx:
 tlws_src_lo:
         .byte 0
 tlws_src_hi:
+        .byte 0
+tlws_char_lo:
         .byte 0
 
 ; Load chars TREE_CHAR_BASE..+15 from the 16 bitmaps above. fcm_tree_tiles is
@@ -1090,12 +1014,20 @@ _tlt_loop:
         adc #>fcm_tree_tiles
         sta tlt_src_hi
 
+        ; 16-bit char id = TREE_CHAR_BASE + tlt_idx, carry into hi byte.
+        lda tlt_src_lo
+        sta PTR2
+        lda tlt_src_hi
+        sta PTR2+1
         lda tlt_idx
         clc
-        adc #TREE_CHAR_BASE
-        ldx tlt_src_lo
-        ldy tlt_src_hi
-        jsr create_fcm_char
+        adc #<TREE_CHAR_BASE
+        sta tlt_char_lo
+        lda #>TREE_CHAR_BASE
+        adc #0
+        tax                          ; X = char_hi
+        lda tlt_char_lo              ; A = char_lo
+        jsr create_fcm_char16
 
         inc tlt_idx
         bra _tlt_loop
@@ -1107,6 +1039,8 @@ tlt_idx:
 tlt_src_lo:
         .byte 0
 tlt_src_hi:
+        .byte 0
+tlt_char_lo:
         .byte 0
 
 ;---------------------------------------------------------------------------------------
@@ -1163,25 +1097,10 @@ fcm_bridge_power_v:
 ; overwrite it). Power bridges go into the dedicated POWER_BRIDGE_CHAR_BASE
 ; slots at the top of char RAM.
 tiles_load_bridges:
-        lda #ROAD_CELL_BRIDGE_H
-        ldx #<fcm_bridge_road_h
-        ldy #>fcm_bridge_road_h
-        jsr create_fcm_char
-
-        lda #ROAD_CELL_BRIDGE_V
-        ldx #<fcm_bridge_road_v
-        ldy #>fcm_bridge_road_v
-        jsr create_fcm_char
-
-        lda #POWER_BRIDGE_CHAR_BASE
-        ldx #<fcm_bridge_power_h
-        ldy #>fcm_bridge_power_h
-        jsr create_fcm_char
-
-        lda #POWER_BRIDGE_CHAR_BASE+1
-        ldx #<fcm_bridge_power_v
-        ldy #>fcm_bridge_power_v
-        jsr create_fcm_char
+        #STAMP_CHAR ROAD_CELL_BRIDGE_H,     fcm_bridge_road_h
+        #STAMP_CHAR ROAD_CELL_BRIDGE_V,     fcm_bridge_road_v
+        #STAMP_CHAR POWER_BRIDGE_CHAR_BASE, fcm_bridge_power_h
+        #STAMP_CHAR POWER_BRIDGE_CHAR_BASE+1, fcm_bridge_power_v
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -1230,52 +1149,26 @@ fcm_powerline_cross:
         .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 7: V wires
 
 tiles_load_powerlines:
-        lda #POWERLINE_CELL_H
-        ldx #<fcm_powerline_h
-        ldy #>fcm_powerline_h
-        jsr create_fcm_char
-
-        lda #POWERLINE_CELL_V
-        ldx #<fcm_powerline_v
-        ldy #>fcm_powerline_v
-        jsr create_fcm_char
-
+        #STAMP_CHAR POWERLINE_CELL_H, fcm_powerline_h
+        #STAMP_CHAR POWERLINE_CELL_V, fcm_powerline_v
         ; POLE_H is the single intersection variant. POLE_V is no longer
         ; written by powerline_refresh, so its char slot (27) is free for
         ; other use (popup button TR corner, currently).
-        lda #POWERLINE_CELL_POLE_H
-        ldx #<fcm_powerline_cross
-        ldy #>fcm_powerline_cross
-        jsr create_fcm_char
+        #STAMP_CHAR POWERLINE_CELL_POLE_H, fcm_powerline_cross
         rts
 
 ;---------------------------------------------------------------------------------------
 ; Popup OK button: a 4x2 cell (32x16 px) raised button with the camel-case "Ok"
-; label baked in. Chars are scattered through the remaining gaps in char RAM:
-;
-;   TL = 23  (city-tileset slot, overwritten after the city DMA)
-;   TR = 27  (was POWERLINE_CELL_POLE_V, freed by the refresh change above)
-;   BL = 59 } gap between the zone block (32..58) and the UI text glyphs (64..)
-;   BR = 60 }
-;   TO = 61  (top half of 'O')
-;   TK = 62  (top half of 'k')
-;   BO = 63  (bottom half of 'O')
-;   BK = 255 (top of the char-id ceiling)
+; label baked in. The eight char-id constants (BTN_OK_*_CHAR) and the rationale
+; for the scattered slot choices live in shared/ui_tile_layout.asm next to the
+; other char allocations, so any new range that bumps into them gets caught by
+; the .cerror guards there.
 ;
 ; Border style mirrors the inspect icon's raised look: white ($0F) on the top
 ; row + left column, black ($00) on the bottom row + right column, light grey
 ; ($0C) interior. Letters are black on grey, split vertically across the two
 ; rows so a 12px-tall 'O' / 'k' fits in the 14px-tall interior.
 ;---------------------------------------------------------------------------------------
-
-BTN_OK_TL_CHAR      = 23
-BTN_OK_TR_CHAR      = 27
-BTN_OK_BL_CHAR      = 59
-BTN_OK_BR_CHAR      = 60
-BTN_OK_TO_CHAR      = 61
-BTN_OK_TK_CHAR      = 62
-BTN_OK_BO_CHAR      = 63
-BTN_OK_BK_CHAR      = 255
 
 fcm_btn_ok_tl:
         ; row 0 white top, col 0 white below, rest grey
@@ -1368,43 +1261,12 @@ fcm_btn_ok_bot_k:
         .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 7: black bottom
 
 tiles_load_button_ok:
-        lda #BTN_OK_TL_CHAR
-        ldx #<fcm_btn_ok_tl
-        ldy #>fcm_btn_ok_tl
-        jsr create_fcm_char
-
-        lda #BTN_OK_TR_CHAR
-        ldx #<fcm_btn_ok_tr
-        ldy #>fcm_btn_ok_tr
-        jsr create_fcm_char
-
-        lda #BTN_OK_BL_CHAR
-        ldx #<fcm_btn_ok_bl
-        ldy #>fcm_btn_ok_bl
-        jsr create_fcm_char
-
-        lda #BTN_OK_BR_CHAR
-        ldx #<fcm_btn_ok_br
-        ldy #>fcm_btn_ok_br
-        jsr create_fcm_char
-
-        lda #BTN_OK_TO_CHAR
-        ldx #<fcm_btn_ok_top_o
-        ldy #>fcm_btn_ok_top_o
-        jsr create_fcm_char
-
-        lda #BTN_OK_TK_CHAR
-        ldx #<fcm_btn_ok_top_k
-        ldy #>fcm_btn_ok_top_k
-        jsr create_fcm_char
-
-        lda #BTN_OK_BO_CHAR
-        ldx #<fcm_btn_ok_bot_o
-        ldy #>fcm_btn_ok_bot_o
-        jsr create_fcm_char
-
-        lda #BTN_OK_BK_CHAR
-        ldx #<fcm_btn_ok_bot_k
-        ldy #>fcm_btn_ok_bot_k
-        jsr create_fcm_char
+        #STAMP_CHAR BTN_OK_TL_CHAR, fcm_btn_ok_tl
+        #STAMP_CHAR BTN_OK_TR_CHAR, fcm_btn_ok_tr
+        #STAMP_CHAR BTN_OK_BL_CHAR, fcm_btn_ok_bl
+        #STAMP_CHAR BTN_OK_BR_CHAR, fcm_btn_ok_br
+        #STAMP_CHAR BTN_OK_TO_CHAR, fcm_btn_ok_top_o
+        #STAMP_CHAR BTN_OK_TK_CHAR, fcm_btn_ok_top_k
+        #STAMP_CHAR BTN_OK_BO_CHAR, fcm_btn_ok_bot_o
+        #STAMP_CHAR BTN_OK_BK_CHAR, fcm_btn_ok_bot_k
         rts

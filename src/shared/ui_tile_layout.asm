@@ -104,6 +104,27 @@ WATER_SHORE_CHAR_BASE   = TREE_CHAR_BASE + TREE_CELL_COUNT      ; 238 -> 238..25
 ; ROAD_CELL range (chars 21/22 in the city tileset), so they need no entry here.
 POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT  ; 253 -> 253..254
 
+; Popup OK button chars (4x2 cells, 8 bitmaps). Scattered through the gaps in
+; char RAM rather than a single contiguous range:
+;   TL / TR (23, 27)   -- city-tileset slots, overwritten after the city DMA.
+;                         TL=23 was a road-headroom slot; TR=27 was the old
+;                         POWERLINE_CELL_POLE_V before powerline_refresh stopped
+;                         writing it (see assets.asm tiles_load_powerlines).
+;   BL..BO (59..63)    -- the 5-char hole between the zone block
+;                         (ZONE_GEN_BASE..+ZONE_CELL_COUNT-1 = 32..58) and the
+;                         chrome block (UI_TILE_PANEL = 64+).
+;   BK                 -- continues the linear chain from POWER_BRIDGE_CHAR_BASE,
+;                         so any new range below starts at BTN_OK_BK_CHAR + 1
+;                         rather than colliding with this entry at 255.
+BTN_OK_TL_CHAR          = 23
+BTN_OK_TR_CHAR          = 27
+BTN_OK_BL_CHAR          = 59
+BTN_OK_BR_CHAR          = 60
+BTN_OK_TO_CHAR          = 61
+BTN_OK_TK_CHAR          = 62
+BTN_OK_BO_CHAR          = 63
+BTN_OK_BK_CHAR          = POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT  ; 255 today
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 LOAD_ICON_COL           = 2
@@ -113,16 +134,28 @@ SAVE_ICON_ROW           = 1
 TOP_BTN_W               = 2     ; all top buttons are 2x2 cells
 TOP_BTN_H               = 2
 
-; cell_to_char (render.asm) returns an 8-bit char id, so each structure's tile
-; range must fit at char ids 0..255. Pushing past needs 16-bit-aware rendering
-; (set_fcm_char16 already exists; cell_to_char + render_draw_tile need to plumb
-; the high byte through). See TODO.md.
-        .cerror COALPP_CHAR_BASE + 12 > 256, "coal plant chars cross 256: cell_to_char needs 16-bit support"
-        .cerror NUCLEARPP_CHAR_BASE + 12 > 256, "nuclear plant chars cross 256: cell_to_char needs 16-bit support"
-        .cerror SAVE_INSET_CHAR_BASE + 4 > 256, "top-strip button chars cross 256: cell_to_char needs 16-bit support"
-        .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 256, "tree chars cross 256: cell_to_char needs 16-bit support"
-        .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 256, "water shore chars cross 256: cell_to_char needs 16-bit support"
-        .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 256, "power bridge chars cross 256: cell_to_char needs 16-bit support"
+; cell_to_char (render.asm) plumbs a 16-bit char id (low byte in A, high byte in
+; ctc_char_hi) through render_draw_tile + set_fcm_char16, so the ceiling is now
+; the resident char-bank window rather than the 8-bit char-id range. CHAR_DATA
+; lives at bank-4 $0000 and the bank-5 stage area starts at $10000, so each char
+; bitmap (64 bytes) must satisfy char_id*64 < $10000 -> char_id < 1024.
+        .cerror COALPP_CHAR_BASE + 12 > 1024, "coal plant chars exceed resident char-bank window"
+        .cerror NUCLEARPP_CHAR_BASE + 12 > 1024, "nuclear plant chars exceed resident char-bank window"
+        .cerror SAVE_INSET_CHAR_BASE + 4 > 1024, "top-strip button chars exceed resident char-bank window"
+        .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 1024, "tree chars exceed resident char-bank window"
+        .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 1024, "water shore chars exceed resident char-bank window"
+        .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 1024, "power bridge chars exceed resident char-bank window"
+        .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
+        ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),
+        ; so every BTN_OK_*_CHAR must fit in a byte. BK is the only one that
+        ; floats (anchored to POWER_BRIDGE_CHAR_BASE + COUNT), so cap it explicitly
+        ; here. The mid-block and city-tileset slots are <= 63 by construction.
+        .cerror BTN_OK_BK_CHAR > 255, "BTN_OK_BK_CHAR > 255: popup overlay_draw_ok needs set_fcm_char16"
+        ; Guard the BL..BO mid-block against either side growing into it: zones
+        ; below (32..58) and chrome above (UI_TILE_PANEL = 64+). Both edges are
+        ; constants here, so the check is free.
+        .cerror BTN_OK_BL_CHAR < ZONE_GEN_BASE + ZONE_CELL_COUNT, "OK button mid-block collides with zone chars"
+        .cerror BTN_OK_BO_CHAR >= UI_TILE_PANEL, "OK button mid-block collides with chrome chars"
 
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large

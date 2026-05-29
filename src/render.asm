@@ -218,48 +218,77 @@ render_draw_tile:
         lda [MAP_PTR],z
         ldx #0
         jsr cell_to_char
+        jsr _rdt_stamp_char         ; common 16-bit write with snc_char_hi
         ldx render_screen_col
         ldy render_screen_row
-        jsr set_fcm_char
+        jsr set_fcm_char16
 
         ldz #1                      ; TR cell, parity 1
         lda [MAP_PTR],z
         ldx #1
         jsr cell_to_char
+        jsr _rdt_stamp_char
         ldx render_screen_col
         inx
         ldy render_screen_row
-        jsr set_fcm_char
+        jsr set_fcm_char16
 
         ldz #CELL_COLS              ; BL cell, parity 2
         lda [MAP_PTR],z
         ldx #2
         jsr cell_to_char
+        jsr _rdt_stamp_char
         ldx render_screen_col
         ldy render_screen_row
         iny
-        jsr set_fcm_char
+        jsr set_fcm_char16
 
         ldz #CELL_COLS+1           ; BR cell, parity 3
         lda [MAP_PTR],z
         ldx #3
         jsr cell_to_char
+        jsr _rdt_stamp_char
         ldx render_screen_col
         inx
         ldy render_screen_row
         iny
-        jsr set_fcm_char
+        jsr set_fcm_char16
         rts
 
-; A = cell value, X = parity (0-3) -> A = char to draw.
+; Helper: cell_to_char's outputs are A = char low and ctc_char_hi = char high;
+; set_fcm_char16 takes A as its low byte too, but reads its high byte from
+; snc_char_hi. Copy the high byte across and leave A untouched.
+_rdt_stamp_char:
+        pha
+        lda ctc_char_hi
+        sta snc_char_hi
+        pla
+        rts
+
+; A = cell value, X = parity (0-3) -> A = char-id low byte, ctc_char_hi = high byte.
 ;   ROAD_CELL_FIRST..LAST       -> road; the value IS the char (no arithmetic)
 ;   POWERLINE_CELL_FIRST..LAST  -> power line; the value IS the char
 ;   TREE_CELL_FIRST..LAST       -> tree;        char = TREE_CHAR_BASE + (value - TREE_CELL_FIRST)
 ;   WATER_SHORE_CELL_FIRST..LAST -> shoreline;  char = WATER_SHORE_CHAR_BASE + (value - WATER_SHORE_CELL_FIRST)
 ;   ZONE_CELL_FIRST..LAST       -> zone;        char = ZONE_GEN_BASE + (value - ZONE_CELL_FIRST)
+;   POWER_BRIDGE_CELL_FIRST..LAST -> bridge;    char = POWER_BRIDGE_CHAR_BASE + (value - POWER_BRIDGE_CELL_FIRST)
 ;   COALPP_CELL_FIRST..LAST / NUCLEARPP_CELL_FIRST..LAST -> structure table
 ;   otherwise (water/ground/power base types) -> 2x2 tile, char = type*4 + parity
+;
+; The translated ranges (tree, water-shore, zone, power-bridge) and the
+; structure-table path all carry into ctc_char_hi: low byte add carry + the hi
+; half of the base = the full 16-bit char id. ctc_char_hi defaults to 0 (cleared
+; at entry) for the no-translate paths (road, power line, base-type), which
+; encode their char id in the 8-bit cell value itself -- those ranges are
+; capped at 255 by the cell-encoding budget. Any future 1x1 paint tool whose
+; art may live above char 255 should use a translated range
+; (FIRST..LAST -> CHAR_BASE + offset) the same way trees/zones do, NOT the
+; road/powerline "value is the char" shortcut.
 cell_to_char:
+        pha
+        lda #0
+        sta ctc_char_hi
+        pla
         cmp #ROAD_CELL_FIRST
         bcc _ctc_type
         cmp #ROAD_CELL_LAST+1
@@ -275,7 +304,12 @@ cell_to_char:
         sec                         ; tree: char = (value - TREE_CELL_FIRST) + TREE_CHAR_BASE
         sbc #TREE_CELL_FIRST
         clc
-        adc #TREE_CHAR_BASE
+        adc #<TREE_CHAR_BASE
+        pha                         ; A=char_lo with carry pending into hi
+        lda #>TREE_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
         rts
 _ctc_check_water_shore:
         cmp #WATER_SHORE_CELL_FIRST
@@ -285,7 +319,12 @@ _ctc_check_water_shore:
         sec                         ; shore: char = (value - WATER_SHORE_CELL_FIRST) + WATER_SHORE_CHAR_BASE
         sbc #WATER_SHORE_CELL_FIRST
         clc
-        adc #WATER_SHORE_CHAR_BASE
+        adc #<WATER_SHORE_CHAR_BASE
+        pha
+        lda #>WATER_SHORE_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
         rts
 _ctc_check_zone:
         cmp #ZONE_CELL_FIRST
@@ -295,7 +334,12 @@ _ctc_check_zone:
         sec                         ; zone: char = (value - ZONE_CELL_FIRST) + ZONE_GEN_BASE
         sbc #ZONE_CELL_FIRST
         clc
-        adc #ZONE_GEN_BASE
+        adc #<ZONE_GEN_BASE
+        pha
+        lda #>ZONE_GEN_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
         rts
 _ctc_check_power_bridge:
         cmp #POWER_BRIDGE_CELL_FIRST
@@ -305,12 +349,18 @@ _ctc_check_power_bridge:
         sec                         ; power bridge: (value - FIRST) + CHAR_BASE
         sbc #POWER_BRIDGE_CELL_FIRST
         clc
-        adc #POWER_BRIDGE_CHAR_BASE
+        adc #<POWER_BRIDGE_CHAR_BASE
+        pha
+        lda #>POWER_BRIDGE_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
         rts
 _ctc_struct_scan:
         ; Structure table: scan rows for a value in [base, base + count). For each
-        ; match: char = (value - base) + char_base_lo. Char-base high byte is in
-        ; the table for future >255 chars; cell_to_char still returns 8-bit today.
+        ; match: char = (value - base) + (char_base_hi * 256 + char_base_lo). The
+        ; high byte goes to ctc_char_hi -- including any carry from the low-byte
+        ; add -- so structures whose art lives above char id 255 render correctly.
         sta ctc_value
         ldy #0
 _ctc_struct_loop:
@@ -328,7 +378,12 @@ _ctc_struct_next:
         bra _ctc_struct_loop
 _ctc_struct_hit:
         clc
-        adc struct_char_base_lo,y
+        adc struct_char_base_lo,y   ; A = char low (with carry to hi below)
+        pha                          ; save char low across the high-byte compute
+        lda struct_char_base_hi,y
+        adc #0                       ; + carry from the low add
+        sta ctc_char_hi
+        pla                          ; restore char low for the return
         rts
 _ctc_no_struct:
         lda ctc_value               ; restore original cell value for type path
@@ -410,6 +465,8 @@ render_tile_id:
 render_char_base:
         .byte 0
 ctc_value:                  ; cell_to_char: saved cell value across the struct loop
+        .byte 0
+ctc_char_hi:                ; cell_to_char: high byte of the 16-bit char id (A holds low)
         .byte 0
 render_screen_col:
         .byte 0

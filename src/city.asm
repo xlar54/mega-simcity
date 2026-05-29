@@ -292,6 +292,17 @@ _cps_road:
         beq _cps_road_skip
         sta bulldoze_cell               ; save what we're demolishing for the
                                         ; bridge-vs-everything-else decision below
+        ; Multi-cell structures (coal/nuclear plants) demolish as a unit. A
+        ; partial demolition would leave power_sum_capacity granting the
+        ; plant's full output for the one-cell remnant -- a half-bulldozed coal
+        ; plant would still produce 40 zones of power. structure_demolish_at_cell
+        ; handles the whole job (full cost, stamp, redraw, audio, mark dirty,
+        ; border refresh) so we just tail-call it.
+        jsr is_structure_cell           ; preserves A; carry SET if A is a struct cell
+        bcc _cps_road_single
+        lda bulldoze_cell               ; restore A in case is_structure_cell mutated
+        jmp structure_demolish_at_cell
+_cps_road_single:
         lda #<COST_BULLDOZE             ; charge $1 per demolished cell
         sta cost_amount
         lda #>COST_BULLDOZE

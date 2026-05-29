@@ -22,6 +22,10 @@
 ; Draw the UI_BTN_COUNT toolbar buttons in a 2-column grid of 2x2 icons.
 ; Slot i: tile = UI_BTN_BASE + i*4, column = LEFT/RIGHT by i's low bit,
 ; row = UI_TOOL_ROW_TOP + (i & ~1).
+;
+; UI_BTN_BASE + slot*4 can grow past 255 once toolbar art is added; we compute
+; the 16-bit base by hand (slot*4 low byte + carry into hi) and hand it off to
+; btn_stamp_2x2.
 toolbar_render:
         lda #0
         sta toolbar_btn_slot
@@ -39,54 +43,88 @@ _tbr_loop:
 _tbr_left:
         ldx #UI_TOOL_COL_LEFT
 _tbr_col_done:
-        lda toolbar_btn_slot
+        stx btn_col                  ; save col; need A free for the base calc
+
+        lda toolbar_btn_slot         ; offset = slot * 4 (8-bit, slot < 64 so no carry yet)
         asl
         asl
         clc
-        adc #UI_BTN_BASE
+        adc #<UI_BTN_BASE            ; + base low byte
+        sta btn_base_lo
+        lda #>UI_BTN_BASE
+        adc #0                        ; + carry from low add
+        sta btn_base_hi
+
+        lda btn_base_lo
+        ldx btn_col
         ldy toolbar_btn_row
-        jsr toolbar_draw_icon
+        jsr btn_stamp_2x2
+
         inc toolbar_btn_slot
         lda toolbar_btn_slot
         cmp #UI_BTN_COUNT
         bne _tbr_loop
         rts
 
-; A = base char id of a 2x2 icon (uses base..base+3), X = left col, Y = top row.
-toolbar_draw_icon:
-        sta toolbar_icon_base
-        stx toolbar_icon_left
-        sty toolbar_icon_top
+; Stamp a 2x2 button starting at (X, Y) using a 16-bit base char id.
+;   A = base_lo, X = col, Y = row, btn_base_hi must be pre-set.
+; Each of the 4 chars is base + 0..3; carry from the low byte propagates into
+; snc_char_hi so the stamp stays correct across the 255/256 boundary.
+btn_stamp_2x2:
+        sta btn_base_lo
+        stx btn_col
+        sty btn_row
 
-        lda toolbar_icon_base
-        ldx toolbar_icon_left
-        ldy toolbar_icon_top
-        jsr set_fcm_char
+        ; char 0: (base+0, col, row)
+        lda btn_base_hi
+        sta snc_char_hi
+        lda btn_base_lo
+        ldx btn_col
+        ldy btn_row
+        jsr set_fcm_char16
 
-        lda toolbar_icon_base
+        ; char 1: (base+1, col+1, row)
         clc
+        lda btn_base_lo
         adc #1
-        ldx toolbar_icon_left
+        pha
+        lda btn_base_hi
+        adc #0
+        sta snc_char_hi
+        pla
+        ldx btn_col
         inx
-        ldy toolbar_icon_top
-        jsr set_fcm_char
+        ldy btn_row
+        jsr set_fcm_char16
 
-        lda toolbar_icon_base
+        ; char 2: (base+2, col, row+1)
         clc
+        lda btn_base_lo
         adc #2
-        ldx toolbar_icon_left
-        ldy toolbar_icon_top
+        pha
+        lda btn_base_hi
+        adc #0
+        sta snc_char_hi
+        pla
+        ldx btn_col
+        ldy btn_row
         iny
-        jsr set_fcm_char
+        jsr set_fcm_char16
 
-        lda toolbar_icon_base
+        ; char 3: (base+3, col+1, row+1)
         clc
+        lda btn_base_lo
         adc #3
-        ldx toolbar_icon_left
+        pha
+        lda btn_base_hi
+        adc #0
+        sta snc_char_hi
+        pla
+        ldx btn_col
         inx
-        ldy toolbar_icon_top
+        ldy btn_row
         iny
-        jsr set_fcm_char
+        jsr set_fcm_char16
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -103,10 +141,16 @@ top_btn_row:
         .byte INSPECT_ICON_ROW, LOAD_ICON_ROW, SAVE_ICON_ROW
 top_btn_tile:
         .byte TILE_INSPECT, TILE_LOAD, TILE_SAVE
-top_btn_base_idle:
-        .byte INSPECT_CHAR_BASE, LOAD_CHAR_BASE, SAVE_CHAR_BASE
-top_btn_base_sel:
-        .byte INSPECT_INSET_CHAR_BASE, LOAD_INSET_CHAR_BASE, SAVE_INSET_CHAR_BASE
+; Char bases are split into lo/hi parallel arrays so any base can exceed 255
+; without silently truncating the high byte. Add a row = one entry in each.
+top_btn_base_idle_lo:
+        .byte <INSPECT_CHAR_BASE, <LOAD_CHAR_BASE, <SAVE_CHAR_BASE
+top_btn_base_idle_hi:
+        .byte >INSPECT_CHAR_BASE, >LOAD_CHAR_BASE, >SAVE_CHAR_BASE
+top_btn_base_sel_lo:
+        .byte <INSPECT_INSET_CHAR_BASE, <LOAD_INSET_CHAR_BASE, <SAVE_INSET_CHAR_BASE
+top_btn_base_sel_hi:
+        .byte >INSPECT_INSET_CHAR_BASE, >LOAD_INSET_CHAR_BASE, >SAVE_INSET_CHAR_BASE
 
 ; Redraw every top-strip button. The button whose tile id matches selected_tile
 ; gets its SELECTED (pressed) chars; the rest get IDLE (raised). Called from
@@ -120,64 +164,31 @@ _rtb_loop:
         cpy #TOP_BTN_COUNT
         bcs _rtb_done
 
+        ; Pick idle or selected base lo/hi for this row, both columns at once
+        ; (table read happens before any reg gets clobbered).
         lda selected_tile
         cmp top_btn_tile,y
         beq _rtb_pick_sel
-        lda top_btn_base_idle,y
+        lda top_btn_base_idle_lo,y
+        sta btn_base_lo
+        lda top_btn_base_idle_hi,y
+        sta btn_base_hi
         bra _rtb_have_base
 _rtb_pick_sel:
-        lda top_btn_base_sel,y
+        lda top_btn_base_sel_lo,y
+        sta btn_base_lo
+        lda top_btn_base_sel_hi,y
+        sta btn_base_hi
 _rtb_have_base:
-        ; A = base, Y = loop idx. Set up X = col + Y = row before the jsr.
-        ; (`ldy abs,y` doesn't exist, so we stash the base and let Y get clobbered;
-        ; rtb_idx is the source of truth for the loop index, reloaded at the top.)
-        sta tbd_base
         ldx top_btn_col,y
         lda top_btn_row,y
         tay
-        lda tbd_base
-        jsr top_btn_draw_tile
+        lda btn_base_lo
+        jsr btn_stamp_2x2            ; 16-bit base via btn_base_hi pre-set
 
         inc rtb_idx
         bra _rtb_loop
 _rtb_done:
-        rts
-
-; Stamp a 2x2 button's four chars. A = base char id, X = left col, Y = top row.
-top_btn_draw_tile:
-        sta tbd_base
-        stx tbd_col
-        sty tbd_row
-
-        lda tbd_base
-        ldx tbd_col
-        ldy tbd_row
-        jsr set_fcm_char
-
-        lda tbd_base
-        clc
-        adc #1
-        ldx tbd_col
-        inx
-        ldy tbd_row
-        jsr set_fcm_char
-
-        lda tbd_base
-        clc
-        adc #2
-        ldx tbd_col
-        ldy tbd_row
-        iny
-        jsr set_fcm_char
-
-        lda tbd_base
-        clc
-        adc #3
-        ldx tbd_col
-        inx
-        ldy tbd_row
-        iny
-        jsr set_fcm_char
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -188,14 +199,21 @@ top_btn_draw_tile:
 ; grid. All exit paths tail-call render_top_buttons so the IDLE/SELECTED state
 ; flips on every selection change.
 toolbar_handle_click:
+        ; Belt-and-braces X gate. mouse_handle_ui_click already rejects X >= 256
+        ; before forwarding here, but repeating the check means the wrap (low
+        ; byte / 8 silently mapping cols 32..39 into 0..7) can't bite if a
+        ; future caller forgets the upstream gate.
         lda mouse_x+1
-        bmi _thc_col0
+        bmi _thc_col0               ; negative -> off-screen left, clamp to col 0
+        bne _thc_reject             ; positive nonzero -> X >= 256, not the toolbar
         lda mouse_x
         lsr
         lsr
         lsr
         sta toolbar_ui_col
         bra _thc_check_top
+_thc_reject:
+        rts
 _thc_col0:
         lda #0
         sta toolbar_ui_col
@@ -323,21 +341,17 @@ toolbar_btn_slot:
         .byte 0
 toolbar_btn_row:
         .byte 0
-toolbar_icon_base:
-        .byte 0
-toolbar_icon_left:
-        .byte 0
-toolbar_icon_top:
-        .byte 0
 toolbar_ui_col:
         .byte 0
 toolbar_ui_row:
         .byte 0
 rtb_idx:                    ; render_top_buttons: loop index
         .byte 0
-tbd_base:                   ; top_btn_draw_tile: scratch for the 4-char stamp
+btn_base_lo:                ; btn_stamp_2x2: 16-bit base char id + col/row
         .byte 0
-tbd_col:
+btn_base_hi:
         .byte 0
-tbd_row:
+btn_col:
+        .byte 0
+btn_row:
         .byte 0

@@ -58,6 +58,12 @@ worldgen_next:
 
 ; Write A to the cell at (wg_walk_cx, wg_walk_cy). Bounds were enforced by the
 ; walker (drunkard's-walk steps that would leave the map are clamped).
+;
+; If wg_walk_only_ground is nonzero, the write is gated on the current cell
+; being TILE_GROUND -- so the forest walker doesn't stomp lakes or freshly-
+; tiled shorelines on its way through them. The walker still advances through
+; non-ground cells; it just doesn't paint over them. Lakes leave the flag at 0
+; and overwrite ground unconditionally.
 world_gen_write_walker:
         pha
         lda wg_walk_cx
@@ -66,8 +72,17 @@ world_gen_write_walker:
         sta city_ptr_y
         jsr city_cell_ptr
         ldz #0
+        lda wg_walk_only_ground
+        beq _wgww_write             ; unconditional write
+        lda [MAP_PTR],z
+        cmp #TILE_GROUND
+        bne _wgww_skip              ; lake / shore / earlier tree -> leave it alone
+_wgww_write:
         pla
         sta [MAP_PTR],z
+        rts
+_wgww_skip:
+        pla
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -76,6 +91,8 @@ world_gen_write_walker:
 ; walker so a long random run can't escape the map.
 ;---------------------------------------------------------------------------------------
 world_gen_lakes:
+        lda #0
+        sta wg_walk_only_ground     ; lakes overwrite whatever's there
         lda #LAKE_COUNT
         sta wg_remaining
 _wgl_loop:
@@ -106,6 +123,8 @@ _wgl_done:
 ; mask afterward.
 ;---------------------------------------------------------------------------------------
 world_gen_forests:
+        lda #1
+        sta wg_walk_only_ground     ; don't stomp lakes/shorelines placed earlier
         lda #FOREST_COUNT
         sta wg_remaining
 _wgf_loop:
@@ -260,3 +279,5 @@ wg_walk_value:          .byte 0     ; cell value to write each step
 
 wg_at_cx:               .byte 0     ; autotile pass position
 wg_at_cy:               .byte 0
+
+wg_walk_only_ground:    .byte 0     ; nonzero -> walker skips writes onto non-ground cells
