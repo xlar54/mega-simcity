@@ -58,21 +58,17 @@ shutdown:
         rts
 
 app_init:
+        ; Phase 2 of the loader split: by the time we run, loader.prg has
+        ; already KERNAL_LOAD'd every disk asset into Attic, painted the
+        ; palette, and DMA'd every char bitmap into char RAM. Nothing to
+        ; do here for assets -- just lock down the runtime environment
+        ; (40 MHz, platform detection, FCM40 mode) and bring up the game.
         jsr enable_40mhz
         jsr detect_platform         ; sets sprite_x_fix (real HW vs Xemu) post-unlock
-
-        jsr boot_load_tileset
-        jsr boot_load_ui_tiles
-        jsr boot_load_ovr_save
-        jsr boot_load_ovr_load
-        jsr boot_load_ovr_inspect
 
         lda #MODE_FCM40
         jsr set_screen_mode
 
-        jsr tiles_init_palette
-        jsr tiles_load
-        jsr ui_load
         jsr city_init
 
         jsr mouse_init
@@ -286,7 +282,8 @@ ovr_inspect_invoke:
 
         .include "graphics/fcm_screen.asm"
         .include "graphics/fcm_core.asm"
-        .include "assets.asm"
+        ; assets.asm is now resident in loader.prg only -- the loader does
+        ; every boot_load_*/tiles_load_*/palette write before main starts.
         .include "city.asm"
         .include "trees.asm"
         .include "water_shore.asm"
@@ -307,6 +304,13 @@ ovr_inspect_invoke:
         .include "input.asm"
         .include "audio.asm"
         .include "overlays/popup.asm"
+
+; Build-time guard: main.prg's resident code must not grow into the overlay
+; window at $A000. The ovr_*_invoke DMAs in main.asm (above) write fresh
+; overlay code into $A000-$AFFF on demand, so any resident code that lived
+; in that range would be overwritten mid-execution. Catch overrun at
+; assemble time, not in the dump after a hard wedge.
+        .cerror * > OVR_WINDOW_ADDR, "resident main code grew past OVR_WINDOW_ADDR ($A000); shrink resident or move overlays"
 
 ; The world map (240x200 cells) lives in Attic RAM at ATTIC_MAP_PHYS, filled by
 ; city_fill_ground at boot -- it is not allocated in chip RAM. See city.asm.
