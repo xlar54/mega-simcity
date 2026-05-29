@@ -16,6 +16,8 @@
 COST_BULLDOZE   = 1
 COST_ROAD       = 10
 COST_POWERLINE  = 5
+COST_RAIL       = 20            ; land rail per tile
+COST_RAIL_BRIDGE = 100          ; rail bridge per tile (straight only over water)
 COST_ZONE       = 100
 COST_COALPP     = 3000
 COST_NUCLEARPP  = 5000

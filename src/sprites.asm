@@ -160,6 +160,8 @@ sprites_refresh:
         beq _sr_road                ; bulldozer also uses the 8x8 cursor
         cmp #TILE_POWER
         beq _sr_road                ; power lines are 1x1 -> 8x8 cursor
+        cmp #TILE_RAIL
+        beq _sr_road                ; rail is 1x1 -> 8x8 cursor
         cmp #TILE_COALPP
         beq _sr_coalpp              ; coal plant -> 24x32 cursor
         cmp #TILE_NUCLEARPP

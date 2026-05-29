@@ -288,6 +288,8 @@ _thc_row:
         beq _thc_bulldoze           ; slot 0 -> bulldozer
         cmp #1
         beq _thc_road               ; slot 1 -> road
+        cmp #2
+        beq _thc_rail               ; slot 2 -> rail (1x1)
         cmp #3
         beq _thc_power              ; slot 3 -> power lines (1x1)
         cmp #5
@@ -304,6 +306,10 @@ _thc_row:
 
 _thc_road:
         lda #TILE_ROAD
+        sta selected_tile
+        bra _thc_done
+_thc_rail:
+        lda #TILE_RAIL
         sta selected_tile
         bra _thc_done
 _thc_power:

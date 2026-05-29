@@ -50,7 +50,15 @@ tile_name_for_cell:
         bcc _tnfc_ind               ; 144..152
         cmp #POWER_BRIDGE_CELL_LAST+1
         bcc _tnfc_pbridge           ; 153..154
-        ; fall through to unknown for 155..255
+        cmp #RAIL_CELL_FIRST
+        bcc _tnfc_unknown
+        cmp #(RAIL_CELL_BRIDGE_H)   ; 155..167 -> plain rail (incl. *_POWER cross)
+        bcc _tnfc_rail
+        cmp #(RAIL_CELL_H_ROAD)
+        bcc _tnfc_rbridge           ; 168..169 -> rail bridge
+        cmp #RAIL_CELL_LAST+1
+        bcc _tnfc_rroad             ; 170..171 -> rail+road crossing
+        ; fall through to unknown for 172..255
 
 _tnfc_unknown:
         ldx #<str_unknown
@@ -136,6 +144,24 @@ _tnfc_pbridge:
         lda #str_pbridge_len
         rts
 
+_tnfc_rail:
+        ldx #<str_rail
+        ldy #>str_rail
+        lda #str_rail_len
+        rts
+
+_tnfc_rbridge:
+        ldx #<str_rbridge
+        ldy #>str_rbridge
+        lda #str_rbridge_len
+        rts
+
+_tnfc_rroad:
+        ldx #<str_rroad
+        ldy #>str_rroad
+        lda #str_rroad_len
+        rts
+
 ;---------------------------------------------------------------------------------------
 ; Strings -- bytes are UI_TEXT_* char ids.
 ;---------------------------------------------------------------------------------------
@@ -178,6 +204,15 @@ str_ind_len     = * - str_ind
 str_pbridge:    .byte UI_TEXT_P, UI_TEXT_O, UI_TEXT_W, UI_TEXT_E, UI_TEXT_R, UI_TEXT_DOT, UI_TEXT_B, UI_TEXT_R, UI_TEXT_I, UI_TEXT_D, UI_TEXT_G, UI_TEXT_E
 str_pbridge_len = * - str_pbridge
 
+str_rail:       .byte UI_TEXT_R, UI_TEXT_A, UI_TEXT_I, UI_TEXT_L
+str_rail_len    = * - str_rail
+
+str_rbridge:    .byte UI_TEXT_R, UI_TEXT_A, UI_TEXT_I, UI_TEXT_L, UI_TEXT_DOT, UI_TEXT_B, UI_TEXT_R, UI_TEXT_I, UI_TEXT_D, UI_TEXT_G, UI_TEXT_E
+str_rbridge_len = * - str_rbridge
+
+str_rroad:      .byte UI_TEXT_R, UI_TEXT_A, UI_TEXT_I, UI_TEXT_L, UI_TEXT_DOT, UI_TEXT_R, UI_TEXT_O, UI_TEXT_A, UI_TEXT_D
+str_rroad_len   = * - str_rroad
+
 str_unknown:    .byte UI_TEXT_DOT, UI_TEXT_DOT, UI_TEXT_DOT
 str_unknown_len = * - str_unknown
 
@@ -194,3 +229,6 @@ str_unknown_len = * - str_unknown
         .cerror str_com_len     > POPUP_TITLE_MAX, "COMMERCE label too long"
         .cerror str_ind_len     > POPUP_TITLE_MAX, "INDUSTRY label too long"
         .cerror str_pbridge_len > POPUP_TITLE_MAX, "POWER.BRIDGE label too long"
+        .cerror str_rail_len    > POPUP_TITLE_MAX, "RAIL label too long"
+        .cerror str_rbridge_len > POPUP_TITLE_MAX, "RAIL.BRIDGE label too long"
+        .cerror str_rroad_len   > POPUP_TITLE_MAX, "RAIL.ROAD label too long"

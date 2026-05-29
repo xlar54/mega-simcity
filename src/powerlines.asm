@@ -61,10 +61,10 @@ powerline_at_ptr:
 
 ; Read the cell at (city_ptr_x, city_ptr_y); carry SET if it forms a power
 ; connection toward neighbour-direction index X (0..7, the powerline_dx order).
-; A real power line connects in any direction; a road/power crossing tile only
-; connects along its wire axis, and only to the cardinal neighbour on that axis
-; (ROAD_CELL_H_POWER carries vertical wires -> feeds the N/S neighbour;
-; ROAD_CELL_V_POWER carries horizontal wires -> the E/W neighbour). Preserves X.
+; A real power line connects in any direction; a road/rail+power crossing tile
+; only connects along its wire axis, and only to the cardinal neighbour on
+; that axis (H_POWER carries vertical wires -> feeds the N/S neighbour;
+; V_POWER carries horizontal wires -> the E/W neighbour). Preserves X.
 powerline_conn_at_ptr:
         jsr city_cell_ptr
         ldz #0
@@ -77,6 +77,10 @@ _pcap_cross:
         cmp #ROAD_CELL_H_POWER
         beq _pcap_vert
         cmp #ROAD_CELL_V_POWER
+        beq _pcap_horiz
+        cmp #RAIL_CELL_H_POWER
+        beq _pcap_vert
+        cmp #RAIL_CELL_V_POWER
         beq _pcap_horiz
         clc
         rts
@@ -189,13 +193,11 @@ powerline_refresh:
         lda [MAP_PTR],z
         jsr is_powerline_value          ; preserves A
         bcc _plr_done
-        ; sticky pole: was this cell already a pole?
+        ; sticky pole: was this cell already a pole? POLE_V (value 27) is
+        ; retired from the encoding, so POLE_H is the only pole variant now.
         ldx #0
         cmp #POWERLINE_CELL_POLE_H
-        beq _plr_is_pole
-        cmp #POWERLINE_CELL_POLE_V
         bne _plr_scan
-_plr_is_pole:
         ldx #1
 _plr_scan:
         stx powerline_pole
@@ -331,20 +333,10 @@ _plr_store:
         lda powerline_isx
         bne _plr_write
         lda powerline_tmp
-        cmp #POWERLINE_CELL_POLE_V
-        beq _plr_maybe_demote
-        cmp #POWERLINE_CELL_POLE_H
+        cmp #POWERLINE_CELL_POLE_H      ; POLE_H is the only pole variant now
         bne _plr_write
-_plr_maybe_demote:
         jsr powerline_should_demote
         bcc _plr_write
-        lda powerline_tmp
-        cmp #POWERLINE_CELL_POLE_V
-        bne _plr_demote_h
-        lda #POWERLINE_CELL_V
-        sta powerline_tmp
-        bra _plr_write
-_plr_demote_h:
         lda #POWERLINE_CELL_H
         sta powerline_tmp
 _plr_write:
@@ -504,9 +496,7 @@ powerline_pole_class:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
-        cmp #POWERLINE_CELL_POLE_H
-        beq _ppc_pole
-        cmp #POWERLINE_CELL_POLE_V
+        cmp #POWERLINE_CELL_POLE_H      ; POLE_H is the only pole variant now
         beq _ppc_pole
         lda #0
         rts

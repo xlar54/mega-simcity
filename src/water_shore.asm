@@ -51,6 +51,10 @@ is_water_or_bridge:
         beq _iwob_yes
         cmp #ROAD_CELL_BRIDGE_V
         beq _iwob_yes
+        cmp #RAIL_CELL_BRIDGE_H
+        beq _iwob_yes
+        cmp #RAIL_CELL_BRIDGE_V
+        beq _iwob_yes
         cmp #POWER_BRIDGE_CELL_FIRST
         bcc _iwob_no
         cmp #POWER_BRIDGE_CELL_LAST+1

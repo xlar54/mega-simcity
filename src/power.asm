@@ -32,6 +32,10 @@ _ipn_cross:
         beq _ipn_yes
         cmp #ROAD_CELL_V_POWER
         beq _ipn_yes                ; road with a power crossing
+        cmp #RAIL_CELL_H_POWER
+        beq _ipn_yes
+        cmp #RAIL_CELL_V_POWER
+        beq _ipn_yes                ; rail with a power crossing (same conductivity)
         cmp #POWER_BRIDGE_CELL_FIRST
         bcc _ipn_zone               ; below power bridges -> check zones
         cmp #POWER_BRIDGE_CELL_LAST+1

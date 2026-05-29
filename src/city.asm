@@ -192,6 +192,8 @@ _cps_not_inspect:
         beq _cps_road               ; bulldozer is also a 1x1 (8x8) tool
         cmp #TILE_POWER
         beq _cps_power              ; power lines are 1x1 (8x8), like roads
+        cmp #TILE_RAIL
+        beq _cps_rail               ; rail is 1x1 (8x8), like roads
         jsr structure_find_by_tool  ; preserves A; X = row idx if carry set
         bcs _cps_struct
         cmp #TILE_RESIDENTIAL
@@ -319,6 +321,10 @@ _cps_road_single:
         beq _cps_road_bulldoze_water
         cmp #ROAD_CELL_BRIDGE_V
         beq _cps_road_bulldoze_water
+        cmp #RAIL_CELL_BRIDGE_H
+        beq _cps_road_bulldoze_water
+        cmp #RAIL_CELL_BRIDGE_V
+        beq _cps_road_bulldoze_water
         cmp #POWER_BRIDGE_CELL_FIRST
         bcc _cps_road_bulldoze_ground
         cmp #POWER_BRIDGE_CELL_LAST+1
@@ -353,6 +359,11 @@ _cps_road_bulldoze_stamp:
         jsr render_redraw_cell_tile
         jsr audio_explosion             ; demolished a built tile -> boom
         jsr road_refresh_neighbors      ; roads above/below may re-orient
+        lda road_cx                     ; ...and rails around may re-orient
+        sta rail_cx
+        lda road_cy
+        sta rail_cy
+        jsr rail_refresh_neighbors
         lda road_cx                     ; ...and power lines around the cell
         sta powerline_cx
         lda road_cy
@@ -377,10 +388,14 @@ _cps_road_build:
         jsr is_water_value          ; water or shore -> try a bridge
         bcs _cps_road_try_bridge
         lda road_cross_save
-        ; Not ground / not water. A road may still CROSS an existing power
-        ; line, but only perpendicularly. Tentatively drop a road and let
-        ; road_refresh decide; keep it only if it became a crossing tile,
-        ; else restore the power line.
+        cmp #RAIL_CELL_H            ; H rail -> RAIL_H_ROAD crossing
+        beq _cps_road_on_rail_h
+        cmp #RAIL_CELL_V            ; V rail -> RAIL_V_ROAD crossing
+        beq _cps_road_on_rail_v
+        ; Not ground / not water / not straight rail. A road may still CROSS an
+        ; existing power line, but only perpendicularly. Tentatively drop a
+        ; road and let road_refresh decide; keep it only if it became a
+        ; crossing tile, else restore the power line.
         jsr is_powerline_value
         bcc _cps_road_skip          ; occupied by a road/zone/water -> can't build
         lda #ROAD_CELL_H
@@ -412,6 +427,35 @@ _cps_road_crossed:
         lda road_cy
         sta powerline_cy
         jmp powerline_refresh_neighbors
+
+; Road over straight rail: create the sticky rail+road crossing. Affordability
+; already checked at _cps_road_build entry; rail_refresh / road_refresh both
+; recognise the cell so adjacent rails and roads pick up the right neighbour
+; bit and re-tile around the crossing.
+_cps_road_on_rail_h:
+        lda #RAIL_CELL_H_ROAD       ; H rail + V road (we're placing the V road)
+        bra _cps_road_on_rail_commit
+_cps_road_on_rail_v:
+        lda #RAIL_CELL_V_ROAD       ; V rail + H road
+_cps_road_on_rail_commit:
+        sta cps_bridge_value        ; reuse scratch byte for the cell value
+        jsr funds_subtract
+        jsr audio_road_build
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda cps_bridge_value
+        ldz #0
+        sta [MAP_PTR],z
+        jsr render_redraw_cell_tile
+        jsr road_refresh_neighbors  ; roads see the crossing as a road
+        lda road_cx
+        sta rail_cx
+        lda road_cy
+        sta rail_cy
+        jmp rail_refresh_neighbors  ; rails see it as a rail
 _cps_road_place:
         lda #ROAD_CELL_H
         ldz #0
@@ -509,6 +553,214 @@ _cps_road_bridge_commit:
         ; water. Only adjacent roads need to re-check their orientation.
         jmp road_refresh_neighbors
 
+;-----------------------------------------------------------------------------
+; Rail paint path (1x1, mirrors _cps_road). Places rail on ground; on water
+; tries a straight-only bridge; on a power line drops a tentative rail to test
+; for a perpendicular *_POWER crossing -- otherwise restores the wire. Rail+
+; road cross-network crossings are NOT supported in this branch (see TODO.md)
+; -- placing rail on a road, or vice versa, silently rejects.
+;-----------------------------------------------------------------------------
+_cps_rail:
+        lda view_x
+        asl
+        clc
+        adc mouse_cell_x
+        sta city_ptr_x
+        sta rail_cx
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        sta city_ptr_y
+        sta rail_cy
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z             ; A = existing cell
+        sta rail_cross_save         ; for the power-line crossing tentative path
+        cmp #TILE_GROUND
+        beq _cps_rail_place
+        jsr is_water_value          ; water/shore -> try bridge (water_shore
+        bcs _cps_rail_try_bridge    ;   cells live above ground in is_water_value)
+        lda rail_cross_save
+        cmp #ROAD_CELL_H            ; H road -> RAIL_V_ROAD (V rail crosses)
+        beq _cps_rail_on_road_h
+        cmp #ROAD_CELL_V            ; V road -> RAIL_H_ROAD (H rail crosses)
+        beq _cps_rail_on_road_v
+        jsr is_powerline_value      ; on a power line -> try perpendicular cross
+        bcc _cps_rail_skip          ; anything else (road curve/T/4-way / zone /
+                                    ; structure / tree / existing rail / bridges)
+                                    ; -> skip silently
+        ; Power line under the cursor. Check affordability first, then drop a
+        ; tentative rail and let rail_refresh decide H/V/CROSS. Keep only if
+        ; it became a *_POWER tile; else restore the wire.
+        lda #<COST_RAIL
+        sta cost_amount
+        lda #>COST_RAIL
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_rail_skip
+        lda #RAIL_CELL_H            ; placeholder; rail_refresh decides axis
+        ldz #0
+        sta [MAP_PTR],z
+        jsr rail_refresh
+        lda rail_cx
+        sta city_ptr_x
+        lda rail_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        cmp #RAIL_CELL_H_POWER
+        beq _cps_rail_crossed
+        cmp #RAIL_CELL_V_POWER
+        beq _cps_rail_crossed
+        ; Not a perpendicular crossing -> undo, leave the power line intact.
+        lda rail_cross_save
+        ldz #0
+        sta [MAP_PTR],z
+        jmp render_redraw_cell_tile
+_cps_rail_crossed:
+        jsr funds_subtract
+        jsr audio_road_build        ; reuse road-build sfx until we have rail sfx
+        jsr rail_refresh_neighbors  ; let neighboring rails re-check
+        lda rail_cx                 ; ...and adjacent power lines learn about the cross
+        sta powerline_cx
+        lda rail_cy
+        sta powerline_cy
+        jmp powerline_refresh_neighbors
+
+_cps_rail_place:
+        lda #<COST_RAIL
+        sta cost_amount
+        lda #>COST_RAIL
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_rail_skip
+        jsr funds_subtract
+        lda #RAIL_CELL_H            ; placeholder; rail_refresh decides H/V
+        ldz #0
+        sta [MAP_PTR],z
+        jsr audio_road_build        ; (until a dedicated rail sfx exists)
+        jsr rail_refresh
+        jmp rail_refresh_neighbors
+
+; Rail over a straight road: charge COST_RAIL, stamp the sticky crossing cell,
+; refresh both networks' neighbours.
+_cps_rail_on_road_h:
+        lda #RAIL_CELL_V_ROAD       ; H road + V rail (we're placing the V rail)
+        bra _cps_rail_on_road_commit
+_cps_rail_on_road_v:
+        lda #RAIL_CELL_H_ROAD       ; V road + H rail
+_cps_rail_on_road_commit:
+        sta cps_bridge_value        ; reuse scratch byte for the cell value
+        lda #<COST_RAIL
+        sta cost_amount
+        lda #>COST_RAIL
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_rail_skip
+        jsr funds_subtract
+        jsr audio_road_build
+        lda rail_cx
+        sta city_ptr_x
+        lda rail_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda cps_bridge_value
+        ldz #0
+        sta [MAP_PTR],z
+        jsr render_redraw_cell_tile
+        jsr rail_refresh_neighbors
+        lda rail_cx
+        sta road_cx
+        lda rail_cy
+        sta road_cy
+        jmp road_refresh_neighbors
+
+_cps_rail_skip:
+        rts
+
+;-----------------------------------------------------------------------------
+; Rail bridge placement: existing cell is water/shore and rail tool is active.
+; Same Amiga-style anchor rule as road bridges: pick H if a rail/rail-bridge
+; sits E or W, else V if one sits N or S; reject otherwise.
+;-----------------------------------------------------------------------------
+_cps_rail_try_bridge:
+        lda #<COST_RAIL_BRIDGE      ; bridges cost more than land rail
+        sta cost_amount
+        lda #>COST_RAIL_BRIDGE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_rail_skip
+        ; E neighbour (rail_cx+1, rail_cy)
+        lda rail_cx
+        cmp #CELL_COLS-1
+        bcs _cpsrtb_rail_e_done
+        clc
+        adc #1
+        sta city_ptr_x
+        lda rail_cy
+        sta city_ptr_y
+        jsr rail_at_ptr
+        bcs _cps_rail_bridge_h
+_cpsrtb_rail_e_done:
+        ; W neighbour
+        lda rail_cx
+        beq _cpsrtb_rail_w_done
+        sec
+        sbc #1
+        sta city_ptr_x
+        lda rail_cy
+        sta city_ptr_y
+        jsr rail_at_ptr
+        bcs _cps_rail_bridge_h
+_cpsrtb_rail_w_done:
+        ; N neighbour
+        lda rail_cy
+        beq _cpsrtb_rail_n_done
+        sec
+        sbc #1
+        sta city_ptr_y
+        lda rail_cx
+        sta city_ptr_x
+        jsr rail_at_ptr
+        bcs _cps_rail_bridge_v
+_cpsrtb_rail_n_done:
+        ; S neighbour
+        lda rail_cy
+        cmp #CELL_ROWS-1
+        bcs _cps_rail_skip
+        clc
+        adc #1
+        sta city_ptr_y
+        lda rail_cx
+        sta city_ptr_x
+        jsr rail_at_ptr
+        bcs _cps_rail_bridge_v
+        rts                          ; no anchor in any cardinal -> reject
+
+_cps_rail_bridge_h:
+        lda #RAIL_CELL_BRIDGE_H
+        bra _cps_rail_bridge_commit
+_cps_rail_bridge_v:
+        lda #RAIL_CELL_BRIDGE_V
+_cps_rail_bridge_commit:
+        sta cps_bridge_value
+        jsr funds_subtract
+        jsr audio_road_build
+        lda rail_cx
+        sta city_ptr_x
+        lda rail_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda cps_bridge_value
+        ldz #0
+        sta [MAP_PTR],z
+        jsr render_redraw_cell_tile
+        ; Bridge counts as water for shoreline masks (is_water_or_bridge),
+        ; so adjacent shores don't change. Only adjacent rails re-tile.
+        jmp rail_refresh_neighbors
+
 ; Power-line paint path (1x1, like roads). Places a wire/pole on ground only,
 ; then lets powerlines.asm pick the orientation and re-orient the neighbours.
 ; A running counter makes every POWERLINE_POLE_EVERY-th placed line a pole.
@@ -531,25 +783,35 @@ _cps_power:
         cmp #TILE_GROUND
         beq _cps_power_on_ground
         cmp #ROAD_CELL_H
-        beq _cps_power_cross        ; H road -> H_POWER (vertical power across)
+        beq _cps_power_cross_road   ; H road -> H_POWER (vertical power across)
         cmp #ROAD_CELL_V
-        beq _cps_power_cross        ; V road -> V_POWER (horizontal power across)
+        beq _cps_power_cross_road   ; V road -> V_POWER (horizontal power across)
+        cmp #RAIL_CELL_H
+        beq _cps_power_cross_rail   ; same idea on a straight rail
+        cmp #RAIL_CELL_V
+        beq _cps_power_cross_rail
         jsr is_water_value
         bcs _cps_power_try_bridge   ; water or shore -> try a power bridge
         rts                         ; everything else (curves/Ts/4-way, existing
                                     ; crossings, zones, structures, trees,
                                     ; existing power lines, road bridges) -> skip
 
-; Crossing path: A is ROAD_CELL_H or ROAD_CELL_V on entry. The crossing variant
-; for each is +11 (H->H_POWER 19, V->V_POWER 20). Charge the normal power-line
-; cost; if affordable, overwrite the road with its _POWER variant. road_refresh
-; treats H_POWER/V_POWER as a sticky crossing -- it won't un-cross on the
-; neighbor scan -- so the power network sees a new on-axis connection through
-; the road without any further hinting.
-_cps_power_cross:
+; Crossing paths: A is ROAD_CELL_H/V or RAIL_CELL_H/V on entry. The crossing
+; variant for each is exactly +11 in both networks (H->H_POWER, V->V_POWER --
+; ROAD_CELL_H_POWER - ROAD_CELL_H == 11 == RAIL_CELL_H_POWER - RAIL_CELL_H),
+; so the same adc constant converts. We split the post-write refresh because
+; only the network we crossed needs neighbour re-tile -- the *_POWER tile is
+; sticky on its own engine.
+_cps_power_cross_road:
+        ldx #0                       ; 0 = road network
+        bra _cps_power_cross_with_net
+_cps_power_cross_rail:
+        ldx #1                       ; 1 = rail network
+_cps_power_cross_with_net:
+        stx cps_power_cross_net
         clc
         adc #(ROAD_CELL_H_POWER - ROAD_CELL_H)
-        pha                         ; save the crossing cell value across funds calls
+        pha                          ; save the crossing cell value across funds calls
         lda #<COST_POWERLINE
         sta cost_amount
         lda #>COST_POWERLINE
@@ -564,11 +826,20 @@ _cps_power_cross_pay:
         ldz #0
         sta [MAP_PTR],z
         jsr power_mark_dirty
+        lda cps_power_cross_net
+        bne _cps_pcc_rail
         lda powerline_cx
         sta road_cx
         lda powerline_cy
         sta road_cy
         jsr road_refresh_neighbors
+        jmp powerline_refresh_neighbors
+_cps_pcc_rail:
+        lda powerline_cx
+        sta rail_cx
+        lda powerline_cy
+        sta rail_cy
+        jsr rail_refresh_neighbors
         jmp powerline_refresh_neighbors
 
 _cps_power_on_ground:
@@ -586,14 +857,20 @@ _cps_power_on_ground:
         ldz #0
         sta [MAP_PTR],z
         jsr power_mark_dirty        ; the power network changed
-        ; First let adjacent straight roads detect a new crossing (they read the
-        ; raw power placeholder just written). Then orient this line and its power
-        ; neighbours, which now see any crossing tile as an on-axis connection.
+        ; First let adjacent straight roads / rails detect a new crossing (they
+        ; read the raw power placeholder just written). Then orient this line and
+        ; its power neighbours, which now see any crossing tile as an on-axis
+        ; connection.
         lda powerline_cx
         sta road_cx
         lda powerline_cy
         sta road_cy
         jsr road_refresh_neighbors
+        lda powerline_cx
+        sta rail_cx
+        lda powerline_cy
+        sta rail_cy
+        jsr rail_refresh_neighbors
         jsr powerline_refresh
         jmp powerline_refresh_neighbors
 _cps_power_skip:
@@ -1115,6 +1392,10 @@ inspect_title_hi:
 inspect_title_len:
         .byte 0
 road_cross_save:                ; cell overwritten while testing a road/power cross
+        .byte 0
+rail_cross_save:                ; same idea for the rail+power crossing tentative path
+        .byte 0
+cps_power_cross_net:            ; 0=road,1=rail -- picks the right refresh after a power cross
         .byte 0
 zone_org_x:
         .byte 0

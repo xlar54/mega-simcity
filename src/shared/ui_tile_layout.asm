@@ -107,9 +107,12 @@ POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT  ; 253 
 ; Popup OK button chars (4x2 cells, 8 bitmaps). Scattered through the gaps in
 ; char RAM rather than a single contiguous range:
 ;   TL / TR (23, 27)   -- city-tileset slots, overwritten after the city DMA.
-;                         TL=23 was a road-headroom slot; TR=27 was the old
-;                         POWERLINE_CELL_POLE_V before powerline_refresh stopped
-;                         writing it (see assets.asm tiles_load_powerlines).
+;                         TL=23 is a road-headroom slot; TR=27 is the old
+;                         POWERLINE_CELL_POLE_V char, now retired from the map
+;                         encoding (platform.asm POWERLINE_CELL_LAST stops at
+;                         POLE_H=26) so this slot belongs exclusively to the
+;                         popup. The tileset bitmap at slot 27 is left in place
+;                         for asset-layout stability; BTN_OK_TR overwrites it.
 ;   BL..BO (59..63)    -- the 5-char hole between the zone block
 ;                         (ZONE_GEN_BASE..+ZONE_CELL_COUNT-1 = 32..58) and the
 ;                         chrome block (UI_TILE_PANEL = 64+).
@@ -124,6 +127,14 @@ BTN_OK_TO_CHAR          = 61
 BTN_OK_TK_CHAR          = 62
 BTN_OK_BO_CHAR          = 63
 BTN_OK_BK_CHAR          = POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT  ; 255 today
+
+; Rail chars. 15 bitmaps: H, V, 4-way, 4 curves, 4 T-junctions, H_POWER,
+; V_POWER, BRIDGE_H, BRIDGE_V -- one per RAIL_CELL_* offset. Cell-to-char
+; translates RAIL_CELL_FIRST + offset to RAIL_CHAR_BASE + offset. This is the
+; first range that crosses the 8-bit char-id boundary; loader uses
+; create_fcm_char16 + STAMP_CHAR (the dispatch macro picks the 16-bit entry
+; when the static id exceeds 255).
+RAIL_CHAR_BASE          = BTN_OK_BK_CHAR + 1                                ; 256
 
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
@@ -146,6 +157,7 @@ TOP_BTN_H               = 2
         .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 1024, "water shore chars exceed resident char-bank window"
         .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 1024, "power bridge chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
+        .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
         ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),
         ; so every BTN_OK_*_CHAR must fit in a byte. BK is the only one that
         ; floats (anchored to POWER_BRIDGE_CHAR_BASE + COUNT), so cap it explicitly

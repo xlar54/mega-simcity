@@ -75,6 +75,26 @@ when we cross either limit.
       position)` byte (16 structures, ≤16 cells each); (c) widen the map cell to
       2 bytes (most invasive). Decide before the encoding actually overflows.
 
+## Rail (deferred work)
+
+- [ ] **Axis-aware neighbour classifier for *_POWER and *_ROAD crossings.**
+      The shared engine treats any cell in `[ln_first, ln_last_p1)` plus the
+      two `ln_extra_*` slots as a connection regardless of which cardinal/
+      diagonal direction the scan came from. That's fine for the cardinal
+      cases (a road N of a `RAIL_H_ROAD` is correctly seen as a road) but
+      sloppy for diagonals -- a `RAIL_V_ROAD` at the NE corner would still
+      count as a "road at NE" for the parallel-run drop test even though
+      its road segment runs E/W, not N/S. The road+power crossings already
+      have the same axis-naive sloppiness. Per-direction classifier in
+      `linear_net.asm` would close it for all four crossing kinds.
+
+- [ ] **Rail maintenance.** Rules give $4/tile/year for land rail, $10/tile
+      for tunnels. We don't have any maintenance accounting yet; queue with
+      the broader yearly-tick simulation work.
+
+- [ ] **Distinct rail-build sfx.** `_cps_rail*` currently reuses
+      `audio_road_build` (a quick blip) as a placeholder.
+
 ## Deferred (scaling)
 
 - [ ] **Stream tiles from Attic when char RAM fills up.** Today every tile is

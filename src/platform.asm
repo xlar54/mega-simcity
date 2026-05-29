@@ -228,6 +228,7 @@ TILE_NUCLEARPP          = 8     ; tool id for the nuclear power plant (3x4 struc
 TILE_INSPECT            = 9     ; pointer/inspect mode (no placement, queries the map)
 TILE_LOAD               = 10    ; menu action: load city (no map paint)
 TILE_SAVE               = 11    ; menu action: save city (no map paint)
+TILE_RAIL               = 12    ; tool id for the rail tool (1x1, see RAIL_CELL_* below)
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is a
 ; 3x3 block of zone cells (see ZONE_CELL_* below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -273,20 +274,28 @@ ROAD_BIT_NE             = $10
 ROAD_BIT_NW             = $20
 ROAD_BIT_SE             = $40
 ROAD_BIT_SW             = $80
-; Power-line cells (1x1) occupy the four chars (24..27) that the old 2x2 power
-; placeholder used; like roads, the cell value EQUALS its char index so
-; cell_to_char needs no arithmetic. Orientation follows a cell's power-line
-; neighbours (powerlines.asm) and there are no curves. A "pole" (crossarm) tile
-; is used for every POWERLINE_POLE_EVERY-th line the player places (a running
-; count) and at any intersection. These reuse the ROAD_BIT_* direction bits.
-; NOTE: the coal power PLANT is a separate, larger building (a future feature) --
-; these constants are only the wires/poles.
+; Power-line cells (1x1) occupy three of the four chars (24..26) that the old
+; 2x2 power placeholder used; like roads, the cell value EQUALS its char index
+; so cell_to_char needs no arithmetic. Orientation follows a cell's power-line
+; neighbours (powerlines.asm) and there are no curves. A "pole" (crossarm)
+; appears at every intersection. These reuse the ROAD_BIT_* direction bits.
+;
+; Cell value 27 (the old POWERLINE_CELL_POLE_V) is RETIRED: the cross bitmap
+; for an intersection is rotation-symmetric, so powerline_refresh uses POLE_H
+; for every orientation. That freed char slot 27 for popup OK button art
+; (BTN_OK_TR_CHAR in ui_tile_layout.asm). Leaving 27 in the powerline range
+; would be a latent collision -- a stray map cell of value 27 would render
+; using char 27, which is now the popup button corner. So 27 is excluded from
+; POWERLINE_CELL_LAST below; cell_to_char's _ctc_unknown sentinel catches a
+; stray value 27 by drawing the blue water-TL chip.
+;
+; NOTE: the coal power PLANT is a separate, larger building -- these constants
+; are only the wires/poles.
 POWERLINE_CELL_H        = 24    ; horizontal wires
 POWERLINE_CELL_V        = 25    ; vertical wires
-POWERLINE_CELL_POLE_H   = 26    ; pole (crossarm) on a horizontal run
-POWERLINE_CELL_POLE_V   = 27    ; pole (crossarm) on a vertical run
+POWERLINE_CELL_POLE_H   = 26    ; pole (crossarm) at any intersection
 POWERLINE_CELL_FIRST    = POWERLINE_CELL_H
-POWERLINE_CELL_LAST     = POWERLINE_CELL_POLE_V
+POWERLINE_CELL_LAST     = POWERLINE_CELL_POLE_H
 POWERLINE_POLE_EVERY    = 4     ; every 4th placed line becomes a pole
 ; 3x3 zone cells: 3 zone types (R/C/I) x 9 positions at char offsets 32..58.
 ; Bitmaps are part of the tileset disk asset (after the base tiles) and DMA'd
@@ -362,6 +371,42 @@ POWER_BRIDGE_CELL_LAST  = POWER_BRIDGE_CELL_FIRST + POWER_BRIDGE_CELL_COUNT - 1 
 POWER_BRIDGE_CELL_H     = POWER_BRIDGE_CELL_FIRST                   ; 153
 POWER_BRIDGE_CELL_V     = POWER_BRIDGE_CELL_FIRST + 1               ; 154
 
+; --- Rail (1x1, translated range -- 17 cells, char base 256+) ---
+; Second linear network on top of the shared linear_net.asm engine: the cell
+; range follows the same H/V/4-way/curve/T pattern roads use, plus *_POWER for
+; perpendicular power-line crossings, BRIDGE_H/V for straight-only spans over
+; water, and *_ROAD for right-angle road crossings. cell_to_char maps
+; RAIL_CELL_FIRST+offset to RAIL_CHAR_BASE+offset -- the first range that
+; actually lives above char id 255, which is what the 16-bit char pipeline
+; was built for.
+;
+; RAIL_H_ROAD = horizontal rail (E/W) with a vertical road (N/S) crossing.
+; RAIL_V_ROAD = vertical rail (N/S) with a horizontal road (E/W) crossing.
+; Cell value lives in the rail range; roads.asm extends its neighbour
+; classifier so the road engine still sees the crossing as a road. The cells
+; are sticky -- linear_net's engine skip-list (ln_xnet_h/v) prevents either
+; refresh from rewriting them.
+RAIL_CELL_FIRST         = POWER_BRIDGE_CELL_LAST + 1                ; 155
+RAIL_CELL_H             = RAIL_CELL_FIRST                            ; 155
+RAIL_CELL_V             = RAIL_CELL_FIRST + 1                        ; 156
+RAIL_CELL_4WAY          = RAIL_CELL_FIRST + 2                        ; 157
+RAIL_CELL_CURVE_NW      = RAIL_CELL_FIRST + 3                        ; 158
+RAIL_CELL_CURVE_NE      = RAIL_CELL_FIRST + 4                        ; 159
+RAIL_CELL_CURVE_SW      = RAIL_CELL_FIRST + 5                        ; 160
+RAIL_CELL_CURVE_SE      = RAIL_CELL_FIRST + 6                        ; 161
+RAIL_CELL_T_N           = RAIL_CELL_FIRST + 7                        ; 162
+RAIL_CELL_T_S           = RAIL_CELL_FIRST + 8                        ; 163
+RAIL_CELL_T_E           = RAIL_CELL_FIRST + 9                        ; 164
+RAIL_CELL_T_W           = RAIL_CELL_FIRST + 10                       ; 165
+RAIL_CELL_H_POWER       = RAIL_CELL_FIRST + 11                       ; 166
+RAIL_CELL_V_POWER       = RAIL_CELL_FIRST + 12                       ; 167
+RAIL_CELL_BRIDGE_H      = RAIL_CELL_FIRST + 13                       ; 168
+RAIL_CELL_BRIDGE_V      = RAIL_CELL_FIRST + 14                       ; 169
+RAIL_CELL_H_ROAD        = RAIL_CELL_FIRST + 15                       ; 170
+RAIL_CELL_V_ROAD        = RAIL_CELL_FIRST + 16                       ; 171
+RAIL_CELL_COUNT         = 17
+RAIL_CELL_LAST          = RAIL_CELL_FIRST + RAIL_CELL_COUNT - 1     ; 171
+
 ; Encoding guards. cell_to_char checks each range in order, so the contiguous
 ; building/terrain ranges must stay below ZONE_CELL_FIRST (or each other), and
 ; the whole encoded space must stay inside a single byte.
@@ -369,6 +414,7 @@ POWER_BRIDGE_CELL_V     = POWER_BRIDGE_CELL_FIRST + 1               ; 154
         .cerror TREE_CELL_LAST >= ZONE_CELL_FIRST,      "tree cell range overlaps zones"
         .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_FIRST, "water-shore cell range overlaps zones"
         .cerror POWER_BRIDGE_CELL_LAST >= 255,          "power-bridge cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror RAIL_CELL_LAST >= 255,                  "rail cell range LAST is 255; cmp #LAST+1 idiom truncates"
         ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.

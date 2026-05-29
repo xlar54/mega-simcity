@@ -139,6 +139,7 @@ tiles_load:
         jsr tiles_load_bridges
         jsr tiles_load_powerlines
         jsr tiles_load_button_ok
+        jsr tiles_load_rails
         rts
 
 tiles_dma_city_from_attic:
@@ -1269,4 +1270,228 @@ tiles_load_button_ok:
         #STAMP_CHAR BTN_OK_TK_CHAR, fcm_btn_ok_top_k
         #STAMP_CHAR BTN_OK_BO_CHAR, fcm_btn_ok_bot_o
         #STAMP_CHAR BTN_OK_BK_CHAR, fcm_btn_ok_bot_k
+        rts
+
+;---------------------------------------------------------------------------------------
+; Rail tiles. 17 bitmaps loaded into chars RAIL_CHAR_BASE..+16 -- the first
+; range that actually lives above char id 255, so STAMP_CHAR resolves to the
+; 16-bit create_fcm_char16 entry.
+;
+; Style: brown ground ($13) base, steel-grey rails ($21, the same medium grey
+; the road lane-stripe uses) at rows 2/5 (H) or cols 2/5 (V), dark brown ($24)
+; ties between the rails. Power crossings paint perpendicular wires ($22) over
+; the rails; bridges sit on water ($18) with a dark railing ($22) flanking the
+; deck (same idiom as the road bridge). Curves use a stair-step arc on the
+; outer rail (col 5 -> row 5 etc.) so the bend reads as a curve rather than
+; a hard L; the inner rail is too tight (2px radius) for a real arc so it
+; keeps a sharp corner.
+;
+; The road crossings (RAIL_*_ROAD) bake a full perpendicular road tile under
+; the rail: $20 asphalt fills the road band, rails ($21) cross over it at the
+; rail rows/cols. The crossing is sticky -- net_refresh skips re-tile on these
+; values so the engine never replaces them with a plain rail or 4-way.
+;---------------------------------------------------------------------------------------
+
+fcm_rail_h:
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $24,$13,$24,$13,$24,$13,$24,$13
+        .byte $24,$13,$24,$13,$24,$13,$24,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+
+fcm_rail_v:
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+fcm_rail_4way:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+; Curves use a stair-step arc on the outer rail (e.g. NW outer col 5 -> row 5
+; transitions via cols 4,5 at row 3 and cols 3,4 at row 4). The inner rail
+; (col 2 -> row 2) still corners sharply -- 2px is too tight for an arc at
+; this resolution.
+fcm_rail_curve_nw:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$13,$13,$21,$21,$13,$13
+        .byte $13,$13,$13,$21,$21,$13,$13,$13
+        .byte $21,$21,$21,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+
+fcm_rail_curve_ne:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$21,$21
+        .byte $13,$13,$21,$21,$13,$13,$13,$13
+        .byte $13,$13,$13,$21,$21,$13,$13,$13
+        .byte $13,$13,$13,$13,$21,$21,$21,$21
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+
+fcm_rail_curve_sw:
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $21,$21,$21,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$21,$21,$13,$13,$13
+        .byte $13,$13,$13,$13,$21,$21,$13,$13
+        .byte $21,$21,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+fcm_rail_curve_se:
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$21,$21,$21
+        .byte $13,$13,$13,$13,$21,$21,$13,$13
+        .byte $13,$13,$13,$21,$21,$13,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+; T-junctions: 3 sides open, 1 closed. T_N connects N+E+W, closed S.
+fcm_rail_t_n:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+
+fcm_rail_t_s:
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $13,$13,$13,$13,$13,$13,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+fcm_rail_t_e:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+fcm_rail_t_w:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+; Power crossings: rail + perpendicular power line. Rail $21 wins at the rail
+; rows/cols; wire $22 fills the rest of the wire column/row.
+fcm_rail_h_power:
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $24,$13,$22,$13,$24,$22,$24,$13
+        .byte $24,$13,$22,$13,$24,$22,$24,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+        .byte $13,$13,$22,$13,$13,$22,$13,$13
+
+fcm_rail_v_power:
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $22,$22,$21,$22,$22,$21,$22,$22
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $22,$22,$21,$22,$22,$21,$22,$22
+        .byte $13,$13,$21,$24,$24,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+; Bridges: rail over water. Dark railing flanking the brown deck, mirroring
+; the road bridge idiom so shorelines visually flow under both.
+fcm_rail_bridge_h:
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; dark railing
+        .byte $21,$21,$21,$21,$21,$21,$21,$21    ; top rail
+        .byte $24,$13,$24,$13,$24,$13,$24,$13    ; ties on the deck
+        .byte $24,$13,$24,$13,$24,$13,$24,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21    ; bottom rail
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; dark railing
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+
+fcm_rail_bridge_v:
+        .byte $18,$22,$21,$24,$24,$21,$22,$18
+        .byte $18,$22,$21,$13,$13,$21,$22,$18
+        .byte $18,$22,$21,$24,$24,$21,$22,$18
+        .byte $18,$22,$21,$13,$13,$21,$22,$18
+        .byte $18,$22,$21,$24,$24,$21,$22,$18
+        .byte $18,$22,$21,$13,$13,$21,$22,$18
+        .byte $18,$22,$21,$24,$24,$21,$22,$18
+        .byte $18,$22,$21,$13,$13,$21,$22,$18
+
+; Road crossings: rail + perpendicular road. RAIL_H_ROAD = horizontal rail
+; (rails at rows 2/5) with a vertical road band (asphalt $20 at cols 2..5);
+; RAIL_V_ROAD is the mirror. Cell value lives in the rail range and city.asm
+; creates these atomically when the player paints rail on a straight road
+; (or road on a straight rail). The engine treats them as sticky.
+fcm_rail_h_road:
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+        .byte $21,$21,$21,$21,$21,$21,$21,$21
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+        .byte $13,$13,$20,$20,$20,$20,$13,$13
+
+fcm_rail_v_road:
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $20,$20,$21,$20,$20,$21,$20,$20
+        .byte $20,$20,$21,$20,$20,$21,$20,$20
+        .byte $20,$20,$21,$20,$20,$21,$20,$20
+        .byte $20,$20,$21,$20,$20,$21,$20,$20
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+        .byte $13,$13,$21,$13,$13,$21,$13,$13
+
+tiles_load_rails:
+        #STAMP_CHAR RAIL_CHAR_BASE+0,  fcm_rail_h
+        #STAMP_CHAR RAIL_CHAR_BASE+1,  fcm_rail_v
+        #STAMP_CHAR RAIL_CHAR_BASE+2,  fcm_rail_4way
+        #STAMP_CHAR RAIL_CHAR_BASE+3,  fcm_rail_curve_nw
+        #STAMP_CHAR RAIL_CHAR_BASE+4,  fcm_rail_curve_ne
+        #STAMP_CHAR RAIL_CHAR_BASE+5,  fcm_rail_curve_sw
+        #STAMP_CHAR RAIL_CHAR_BASE+6,  fcm_rail_curve_se
+        #STAMP_CHAR RAIL_CHAR_BASE+7,  fcm_rail_t_n
+        #STAMP_CHAR RAIL_CHAR_BASE+8,  fcm_rail_t_s
+        #STAMP_CHAR RAIL_CHAR_BASE+9,  fcm_rail_t_e
+        #STAMP_CHAR RAIL_CHAR_BASE+10, fcm_rail_t_w
+        #STAMP_CHAR RAIL_CHAR_BASE+11, fcm_rail_h_power
+        #STAMP_CHAR RAIL_CHAR_BASE+12, fcm_rail_v_power
+        #STAMP_CHAR RAIL_CHAR_BASE+13, fcm_rail_bridge_h
+        #STAMP_CHAR RAIL_CHAR_BASE+14, fcm_rail_bridge_v
+        #STAMP_CHAR RAIL_CHAR_BASE+15, fcm_rail_h_road
+        #STAMP_CHAR RAIL_CHAR_BASE+16, fcm_rail_v_road
         rts

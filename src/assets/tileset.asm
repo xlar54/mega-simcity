@@ -244,8 +244,12 @@ tileset_start:
         .byte $22,$22,$22,$24,$24,$22,$22,$22   ; wire 2 through post
         .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
         .byte $13,$13,$13,$24,$24,$13,$13,$13   ; post
-        ; char 27 = POWERLINE_CELL_POLE_V: same vertical brown ($24) post +
-        ; upward-angled crossbar; the two wires ($22) run vertically (cols 2 and 5).
+        ; char 27 = retired POWERLINE_CELL_POLE_V slot. The intersection cross
+        ; is rotation-symmetric, so powerline_refresh writes POLE_H for every
+        ; orientation and value 27 is no longer in the map encoding (see
+        ; platform.asm POWERLINE_CELL_LAST). This char slot is overwritten at
+        ; boot by tiles_load_button_ok (BTN_OK_TR); the bitmap below is dead
+        ; data kept in place so the tileset asset stays the same size.
         .byte $13,$13,$13,$13,$24,$24,$24,$13   ; crossbar (upper-right)
         .byte $13,$13,$24,$24,$24,$13,$13,$13   ; crossbar (lower-left) + post
         .byte $13,$13,$22,$24,$24,$22,$13,$13   ; wires (cols 2,5) + post (3,4)
