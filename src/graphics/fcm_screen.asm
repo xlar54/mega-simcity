@@ -75,8 +75,15 @@ _ssm_fcm40:
 
         lda #0
         jsr clear_color_ram_fcm
-        lda #0
-        jsr clear_fcm
+
+        ; NOTE: do NOT clear_fcm here. clear_fcm DMA-zeros 64000 bytes of
+        ; CHAR_DATA at $40000, wiping every bitmap. Under the loader-pattern
+        ; (loader.asm runs first, paints palette + every char bitmap, then
+        ; trampoline-loads main), char RAM arrives at set_screen_mode already
+        ; populated -- clearing it would leave the screen all-black until a
+        ; tiles_load repaint that no longer exists in main. Callers that
+        ; truly want a wiped char-bank (none today) can jsr clear_fcm
+        ; themselves before this routine.
 
         lda #0
         sta BORDERCOL
