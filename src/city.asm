@@ -975,28 +975,32 @@ _cps_power_bridge_commit:
         ; as water). Refresh adjacent power lines so they see the new wire.
         jmp powerline_refresh_neighbors
 
-; Zone paint path.
-cps_zone:
-        ; 3x3: origin = view*2 + cell-within-view, clamped so the block fits.
+; Origin compute + clamp for the 3x3 zone footprint, shared by the paint path
+; and the cursor-color predicate. Reads view + mouse, writes zone_org_x/y.
+zone_setup_origin:
         lda view_x
         asl
         clc
         adc mouse_cell_x
         cmp #(CELL_COLS - ZONE_SIZE + 1)
-        bcc _cps_zone_setx
+        bcc _zso_setx
         lda #(CELL_COLS - ZONE_SIZE)
-_cps_zone_setx:
+_zso_setx:
         sta zone_org_x
         lda view_y
         asl
         clc
         adc mouse_cell_y
         cmp #(CELL_ROWS - ZONE_SIZE + 1)
-        bcc _cps_zone_sety
+        bcc _zso_sety
         lda #(CELL_ROWS - ZONE_SIZE)
-_cps_zone_sety:
+_zso_sety:
         sta zone_org_y
+        rts
 
+; Zone paint path.
+cps_zone:
+        jsr zone_setup_origin
         jsr city_zone_can_place     ; ground or power lines (zones overwrite power)
         bcc _cps_zone_no
         lda #<COST_ZONE             ; check + deduct zone cost
@@ -1144,6 +1148,128 @@ is_zone_origin_value:
         rts
 _izov_yes:
         sec
+        rts
+
+; Read the cell value under the current cursor. Returns A = cell value;
+; clobbers MAP_PTR, city_ptr_x/y, Z. Used by cursor_placement_valid for the
+; 1x1 tools, mirroring the (view*2 + mouse_cell) + city_cell_ptr + [MAP_PTR],z
+; sequence at the head of _cps_road / _cps_rail / _cps_power.
+cursor_read_cell:
+        lda view_x
+        asl
+        clc
+        adc mouse_cell_x
+        sta city_ptr_x
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        rts
+
+; Cursor-color predicate: returns carry SET if selected_tile placement at the
+; current cursor cell would succeed, CLEAR otherwise. Called every frame from
+; sprites_refresh to pick the cursor color (yellow vs red).
+;
+; Tools handled (per-tool rules mirror the matching _cps_* paint paths in
+; city.asm so a green/red cursor matches click-time behaviour):
+;   * Bulldoze (TILE_GROUND) -> RED on ground/water (nothing to demolish),
+;                               YELLOW on anything built
+;   * Road  -> YELLOW on ground / water (bridge candidate) / straight rail /
+;              power line (cross candidate); RED on everything else
+;   * Rail  -> YELLOW on ground / water / straight road / power line; RED else
+;   * Power -> YELLOW on ground / water / straight road / straight rail; RED
+;              else (existing power lines reject -- no self-overlay)
+;   * Zones (R/C/I)                            -> zone_setup_origin +
+;                                                  city_zone_can_place
+;   * Structures (coal, nuclear, park, police) -> structure_setup_origin +
+;                                                  structure_can_place
+;   * Non-paint tools (INSPECT/LOAD/SAVE) and the 2x2 water tool -> YELLOW
+;     (the inspect/load/save cursors are hidden by sprites_refresh; the 2x2
+;     water tool uses sprite 1 whose color isn't yet wired to this predicate)
+;
+; Approximation: water is reported VALID for road/rail/power tools even though
+; the actual click only succeeds if there's a perpendicular anchor (road/rail
+; on the other side). The cursor stays yellow over water; the click silently
+; no-ops if there's no anchor. Tighten only if it shows up as a usability
+; problem.
+cursor_placement_valid:
+        lda selected_tile
+        cmp #TILE_GROUND
+        beq _cpv_bulldoze
+        cmp #TILE_ROAD
+        beq _cpv_road
+        cmp #TILE_POWER
+        beq _cpv_power
+        cmp #TILE_RAIL
+        beq _cpv_rail
+        jsr structure_find_by_tool  ; preserves A; carry SET = matched, X = idx
+        bcs _cpv_structure
+        cmp #TILE_RESIDENTIAL
+        bcc _cpv_yes
+        cmp #TILE_INDUSTRIAL+1
+        bcs _cpv_yes                ; > industrial: non-paint tool, no check
+        jsr zone_setup_origin
+        jmp city_zone_can_place
+_cpv_structure:
+        txa
+        jsr structure_setup_origin
+        ldx struct_idx
+        jmp structure_can_place
+_cpv_bulldoze:
+        jsr cursor_read_cell
+        cmp #TILE_GROUND
+        beq _cpv_no                 ; already cleared -> no-op
+        jsr is_water_value          ; preserves A; SET if water/shore
+        bcs _cpv_no                 ; terrain is protected
+        sec
+        rts
+_cpv_road:
+        jsr cursor_read_cell
+        cmp #TILE_GROUND
+        beq _cpv_yes
+        jsr is_water_value
+        bcs _cpv_yes
+        cmp #RAIL_CELL_H
+        beq _cpv_yes
+        cmp #RAIL_CELL_V
+        beq _cpv_yes
+        jmp is_powerline_value      ; tail-call: SET if power-line crossing OK
+_cpv_rail:
+        jsr cursor_read_cell
+        cmp #TILE_GROUND
+        beq _cpv_yes
+        jsr is_water_value
+        bcs _cpv_yes
+        cmp #ROAD_CELL_H
+        beq _cpv_yes
+        cmp #ROAD_CELL_V
+        beq _cpv_yes
+        jmp is_powerline_value
+_cpv_power:
+        jsr cursor_read_cell
+        cmp #TILE_GROUND
+        beq _cpv_yes
+        jsr is_water_value
+        bcs _cpv_yes
+        cmp #ROAD_CELL_H
+        beq _cpv_yes
+        cmp #ROAD_CELL_V
+        beq _cpv_yes
+        cmp #RAIL_CELL_H
+        beq _cpv_yes
+        cmp #RAIL_CELL_V
+        beq _cpv_yes
+        clc
+        rts
+_cpv_yes:
+        sec
+        rts
+_cpv_no:
+        clc
         rts
 
 ; -- TILE_GROUND or a power line (zones overwrite power lines) -- so a zone may be

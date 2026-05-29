@@ -46,11 +46,12 @@ if errorlevel 1 exit /b 1
 cd target
 ..\c1541.exe -format "simcity,01" d81 mega-simcity.d81
 if errorlevel 1 exit /b 1
+REM Disk-image order matters: loader is first so MEGA65 autoboot (F1/RUN
+REM the first PRG) picks it up; then mega-simcity (trampoline target), then
+REM overlays the main game streams during gameplay, then bulk tile data.
+..\c1541.exe -attach mega-simcity.d81 -write loader loader
+if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write mega-simcity mega-simcity
-if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write tileset tileset
-if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write uitiles uitiles
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-save ovr-save
 if errorlevel 1 exit /b 1
@@ -58,7 +59,9 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-inspect ovr-inspect
 if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write loader loader
+..\c1541.exe -attach mega-simcity.d81 -write tileset tileset
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write uitiles uitiles
 if errorlevel 1 exit /b 1
 cd ..
 

@@ -113,12 +113,11 @@ _sfbt_yes:
         rts
 
 ;---------------------------------------------------------------------------------------
-; Generic placement: A = structure index. Origin = pointer cell, clamped so the
-; W x H footprint fits; placed iff every cell is buildable per flags and the
-; player can afford it. Reuses zone_org_x/y and the zone border re-tiler.
+; Origin compute + clamp shared by the paint path and the cursor-color predicate.
+; A in = structure index. Out: struct_idx stored, zone_org_x/y clamped so the
+; W x H footprint fits in the map. Doesn't touch the cells -- pure math.
 ;---------------------------------------------------------------------------------------
-
-cps_structure:
+structure_setup_origin:
         sta struct_idx
         tax
         ; Clamp origin x.
@@ -133,10 +132,10 @@ cps_structure:
         sta cs_max
         lda cs_tmp_x
         cmp cs_max
-        bcc _cs_x_ok
-        beq _cs_x_ok
+        bcc _sso_x_ok
+        beq _sso_x_ok
         lda cs_max
-_cs_x_ok:
+_sso_x_ok:
         sta zone_org_x
         ; Clamp origin y.
         ldx struct_idx
@@ -151,12 +150,21 @@ _cs_x_ok:
         sta cs_max
         lda cs_tmp_y
         cmp cs_max
-        bcc _cs_y_ok
-        beq _cs_y_ok
+        bcc _sso_y_ok
+        beq _sso_y_ok
         lda cs_max
-_cs_y_ok:
+_sso_y_ok:
         sta zone_org_y
+        rts
 
+;---------------------------------------------------------------------------------------
+; Generic placement: A = structure index. Origin = pointer cell, clamped so the
+; W x H footprint fits; placed iff every cell is buildable per flags and the
+; player can afford it. Reuses zone_org_x/y and the zone border re-tiler.
+;---------------------------------------------------------------------------------------
+
+cps_structure:
+        jsr structure_setup_origin
         ldx struct_idx
         jsr structure_can_place
         bcc _cs_no

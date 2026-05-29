@@ -166,32 +166,58 @@ sprites_refresh:
         beq _sr_coalpp              ; coal plant -> 24x32 cursor
         cmp #TILE_NUCLEARPP
         beq _sr_coalpp              ; nuclear plant: same 3x4 footprint, same cursor
+        cmp #TILE_PARK
+        beq _sr_park                ; park -> 32x32 cursor (X- and Y-expanded)
         cmp #TILE_RESIDENTIAL
         bcc _sr_block               ; water -> 16x16
         jsr mouse_hide_block_sprite
         jsr sprite3_use_zone_shape
-        jmp mouse_position_road_cursor
+        jsr mouse_position_road_cursor
+        bra _sr_color_sprite3
 
 _sr_coalpp:
         jsr mouse_hide_block_sprite
         jsr sprite3_use_coalpp_shape
-        jmp mouse_position_road_cursor
+        jsr mouse_position_road_cursor
+        bra _sr_color_sprite3
+
+_sr_park:
+        jsr mouse_hide_block_sprite
+        jsr sprite3_use_park_shape
+        jsr mouse_position_road_cursor
+        bra _sr_color_sprite3
 
 _sr_block:
         jsr mouse_hide_road_cursor
         jsr mouse_use_block_shape
-        jmp mouse_position_block_sprite
+        jsr mouse_position_block_sprite
+        rts                          ; 2x2 water tool: live-color not yet wired
 
 _sr_road:
         jsr mouse_hide_block_sprite
         jsr sprite3_use_road_shape
-        jmp mouse_position_road_cursor
+        jsr mouse_position_road_cursor
+        bra _sr_color_sprite3
+
+; Recolor sprite 3 based on whether the current selection would place
+; successfully at the cursor cell. cursor_placement_valid only flips RED for
+; structures + zones today (per its comment); other tools always return SET
+; and stay yellow. Color indices target this game's custom palette
+; (tiles_init_palette in assets.asm): $0D = red, $0A = yellow.
+_sr_color_sprite3:
+        jsr cursor_placement_valid
+        lda #$0D                     ; red = cannot place
+        bcc _sr_set_sprite3
+        lda #$0A                     ; yellow = OK
+_sr_set_sprite3:
+        sta SPRITE3_COLOR
+        rts
 
 _sr_hide_cursors:
         jsr mouse_hide_block_sprite
         jmp mouse_hide_road_cursor
 
-; Shape sprite 3 as the 8x8 road cursor (no Y-expand).
+; Shape sprite 3 as the 8x8 road cursor (no Y-expand, no X-expand).
 sprite3_use_road_shape:
         lda #<(sprite_road_cursor_shape / 64)
         sta mouse_sprite_ptrs+6
@@ -200,9 +226,13 @@ sprite3_use_road_shape:
         lda SPRITE_Y_EXPAND
         and #%11110111
         sta SPRITE_Y_EXPAND
+        lda SPRITE_X_EXPAND
+        and #%11110111
+        sta SPRITE_X_EXPAND
         rts
 
-; Shape sprite 3 as the 24x32 coal-plant cursor (Y-expanded: 16 rows -> 32px tall).
+; Shape sprite 3 as the 24x32 coal-plant cursor (Y-expanded: 16 rows -> 32px tall;
+; X NOT expanded so the box stays 24px wide).
 sprite3_use_coalpp_shape:
         lda #<(sprite_coalpp_cursor_shape / 64)
         sta mouse_sprite_ptrs+6
@@ -211,9 +241,13 @@ sprite3_use_coalpp_shape:
         lda SPRITE_Y_EXPAND
         ora #%00001000
         sta SPRITE_Y_EXPAND
+        lda SPRITE_X_EXPAND
+        and #%11110111
+        sta SPRITE_X_EXPAND
         rts
 
-; Shape sprite 3 as the 24x24 zone cursor (Y-expanded: 12 rows -> 24px tall).
+; Shape sprite 3 as the 24x24 zone cursor (Y-expanded: 12 rows -> 24px tall;
+; X NOT expanded so the box stays 24px wide).
 sprite3_use_zone_shape:
         lda #<(sprite_zone_cursor_shape / 64)
         sta mouse_sprite_ptrs+6
@@ -222,6 +256,30 @@ sprite3_use_zone_shape:
         lda SPRITE_Y_EXPAND
         ora #%00001000
         sta SPRITE_Y_EXPAND
+        lda SPRITE_X_EXPAND
+        and #%11110111
+        sta SPRITE_X_EXPAND
+        rts
+
+; Shape sprite 3 as the 32x32 park cursor. The MEGA65 hardware sprite is 24
+; pixels wide native; we use both expand bits (Y for 16 rows -> 32 px tall, X
+; for each source pixel to display 2 px wide). With X-expand, source pixel N
+; renders at display pixels 2N..2N+1, so to terminate the box outline at
+; display col 31 (the right edge of the 4-cell-wide park footprint), the right
+; edge of the bitmap sits at source col 15 (byte 1, bit 0). Bytes at source
+; cols 16..23 (byte 2) are zero, hiding the rest of the sprite. Result: a
+; clean 32x32 outline despite the underlying 48x42 expanded sprite area.
+sprite3_use_park_shape:
+        lda #<(sprite_park_cursor_shape / 64)
+        sta mouse_sprite_ptrs+6
+        lda #>(sprite_park_cursor_shape / 64)
+        sta mouse_sprite_ptrs+7
+        lda SPRITE_Y_EXPAND
+        ora #%00001000
+        sta SPRITE_Y_EXPAND
+        lda SPRITE_X_EXPAND
+        ora #%00001000
+        sta SPRITE_X_EXPAND
         rts
 
 sprites_shutdown:
@@ -997,6 +1055,40 @@ sprite_coalpp_cursor_shape:
         .byte %10000000,%00000000,%00000001
         .byte %10000000,%00000000,%00000001
         .byte %11111111,%11111111,%11111111
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000,%00000000,%00000000
+        .byte %00000000
+
+        ; Park cursor (sprite 3): a 32x32 box drawn into the first 16 source
+        ; columns (bytes 0 and 1) of a 24-wide sprite, X-expanded x2 by
+        ; sprite3_use_park_shape so source cols 0..15 render at display cols
+        ; 0..31. Byte 2 is zero -- those source cols would have stretched
+        ; into display cols 32..47 (16 px past the right edge of the park).
+        ; Y-expanded x2 turns 16 rows into 32 px tall. Top edge (row 0) and
+        ; bottom edge (row 15) span source cols 0..15 (= display 0..31);
+        ; sides keep source col 0 and source col 15 lit (= display cols 0/1
+        ; and 30/31, i.e. 2-px wide vertical lines at the box edges).
+        .align 64
+sprite_park_cursor_shape:
+        .byte %11111111,%11111111,%00000000   ; row 0:  full top edge
+        .byte %10000000,%00000001,%00000000   ; row 1:  L + R sides
+        .byte %10000000,%00000001,%00000000   ; row 2
+        .byte %10000000,%00000001,%00000000   ; row 3
+        .byte %10000000,%00000001,%00000000   ; row 4
+        .byte %10000000,%00000001,%00000000   ; row 5
+        .byte %10000000,%00000001,%00000000   ; row 6
+        .byte %10000000,%00000001,%00000000   ; row 7
+        .byte %10000000,%00000001,%00000000   ; row 8
+        .byte %10000000,%00000001,%00000000   ; row 9
+        .byte %10000000,%00000001,%00000000   ; row 10
+        .byte %10000000,%00000001,%00000000   ; row 11
+        .byte %10000000,%00000001,%00000000   ; row 12
+        .byte %10000000,%00000001,%00000000   ; row 13
+        .byte %10000000,%00000001,%00000000   ; row 14
+        .byte %11111111,%11111111,%00000000   ; row 15: full bottom edge
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
         .byte %00000000,%00000000,%00000000
