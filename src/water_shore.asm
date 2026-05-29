@@ -19,7 +19,10 @@
 
 ;---------------------------------------------------------------------------------------
 ; Carry SET if A is a water cell -- either plain TILE_WATER (mask 15, interior)
-; or any shoreline variant. Preserves A.
+; or any shoreline variant. Bridges (which sit on top of water but aren't
+; water themselves) deliberately do NOT match here, so water_compute_at won't
+; rewrite a bridge cell. The shoreline-mask scan uses is_water_or_bridge below
+; instead so the shore looks continuous under the span. Preserves A.
 ;---------------------------------------------------------------------------------------
 is_water_value:
         cmp #TILE_WATER
@@ -32,6 +35,30 @@ _iwv_yes:
         sec
         rts
 _iwv_no:
+        clc
+        rts
+
+;---------------------------------------------------------------------------------------
+; Carry SET if A is a water cell OR a bridge over water (road bridge or power
+; bridge). Used by the shoreline-mask scan so a bridge neighbor reads as
+; "water continues" -- the shore curves around the lake outline, not around
+; each bridge cell. Preserves A.
+;---------------------------------------------------------------------------------------
+is_water_or_bridge:
+        jsr is_water_value
+        bcs _iwob_yes
+        cmp #ROAD_CELL_BRIDGE_H
+        beq _iwob_yes
+        cmp #ROAD_CELL_BRIDGE_V
+        beq _iwob_yes
+        cmp #POWER_BRIDGE_CELL_FIRST
+        bcc _iwob_no
+        cmp #POWER_BRIDGE_CELL_LAST+1
+        bcs _iwob_no
+_iwob_yes:
+        sec
+        rts
+_iwob_no:
         clc
         rts
 
@@ -71,7 +98,7 @@ water_compute_mask_at:
         ldy water_cy
         dey
         jsr water_cell_at_xy
-        jsr is_water_value
+        jsr is_water_or_bridge
         bcc +
         lda water_mask
         ora #WATER_BIT_N
@@ -82,7 +109,7 @@ water_compute_mask_at:
         ldy water_cy
         iny
         jsr water_cell_at_xy
-        jsr is_water_value
+        jsr is_water_or_bridge
         bcc +
         lda water_mask
         ora #WATER_BIT_S
@@ -93,7 +120,7 @@ water_compute_mask_at:
         inx
         ldy water_cy
         jsr water_cell_at_xy
-        jsr is_water_value
+        jsr is_water_or_bridge
         bcc +
         lda water_mask
         ora #WATER_BIT_E
@@ -104,7 +131,7 @@ water_compute_mask_at:
         dex
         ldy water_cy
         jsr water_cell_at_xy
-        jsr is_water_value
+        jsr is_water_or_bridge
         bcc +
         lda water_mask
         ora #WATER_BIT_W

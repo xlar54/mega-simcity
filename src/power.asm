@@ -32,6 +32,11 @@ _ipn_cross:
         beq _ipn_yes
         cmp #ROAD_CELL_V_POWER
         beq _ipn_yes                ; road with a power crossing
+        cmp #POWER_BRIDGE_CELL_FIRST
+        bcc _ipn_zone               ; below power bridges -> check zones
+        cmp #POWER_BRIDGE_CELL_LAST+1
+        bcc _ipn_yes                ; power bridge over water -- conductive
+_ipn_zone:
         jsr is_zone_value           ; any zone cell counts as a power node
         bcs _ipn_yes
         jmp is_power_source_cell    ; structure table: any power-source row

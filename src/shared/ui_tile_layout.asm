@@ -100,6 +100,10 @@ TREE_CHAR_BASE          = SAVE_INSET_CHAR_BASE + 4      ; 222 -> 222..237
 ; WATER_SHORE_CHAR_BASE+mask.
 WATER_SHORE_CHAR_BASE   = TREE_CHAR_BASE + TREE_CELL_COUNT      ; 238 -> 238..252
 
+; Power-bridge chars. 2 bitmaps (H/V). Road bridges piggy-back on the existing
+; ROAD_CELL range (chars 21/22 in the city tileset), so they need no entry here.
+POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT  ; 253 -> 253..254
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 LOAD_ICON_COL           = 2
@@ -118,6 +122,7 @@ TOP_BTN_H               = 2
         .cerror SAVE_INSET_CHAR_BASE + 4 > 256, "top-strip button chars cross 256: cell_to_char needs 16-bit support"
         .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 256, "tree chars cross 256: cell_to_char needs 16-bit support"
         .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 256, "water shore chars cross 256: cell_to_char needs 16-bit support"
+        .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 256, "power bridge chars cross 256: cell_to_char needs 16-bit support"
 
 ; --- Attic load address + asset sizing ---
 ; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large

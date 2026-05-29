@@ -60,6 +60,13 @@ road_refresh:
         sta city_ptr_y
         jsr road_at_ptr             ; A = cell value, carry set if a road
         bcc _rr_done
+        ; Bridges keep their fixed BRIDGE_H/V orientation -- the placement check
+        ; already enforces straight-only over water, so we must not let the
+        ; neighbour scan rewrite a bridge cell as a curve/T/4-way.
+        cmp #ROAD_CELL_BRIDGE_H
+        beq _rr_done
+        cmp #ROAD_CELL_BRIDGE_V
+        beq _rr_done
         ; remember whether this road is already a power crossing: a crossing is
         ; sticky and stays crossed unless bare ground (or water) ends up beside it.
         ldx #0

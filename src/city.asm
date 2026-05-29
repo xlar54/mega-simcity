@@ -141,7 +141,7 @@ game_tick:
 city_paint_selected:
         lda selected_tile
         cmp #TILE_INSPECT
-        beq _cps_no_paint           ; inspect mode: clicks don't place (Phase 2 will query)
+        beq _cps_inspect            ; inspect mode: read cell + open popup
         cmp #TILE_LOAD
         beq _cps_no_paint           ; load/save are menu actions, not paint tools
         cmp #TILE_SAVE
@@ -149,6 +149,42 @@ city_paint_selected:
         bra _cps_not_inspect
 _cps_no_paint:
         rts
+
+; Inspect tool: read the cell under the cursor, look up its label, open the
+; popup. The popup is modal so subsequent clicks route to overlay_handle_click.
+;
+; Edge-only: paint tools (road / power / zone / ...) intentionally drag-paint
+; while the button is held; inspect must NOT. Without this guard the same
+; left-click that closed the popup keeps INPUT_PAINT asserted on subsequent
+; frames (the button is still down for a frame or two after the OK hit), so
+; the popup re-opens on the cell underneath OK. mouse_left_click is the one-
+; frame debounced edge, so checking it here keeps inspect to one fire per
+; press-release cycle.
+_cps_inspect:
+        lda mouse_left_click
+        beq _cps_no_paint
+        lda view_x
+        asl
+        clc
+        adc mouse_cell_x
+        sta city_ptr_x
+        lda view_y
+        asl
+        clc
+        adc mouse_cell_y
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z             ; A = cell value at the clicked position
+        jsr tile_name_for_cell      ; X = ptr lo, Y = ptr hi, A = length
+        ; Re-pack into overlay_open's calling convention: A = lo, X = hi, Y = len.
+        sta inspect_title_len
+        stx inspect_title_lo
+        sty inspect_title_hi
+        lda inspect_title_lo
+        ldx inspect_title_hi
+        ldy inspect_title_len
+        jmp overlay_open
 _cps_not_inspect:
         cmp #TILE_ROAD
         beq _cps_road
@@ -245,12 +281,17 @@ _cps_road:
         ldx selected_tile
         cpx #TILE_GROUND
         bne _cps_road_build
-        ; bulldozer: clear anything but water; skip already-clear ground so a
-        ; held/dragged bulldozer only booms when it actually demolishes something.
-        cmp #TILE_WATER
-        beq _cps_road_skip
+        ; bulldozer: clear built tiles only. Water and shore are part of the
+        ; terrain and stay protected (bridges accept shore as a placement
+        ; anchor, so nothing to bulldoze to "free up" the shore). Already-
+        ; clear ground is also a no-op so a held/dragged bulldozer only booms
+        ; when it actually demolishes something.
+        jsr is_water_value              ; matches TILE_WATER and every shore variant
+        bcs _cps_road_skip
         cmp #TILE_GROUND
         beq _cps_road_skip
+        sta bulldoze_cell               ; save what we're demolishing for the
+                                        ; bridge-vs-everything-else decision below
         lda #<COST_BULLDOZE             ; charge $1 per demolished cell
         sta cost_amount
         lda #>COST_BULLDOZE
@@ -258,10 +299,42 @@ _cps_road:
         jsr funds_can_afford
         bcc _cps_road_skip
         jsr funds_subtract
+
+        ; Pick the replacement cell value. Bridges restore the water that was
+        ; underneath; everything else (roads, zones, structures, trees, shore)
+        ; leaves bare ground.
+        lda bulldoze_cell
+        cmp #ROAD_CELL_BRIDGE_H
+        beq _cps_road_bulldoze_water
+        cmp #ROAD_CELL_BRIDGE_V
+        beq _cps_road_bulldoze_water
+        cmp #POWER_BRIDGE_CELL_FIRST
+        bcc _cps_road_bulldoze_ground
+        cmp #POWER_BRIDGE_CELL_LAST+1
+        bcs _cps_road_bulldoze_ground
+_cps_road_bulldoze_water:
+        lda #TILE_WATER
+        bra _cps_road_bulldoze_stamp
+_cps_road_bulldoze_ground:
         lda #TILE_GROUND
+_cps_road_bulldoze_stamp:
         ldz #0
         sta [MAP_PTR],z
         jsr power_mark_dirty            ; demolition may break the power network
+        ; First: water-shore refresh on this cell + its neighbors. If the cell
+        ; is now TILE_WATER (bridge demo), water_shore_refresh_at picks the
+        ; right shore variant from the current neighbours -- so a bridge that
+        ; sat over open water becomes TILE_WATER again, and one that sat over a
+        ; shoreline cell becomes that shore variant again. Doing this BEFORE
+        ; the road/powerline/tree refreshes keeps MAP_PTR in a clean state for
+        ; the water pass and avoids any interaction with downstream refreshes.
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr water_shore_refresh_neighbors
+        ; Now the other refreshes (these all skip non-matching cells, so the
+        ; just-written water cell is a no-op for them).
         lda road_cx
         sta city_ptr_x
         lda road_cy
@@ -290,9 +363,13 @@ _cps_road_build:
         lda road_cross_save
         cmp #TILE_GROUND
         beq _cps_road_place         ; ground: place normally
-        ; Not ground. A road may still CROSS an existing power line, but only
-        ; perpendicularly. Tentatively drop a road and let road_refresh decide;
-        ; keep it only if it became a crossing tile, else restore the power line.
+        jsr is_water_value          ; water or shore -> try a bridge
+        bcs _cps_road_try_bridge
+        lda road_cross_save
+        ; Not ground / not water. A road may still CROSS an existing power
+        ; line, but only perpendicularly. Tentatively drop a road and let
+        ; road_refresh decide; keep it only if it became a crossing tile,
+        ; else restore the power line.
         jsr is_powerline_value
         bcc _cps_road_skip          ; occupied by a road/zone/water -> can't build
         lda #ROAD_CELL_H
@@ -335,6 +412,92 @@ _cps_road_place:
 _cps_road_skip:
         rts
 
+; ----------------------------------------------------------------------------
+; Bridge placement. Existing cell is water (TILE_WATER or shore) and the road
+; tool is active. Check the 4 cardinal neighbors; if there's a road or bridge
+; in either horizontal direction, place ROAD_CELL_BRIDGE_H; else if vertical,
+; ROAD_CELL_BRIDGE_V; else silent reject. This single rule enforces the
+; Amiga-style constraints implicitly:
+;   * "Straight only" -- we only pick H or V, never any curve/T/4-way.
+;   * "No intersections over water" -- a bridge can't grow from another bridge
+;     on the perpendicular axis (the anchor check returns the wrong axis), so
+;     two bridges crossing at a single water cell is impossible.
+;   * "Must connect to land" -- the first bridge cell needs a road neighbor,
+;     which only exists on land (roads can't sit on water otherwise).
+; The bridge counts as water for water_shore's neighbor scan, so adjacent
+; water cells' shore masks don't change -- the shoreline flows under the span.
+; ----------------------------------------------------------------------------
+_cps_road_try_bridge:
+        ; E neighbor (road_cx+1, road_cy)
+        lda road_cx
+        cmp #CELL_COLS-1
+        bcs _cpsrtb_e_done
+        clc
+        adc #1
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcs _cps_road_bridge_h
+_cpsrtb_e_done:
+        ; W neighbor (road_cx-1, road_cy)
+        lda road_cx
+        beq _cpsrtb_w_done
+        sec
+        sbc #1
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr road_at_ptr
+        bcs _cps_road_bridge_h
+_cpsrtb_w_done:
+        ; N neighbor (road_cx, road_cy-1)
+        lda road_cy
+        beq _cpsrtb_n_done
+        sec
+        sbc #1
+        sta city_ptr_y
+        lda road_cx
+        sta city_ptr_x
+        jsr road_at_ptr
+        bcs _cps_road_bridge_v
+_cpsrtb_n_done:
+        ; S neighbor (road_cx, road_cy+1)
+        lda road_cy
+        cmp #CELL_ROWS-1
+        bcs _cps_road_skip
+        clc
+        adc #1
+        sta city_ptr_y
+        lda road_cx
+        sta city_ptr_x
+        jsr road_at_ptr
+        bcs _cps_road_bridge_v
+        rts                              ; no anchor in any direction
+
+_cps_road_bridge_h:
+        lda #ROAD_CELL_BRIDGE_H
+        bra _cps_road_bridge_commit
+_cps_road_bridge_v:
+        lda #ROAD_CELL_BRIDGE_V
+_cps_road_bridge_commit:
+        sta cps_bridge_value
+        jsr funds_subtract               ; charge the normal road cost
+        jsr audio_road_build
+        lda road_cx
+        sta city_ptr_x
+        lda road_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda cps_bridge_value
+        ldz #0
+        sta [MAP_PTR],z
+        jsr render_redraw_cell_tile
+        ; The bridge is not a power source. Adjacent water cells' shoreline
+        ; masks are unchanged because is_water_or_bridge counts the bridge as
+        ; water. Only adjacent roads need to re-check their orientation.
+        jmp road_refresh_neighbors
+
 ; Power-line paint path (1x1, like roads). Places a wire/pole on ground only,
 ; then lets powerlines.asm pick the orientation and re-orient the neighbours.
 ; A running counter makes every POWERLINE_POLE_EVERY-th placed line a pole.
@@ -360,9 +523,11 @@ _cps_power:
         beq _cps_power_cross        ; H road -> H_POWER (vertical power across)
         cmp #ROAD_CELL_V
         beq _cps_power_cross        ; V road -> V_POWER (horizontal power across)
-        rts                         ; everything else (water, curves/Ts/4-way,
-                                    ; existing crossings, zones, structures,
-                                    ; trees, shore, other power lines) -> skip
+        jsr is_water_value
+        bcs _cps_power_try_bridge   ; water or shore -> try a power bridge
+        rts                         ; everything else (curves/Ts/4-way, existing
+                                    ; crossings, zones, structures, trees,
+                                    ; existing power lines, road bridges) -> skip
 
 ; Crossing path: A is ROAD_CELL_H or ROAD_CELL_V on entry. The crossing variant
 ; for each is +11 (H->H_POWER 19, V->V_POWER 20). Charge the normal power-line
@@ -403,17 +568,10 @@ _cps_power_on_ground:
         jsr funds_can_afford
         bcc _cps_power_skip
         jsr funds_subtract
-        inc powerline_count
-        lda powerline_count
-        cmp #POWERLINE_POLE_EVERY
-        bcc _cps_power_line
-        lda #0
-        sta powerline_count
-        lda #POWERLINE_CELL_POLE_H  ; pole intent (powerline_refresh sets orient.)
-        bra _cps_power_write
-_cps_power_line:
-        lda #POWERLINE_CELL_H       ; line intent (powerline_refresh sets orient.)
-_cps_power_write:
+        ; Drop a plain line; powerline_refresh decides H/V from neighbours and
+        ; promotes to POLE only when this cell is actually a 4-way intersection.
+        ; The old "every Nth placement is a cosmetic pole" cadence is gone.
+        lda #POWERLINE_CELL_H
         ldz #0
         sta [MAP_PTR],z
         jsr power_mark_dirty        ; the power network changed
@@ -429,6 +587,103 @@ _cps_power_write:
         jmp powerline_refresh_neighbors
 _cps_power_skip:
         rts
+
+; ----------------------------------------------------------------------------
+; Power bridge placement. Existing cell is water (TILE_WATER or shore) and the
+; power tool is active. Same Amiga-style rule as road bridges, but using
+; power-line/bridge cells as the anchor: if there's a power line (or another
+; power bridge) E or W -> POWER_BRIDGE_CELL_H; else if N or S ->
+; POWER_BRIDGE_CELL_V; else silent reject. Constrained to a single direction
+; per cell, so curves / Ts / 4-ways over water are structurally impossible.
+; ----------------------------------------------------------------------------
+_cps_power_try_bridge:
+        lda #<COST_POWERLINE
+        sta cost_amount
+        lda #>COST_POWERLINE
+        sta cost_amount+1
+        jsr funds_can_afford
+        bcc _cps_power_skip
+
+        ; E neighbor (powerline_cx+1, powerline_cy)
+        lda powerline_cx
+        cmp #CELL_COLS-1
+        bcs _cpsptb_e_done
+        clc
+        adc #1
+        sta city_ptr_x
+        lda powerline_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr is_power_line_or_bridge
+        bcs _cps_power_bridge_h
+_cpsptb_e_done:
+        ; W neighbor (powerline_cx-1, powerline_cy)
+        lda powerline_cx
+        beq _cpsptb_w_done
+        sec
+        sbc #1
+        sta city_ptr_x
+        lda powerline_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr is_power_line_or_bridge
+        bcs _cps_power_bridge_h
+_cpsptb_w_done:
+        ; N neighbor (powerline_cx, powerline_cy-1)
+        lda powerline_cy
+        beq _cpsptb_n_done
+        sec
+        sbc #1
+        sta city_ptr_y
+        lda powerline_cx
+        sta city_ptr_x
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr is_power_line_or_bridge
+        bcs _cps_power_bridge_v
+_cpsptb_n_done:
+        ; S neighbor (powerline_cx, powerline_cy+1)
+        lda powerline_cy
+        cmp #CELL_ROWS-1
+        bcs _cps_power_skip
+        clc
+        adc #1
+        sta city_ptr_y
+        lda powerline_cx
+        sta city_ptr_x
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr is_power_line_or_bridge
+        bcs _cps_power_bridge_v
+        rts                              ; no anchor in any direction
+
+_cps_power_bridge_h:
+        lda #POWER_BRIDGE_CELL_H
+        bra _cps_power_bridge_commit
+_cps_power_bridge_v:
+        lda #POWER_BRIDGE_CELL_V
+_cps_power_bridge_commit:
+        sta cps_bridge_value
+        jsr funds_subtract
+        lda powerline_cx
+        sta city_ptr_x
+        lda powerline_cy
+        sta city_ptr_y
+        jsr city_cell_ptr
+        lda cps_bridge_value
+        ldz #0
+        sta [MAP_PTR],z
+        jsr power_mark_dirty
+        jsr render_redraw_cell_tile
+        ; Adjacent water masks unchanged (is_water_or_bridge counts the bridge
+        ; as water). Refresh adjacent power lines so they see the new wire.
+        jmp powerline_refresh_neighbors
 
 ; Zone paint path.
 cps_zone:
@@ -837,6 +1092,16 @@ city_ptr_hi:
 cps_2x2_orig_x:                 ; saved 2x2 origin across the 4 shoreline refreshes
         .byte 0
 cps_2x2_orig_y:
+        .byte 0
+cps_bridge_value:               ; bridge cell value picked by the anchor scan
+        .byte 0
+bulldoze_cell:                  ; saved existing-cell value for bridge detection
+        .byte 0
+inspect_title_lo:               ; tile_name_for_cell -> overlay_open shuffle
+        .byte 0
+inspect_title_hi:
+        .byte 0
+inspect_title_len:
         .byte 0
 road_cross_save:                ; cell overwritten while testing a road/power cross
         .byte 0

@@ -136,6 +136,9 @@ tiles_load:
         jsr tiles_load_top_buttons
         jsr tiles_load_trees
         jsr tiles_load_water_shore
+        jsr tiles_load_bridges
+        jsr tiles_load_powerlines
+        jsr tiles_load_button_ok
         rts
 
 tiles_dma_city_from_attic:
@@ -1105,3 +1108,303 @@ tlt_src_lo:
         .byte 0
 tlt_src_hi:
         .byte 0
+
+;---------------------------------------------------------------------------------------
+; Bridges: 4 bitmaps overwriting chars 21/22 (the unused road-headroom slots
+; in the city tileset) for road bridges, and chars POWER_BRIDGE_CHAR_BASE/+1
+; for power-line bridges. Style mirrors the underlying tile -- road bridges
+; reuse the asphalt + lane-marking palette ($20/$21) with water ($18) at the
+; top/bottom edges and a dark $22 railing just inside; power bridges keep the
+; existing $22 wire colour over a water background ($18 plus $1A ripples).
+;---------------------------------------------------------------------------------------
+
+fcm_bridge_road_h:
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; row 0: water
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; row 1: dark railing
+        .byte $20,$20,$20,$20,$20,$20,$20,$20    ; rows 2..5: asphalt
+        .byte $20,$20,$21,$21,$21,$21,$20,$20    ; row 3: lane marking
+        .byte $20,$20,$21,$21,$21,$21,$20,$20    ; row 4: lane marking
+        .byte $20,$20,$20,$20,$20,$20,$20,$20    ; row 5: asphalt
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; row 6: dark railing
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; row 7: water
+
+fcm_bridge_road_v:
+        .byte $18,$22,$20,$20,$20,$20,$22,$18
+        .byte $18,$22,$20,$20,$20,$20,$22,$18
+        .byte $18,$22,$20,$20,$21,$20,$22,$18
+        .byte $18,$22,$20,$20,$21,$20,$22,$18
+        .byte $18,$22,$20,$20,$21,$20,$22,$18
+        .byte $18,$22,$20,$20,$21,$20,$22,$18
+        .byte $18,$22,$20,$20,$20,$20,$22,$18
+        .byte $18,$22,$20,$20,$20,$20,$22,$18
+
+fcm_bridge_power_h:
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+        .byte $18,$18,$18,$1A,$1A,$18,$18,$18    ; water + ripple
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; horizontal wire
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+        .byte $22,$22,$22,$22,$22,$22,$22,$22    ; horizontal wire
+        .byte $18,$1A,$1A,$18,$18,$18,$18,$18    ; water + ripple
+        .byte $18,$18,$18,$18,$18,$18,$18,$18    ; water
+
+fcm_bridge_power_v:
+        .byte $18,$18,$22,$18,$18,$22,$18,$18
+        .byte $18,$18,$22,$1A,$1A,$22,$18,$18
+        .byte $18,$18,$22,$18,$18,$22,$18,$18
+        .byte $18,$1A,$22,$18,$18,$22,$1A,$18
+        .byte $18,$1A,$22,$18,$18,$22,$1A,$18
+        .byte $18,$18,$22,$18,$18,$22,$18,$18
+        .byte $18,$18,$22,$1A,$1A,$22,$18,$18
+        .byte $18,$18,$22,$18,$18,$22,$18,$18
+
+; Stamp each bridge bitmap into its char slot. Road bridges go into the city-
+; tileset slots 21/22 (the city DMA put placeholder content there; we
+; overwrite it). Power bridges go into the dedicated POWER_BRIDGE_CHAR_BASE
+; slots at the top of char RAM.
+tiles_load_bridges:
+        lda #ROAD_CELL_BRIDGE_H
+        ldx #<fcm_bridge_road_h
+        ldy #>fcm_bridge_road_h
+        jsr create_fcm_char
+
+        lda #ROAD_CELL_BRIDGE_V
+        ldx #<fcm_bridge_road_v
+        ldy #>fcm_bridge_road_v
+        jsr create_fcm_char
+
+        lda #POWER_BRIDGE_CHAR_BASE
+        ldx #<fcm_bridge_power_h
+        ldy #>fcm_bridge_power_h
+        jsr create_fcm_char
+
+        lda #POWER_BRIDGE_CHAR_BASE+1
+        ldx #<fcm_bridge_power_v
+        ldy #>fcm_bridge_power_v
+        jsr create_fcm_char
+        rts
+
+;---------------------------------------------------------------------------------------
+; Power lines: redesigned bitmaps overwriting the city-tileset slots at chars
+; 24..27. The plain H and V tiles each show two wires plus a small hatch (a
+; perpendicular bar) at one row/col, so when many are tiled together you get a
+; periodic crossbar pattern without any clutter. The POLE_H / POLE_V slots
+; (26/27) now render as a clean + intersection -- two horizontal wires AND
+; two vertical wires superimposed -- because powerline_refresh writes a POLE
+; value when (and only when) a cell sits at a 4-way wire crossing. The old
+; "every 4th placement is a pole" cosmetic cadence has been removed in
+; city.asm so these chars now appear only at true intersections.
+;---------------------------------------------------------------------------------------
+
+fcm_powerline_h:
+        ; Horizontal wires (rows 2 + 5) with a vertical hatch at col 1.
+        .byte $13,$13,$13,$13,$13,$13,$13,$13   ; row 0: brown
+        .byte $13,$22,$13,$13,$13,$13,$13,$13   ; row 1: hatch
+        .byte $22,$22,$22,$22,$22,$22,$22,$22   ; row 2: wire 1
+        .byte $13,$22,$13,$13,$13,$13,$13,$13   ; row 3: hatch
+        .byte $13,$22,$13,$13,$13,$13,$13,$13   ; row 4: hatch
+        .byte $22,$22,$22,$22,$22,$22,$22,$22   ; row 5: wire 2
+        .byte $13,$22,$13,$13,$13,$13,$13,$13   ; row 6: hatch
+        .byte $13,$13,$13,$13,$13,$13,$13,$13   ; row 7: brown
+
+fcm_powerline_v:
+        ; Vertical wires (cols 2 + 5) with a horizontal hatch at row 1.
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 0: wires
+        .byte $13,$22,$22,$22,$22,$22,$22,$13   ; row 1: hatch (spans both wires + 1 px)
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 2: wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 3: wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 4: wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 5: wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 6: wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 7: wires
+
+fcm_powerline_cross:
+        ; + intersection: both H and V wires; no hatch (the cross IS the cue).
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 0: V wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 1: V wires
+        .byte $22,$22,$22,$22,$22,$22,$22,$22   ; row 2: H wire 1
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 3: V wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 4: V wires
+        .byte $22,$22,$22,$22,$22,$22,$22,$22   ; row 5: H wire 2
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 6: V wires
+        .byte $13,$13,$22,$13,$13,$22,$13,$13   ; row 7: V wires
+
+tiles_load_powerlines:
+        lda #POWERLINE_CELL_H
+        ldx #<fcm_powerline_h
+        ldy #>fcm_powerline_h
+        jsr create_fcm_char
+
+        lda #POWERLINE_CELL_V
+        ldx #<fcm_powerline_v
+        ldy #>fcm_powerline_v
+        jsr create_fcm_char
+
+        ; POLE_H is the single intersection variant. POLE_V is no longer
+        ; written by powerline_refresh, so its char slot (27) is free for
+        ; other use (popup button TR corner, currently).
+        lda #POWERLINE_CELL_POLE_H
+        ldx #<fcm_powerline_cross
+        ldy #>fcm_powerline_cross
+        jsr create_fcm_char
+        rts
+
+;---------------------------------------------------------------------------------------
+; Popup OK button: a 4x2 cell (32x16 px) raised button with the camel-case "Ok"
+; label baked in. Chars are scattered through the remaining gaps in char RAM:
+;
+;   TL = 23  (city-tileset slot, overwritten after the city DMA)
+;   TR = 27  (was POWERLINE_CELL_POLE_V, freed by the refresh change above)
+;   BL = 59 } gap between the zone block (32..58) and the UI text glyphs (64..)
+;   BR = 60 }
+;   TO = 61  (top half of 'O')
+;   TK = 62  (top half of 'k')
+;   BO = 63  (bottom half of 'O')
+;   BK = 255 (top of the char-id ceiling)
+;
+; Border style mirrors the inspect icon's raised look: white ($0F) on the top
+; row + left column, black ($00) on the bottom row + right column, light grey
+; ($0C) interior. Letters are black on grey, split vertically across the two
+; rows so a 12px-tall 'O' / 'k' fits in the 14px-tall interior.
+;---------------------------------------------------------------------------------------
+
+BTN_OK_TL_CHAR      = 23
+BTN_OK_TR_CHAR      = 27
+BTN_OK_BL_CHAR      = 59
+BTN_OK_BR_CHAR      = 60
+BTN_OK_TO_CHAR      = 61
+BTN_OK_TK_CHAR      = 62
+BTN_OK_BO_CHAR      = 63
+BTN_OK_BK_CHAR      = 255
+
+fcm_btn_ok_tl:
+        ; row 0 white top, col 0 white below, rest grey
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+fcm_btn_ok_tr:
+        ; row 0 white top, col 7 black below, rest grey
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+
+fcm_btn_ok_bl:
+        ; col 0 white above, row 7 black bottom, rest grey
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+fcm_btn_ok_br:
+        ; col 7 black above, row 7 black bottom, rest grey
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+; Top half of 'O' (5x3 of the 5x6 letter, lower 3 rows go into BO). White top
+; border row stays; letter occupies char rows 5..7 in cols 1..5.
+fcm_btn_ok_top_o:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; row 0: white top
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; rows 1..4: grey padding
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$00,$00,$00,$0C,$0C,$0C   ; row 5: .XXX.  (top of O)
+        .byte $0C,$00,$0C,$0C,$0C,$00,$0C,$0C   ; row 6: X...X
+        .byte $0C,$00,$0C,$0C,$0C,$00,$0C,$0C   ; row 7: X...X
+
+; Top half of 'k' (lowercase). Plain stem in cols 1, kick coming together.
+fcm_btn_ok_top_k:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; row 0: white top
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; rows 1..3: grey padding
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$00,$0C,$0C,$0C,$0C,$0C,$0C   ; row 4: stem starts (X.....)
+        .byte $0C,$00,$0C,$0C,$0C,$0C,$0C,$0C   ; row 5: stem
+        .byte $0C,$00,$0C,$0C,$00,$0C,$0C,$0C   ; row 6: X..X..  (kick branches)
+        .byte $0C,$00,$0C,$00,$0C,$0C,$0C,$0C   ; row 7: X.X...
+
+; Bottom half of 'O': rows 0..2 are the rest of the O, then padding, then the
+; black bottom border at row 7.
+fcm_btn_ok_bot_o:
+        .byte $0C,$00,$0C,$0C,$0C,$00,$0C,$0C   ; row 0: X...X
+        .byte $0C,$00,$0C,$0C,$0C,$00,$0C,$0C   ; row 1: X...X
+        .byte $0C,$0C,$00,$00,$00,$0C,$0C,$0C   ; row 2: .XXX.
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; rows 3..6: grey padding
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 7: black bottom
+
+; Bottom half of 'k': kick spread out from the stem, returning to the stem.
+fcm_btn_ok_bot_k:
+        .byte $0C,$00,$00,$0C,$0C,$0C,$0C,$0C   ; row 0: XX....  (return to stem)
+        .byte $0C,$00,$0C,$00,$0C,$0C,$0C,$0C   ; row 1: X.X...
+        .byte $0C,$00,$0C,$0C,$00,$0C,$0C,$0C   ; row 2: X..X..  (lower kick)
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; rows 3..6: grey padding
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 7: black bottom
+
+tiles_load_button_ok:
+        lda #BTN_OK_TL_CHAR
+        ldx #<fcm_btn_ok_tl
+        ldy #>fcm_btn_ok_tl
+        jsr create_fcm_char
+
+        lda #BTN_OK_TR_CHAR
+        ldx #<fcm_btn_ok_tr
+        ldy #>fcm_btn_ok_tr
+        jsr create_fcm_char
+
+        lda #BTN_OK_BL_CHAR
+        ldx #<fcm_btn_ok_bl
+        ldy #>fcm_btn_ok_bl
+        jsr create_fcm_char
+
+        lda #BTN_OK_BR_CHAR
+        ldx #<fcm_btn_ok_br
+        ldy #>fcm_btn_ok_br
+        jsr create_fcm_char
+
+        lda #BTN_OK_TO_CHAR
+        ldx #<fcm_btn_ok_top_o
+        ldy #>fcm_btn_ok_top_o
+        jsr create_fcm_char
+
+        lda #BTN_OK_TK_CHAR
+        ldx #<fcm_btn_ok_top_k
+        ldy #>fcm_btn_ok_top_k
+        jsr create_fcm_char
+
+        lda #BTN_OK_BO_CHAR
+        ldx #<fcm_btn_ok_bot_o
+        ldy #>fcm_btn_ok_bot_o
+        jsr create_fcm_char
+
+        lda #BTN_OK_BK_CHAR
+        ldx #<fcm_btn_ok_bot_k
+        ldy #>fcm_btn_ok_bot_k
+        jsr create_fcm_char
+        rts

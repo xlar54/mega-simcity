@@ -16,6 +16,14 @@ render_init:
         rts
 
 render_frame:
+        ; While a popup overlay is open, freeze the map: the popup chars sit on
+        ; top of the viewport region and a full render_viewport would scrub
+        ; them off. Chrome (row 0 menu / FUNDS / DATE / top buttons) is still
+        ; allowed to redraw because none of those overlap the popup rect.
+        ; overlay_close marks the view dirty so it catches up here on the next
+        ; frame after the player clicks OK.
+        lda overlay_active
+        bne _rf_ui
         lda render_view_dirty
         beq _rf_ui
         jsr render_viewport
@@ -283,11 +291,21 @@ _ctc_check_zone:
         cmp #ZONE_CELL_FIRST
         bcc _ctc_struct_scan
         cmp #ZONE_CELL_LAST+1
-        bcs _ctc_struct_scan        ; above the zone range -> 153..255 are unallocated today
+        bcs _ctc_check_power_bridge
         sec                         ; zone: char = (value - ZONE_CELL_FIRST) + ZONE_GEN_BASE
         sbc #ZONE_CELL_FIRST
         clc
         adc #ZONE_GEN_BASE
+        rts
+_ctc_check_power_bridge:
+        cmp #POWER_BRIDGE_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #POWER_BRIDGE_CELL_LAST+1
+        bcs _ctc_struct_scan        ; above 154 -> 155..255 are unallocated today
+        sec                         ; power bridge: (value - FIRST) + CHAR_BASE
+        sbc #POWER_BRIDGE_CELL_FIRST
+        clc
+        adc #POWER_BRIDGE_CHAR_BASE
         rts
 _ctc_struct_scan:
         ; Structure table: scan rows for a value in [base, base + count). For each

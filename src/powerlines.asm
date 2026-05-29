@@ -3,12 +3,12 @@
 ;
 ; Power lines are 1x1 cells whose tile is chosen from their power-line neighbours,
 ; exactly like roads (see roads.asm): horizontal or vertical wires that follow the
-; run direction. There are no curves. Two cases instead draw a "pole" (a crossarm
-; tile):
-;   - every POWERLINE_POLE_EVERY-th line the player places (a running counter,
-;     powerline_count, in the paint path), and
-;   - any genuine intersection (wires cross both axes), which always becomes a pole.
-; A pole is sticky: once a cell is a pole it stays one when later re-oriented.
+; run direction. There are no curves. A cell that sits at a genuine intersection
+; (wires cross on both axes) is promoted to a "pole" cell, which renders as a +
+; crossing of both wire pairs. Poles are sticky -- once a cell is a pole it stays
+; one when later re-oriented -- and only demote back to a plain line when the
+; intersection is dismantled. (An older cosmetic "every Nth placement is a pole"
+; cadence has been removed; intersections are the only source now.)
 ;
 ; As with roads, a perpendicular neighbour that is merely a parallel line running
 ; alongside (revealed by the diagonals) is ignored, so two adjacent parallel power
@@ -30,6 +30,24 @@ is_powerline_value:
         sec
         rts
 _iplv_no:
+        clc
+        rts
+
+; Carry SET if A is a power line OR a power-line bridge over water. Used by the
+; power-tool bridge-placement adjacency check so a new bridge cell can anchor
+; to either a land-side wire/pole or to another bridge of its own type.
+; Preserves A.
+is_power_line_or_bridge:
+        jsr is_powerline_value
+        bcs _ipob_yes
+        cmp #POWER_BRIDGE_CELL_FIRST
+        bcc _ipob_no
+        cmp #POWER_BRIDGE_CELL_LAST+1
+        bcs _ipob_no
+_ipob_yes:
+        sec
+        rts
+_ipob_no:
         clc
         rts
 
@@ -275,6 +293,9 @@ _plr_dec_ew:
 _plr_dec_go:
         ; vertical orientation if any N/S connection; an intersection (also E/W)
         ; forces a pole. Otherwise horizontal (includes the isolated case).
+        ; At a true 4-way crossing we always pick POLE_H -- the cross bitmap is
+        ; rotation-symmetric so POLE_V is redundant. Keeping the one variant
+        ; frees POLE_V's char slot (27) for popup-button art.
         lda powerline_mask
         and #(ROAD_BIT_N|ROAD_BIT_S)
         beq _plr_horizontal
@@ -284,10 +305,12 @@ _plr_dec_go:
         lda #1
         sta powerline_pole          ; intersection -> pole
         sta powerline_isx           ; ...and protected from demotion
+        lda #POWERLINE_CELL_POLE_H  ; explicit: intersections always use POLE_H
+        bra _plr_store
 _plr_vert:
         lda powerline_pole
         beq _plr_v_line
-        lda #POWERLINE_CELL_POLE_V
+        lda #POWERLINE_CELL_POLE_H  ; ex-intersection that's now vertical-only
         bra _plr_store
 _plr_v_line:
         lda #POWERLINE_CELL_V
@@ -578,8 +601,6 @@ powerline_isx:                  ; nonzero if this cell is an intersection pole
 powerline_nidx:                 ; powerline_refresh_neighbors loop index
         .byte 0
 powerline_tmp:
-        .byte 0
-powerline_count:                ; running count of placed lines (every Nth -> pole)
         .byte 0
 pl_chk_x:                       ; scratch cell for the pole-adjacency checks
         .byte 0

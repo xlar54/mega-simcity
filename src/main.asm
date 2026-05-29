@@ -116,6 +116,19 @@ _wf_wait_top:
 ;=======================================================================================
 
 mouse_dispatch:
+        ; Modal overlay: any confirmed left-click goes straight to the popup's
+        ; OK hit-test. Edge-scroll, cursor updates, tool selection, and paint
+        ; are all suppressed so the popup is genuinely blocking. The toolbar
+        ; gate at mouse_handle_ui_click below also routes to the overlay if it
+        ; somehow gets reached, but the primary path is here.
+        lda overlay_active
+        beq _md_no_overlay
+        lda mouse_left_click
+        beq _md_overlay_idle
+        jmp overlay_handle_click
+_md_overlay_idle:
+        rts
+_md_no_overlay:
         jsr mouse_scroll_view_from_edge
 
         ; The left UI_LEFT_COLS columns are the toolbar, drawn in front of the
@@ -170,6 +183,13 @@ _md_done:
 mouse_handle_ui_click:
         lda mouse_left_click
         beq _mhu_done
+        ; Modal overlay: when one is open, every click is forwarded to the
+        ; overlay's hit-test (OK button vs swallow). Nothing else runs until
+        ; the overlay closes.
+        lda overlay_active
+        beq _mhu_no_overlay
+        jmp overlay_handle_click
+_mhu_no_overlay:
         lda mouse_x+1
         bmi _mhu_toolbar            ; offscreen-left clamp = column 0 = toolbar
         bne _mhu_done
@@ -211,6 +231,8 @@ _mhu_done:
         .include "toolbar.asm"
         .include "input.asm"
         .include "audio.asm"
+        .include "overlays/popup.asm"
+        .include "overlays/tile_names.asm"
 
 ; The world map (240x200 cells) lives in Attic RAM at ATTIC_MAP_PHYS, filled by
 ; city_fill_ground at boot -- it is not allocated in chip RAM. See city.asm.

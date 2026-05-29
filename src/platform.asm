@@ -255,8 +255,13 @@ ROAD_CELL_T_W           = 18    ; T-junction, connects N+S+W (closed east)
 ; both perpendicular sides of the road -- see roads.asm road_power_ns/road_power_ew.
 ROAD_CELL_H_POWER       = 19    ; horizontal road, vertical power line crossing
 ROAD_CELL_V_POWER       = 20    ; vertical road, horizontal power line crossing
+; Bridges: straight road over water. road_refresh leaves these alone (no curves,
+; T-junctions, or 4-ways over water) and adjacent water cells treat them as
+; water for shoreline-mask purposes so the shore flows under the span.
+ROAD_CELL_BRIDGE_H      = 21    ; horizontal road on water
+ROAD_CELL_BRIDGE_V      = 22    ; vertical road on water
 ROAD_CELL_FIRST         = ROAD_CELL_H
-ROAD_CELL_LAST          = ROAD_CELL_V_POWER
+ROAD_CELL_LAST          = ROAD_CELL_BRIDGE_V
 ; Neighbour direction bits used by road_refresh to choose the orientation. The
 ; diagonals are used to spot a parallel road running alongside (so two adjacent
 ; parallel roads stay straight rather than forming a junction).
@@ -347,12 +352,23 @@ ZONE_CELL_FIRST         = WATER_SHORE_CELL_LAST + 1                 ; 126
 ZONE_CELL_COUNT         = ZONE_CELL_CHAR_COUNT                      ; 27
 ZONE_CELL_LAST          = ZONE_CELL_FIRST + ZONE_CELL_COUNT - 1     ; 152
 
+; Power-line bridge cells: straight power line over water. Road bridges live in
+; the contiguous ROAD_CELL range (chars 21/22 in the city tileset), but power
+; bridges can't follow that pattern because chars 28-31 are cursor chars; so
+; they use a translated range like trees/shore/zones do.
+POWER_BRIDGE_CELL_FIRST = ZONE_CELL_LAST + 1                        ; 153
+POWER_BRIDGE_CELL_COUNT = 2
+POWER_BRIDGE_CELL_LAST  = POWER_BRIDGE_CELL_FIRST + POWER_BRIDGE_CELL_COUNT - 1  ; 154
+POWER_BRIDGE_CELL_H     = POWER_BRIDGE_CELL_FIRST                   ; 153
+POWER_BRIDGE_CELL_V     = POWER_BRIDGE_CELL_FIRST + 1               ; 154
+
 ; Encoding guards. cell_to_char checks each range in order, so the contiguous
 ; building/terrain ranges must stay below ZONE_CELL_FIRST (or each other), and
 ; the whole encoded space must stay inside a single byte.
         .cerror NUCLEARPP_CELL_LAST >= ZONE_CELL_FIRST, "structure cell range overlaps zones"
         .cerror TREE_CELL_LAST >= ZONE_CELL_FIRST,      "tree cell range overlaps zones"
         .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_FIRST, "water-shore cell range overlaps zones"
+        .cerror POWER_BRIDGE_CELL_LAST >= 255,          "power-bridge cell range LAST is 255; cmp #LAST+1 idiom truncates"
         ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.
