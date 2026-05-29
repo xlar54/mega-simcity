@@ -1,9 +1,9 @@
 ;=======================================================================================
 ; Save overlay (PRG, compiles to $A000).
 ;
-; Loaded from disk at boot into Attic ($85.0000) by boot_load_save_overlay; on
+; Loaded from disk at boot into Attic ($85.0000) by boot_load_ovr_save; on
 ; SAVE click the main game DMAs this overlay from Attic to $A000 and enters via
-; jsr save_overlay_main. The overlay drives its own modal loop -- mouse + key
+; jsr ovr_save_main. The overlay drives its own modal loop -- mouse + key
 ; polling, popup drawing, filename input -- and on OK confirmation writes the
 ; save file via the streamed-BSOUT path:
 ;
@@ -40,19 +40,20 @@
         ; Pure `name = $addr` assignments -- they take no output space.
         .include "../../target/mega-simcity.lbl"
 
-        * = SAVE_OVERLAY_ADDR
+        * = OVR_WINDOW_ADDR
 
 SOV_FILENAME_MAX = 12          ; max chars the user can type
 MAP_SAVE_SIZE    = CELL_COLS * CELL_ROWS   ; 48000
 
 ;---------------------------------------------------------------------------------------
-; save_overlay_main
+; ovr_save_main
 ; Entry point. Caller has DMA'd this overlay to $A000 and jsr'd here. Drives
 ; its own modal loop until the user confirms (OK click or Enter) or cancels
 ; (ESC). On confirm, streams the save file to disk. rts back to caller.
 ;---------------------------------------------------------------------------------------
-save_overlay_main:
-        ; --- open the popup with title "SAVE.AS" ---
+ovr_save_main:
+        ; --- open the popup (default 16x8 centred) with title "SAVE.AS" ---
+        jsr overlay_set_default_geometry
         lda #<sov_title
         ldx #>sov_title
         ldy #sov_title_len
@@ -102,14 +103,14 @@ _sov_after_key:
         lda mouse_x+1
         bne _sov_loop
         lda mouse_x
-        cmp #POPUP_OK_COL * 8
+        cmp popup_ok_x_pixel
         bcc _sov_loop
-        cmp #(POPUP_OK_COL + POPUP_OK_W) * 8
+        cmp popup_ok_x_pixel_end
         bcs _sov_loop
         lda mouse_y
-        cmp #POPUP_OK_ROW * 8
+        cmp popup_ok_y_pixel
         bcc _sov_loop
-        cmp #(POPUP_OK_ROW + POPUP_OK_H) * 8
+        cmp popup_ok_y_pixel_end
         bcs _sov_loop
         ; fall through to confirm
 
@@ -183,34 +184,34 @@ _sta_done:
         rts
 
 ;---------------------------------------------------------------------------------------
-; sov_draw_label: stamp "FILE:" at popup row 2, starting col POPUP_L+1.
+; sov_draw_label: stamp "FILE:" at popup row 2, starting col POPUP_DEFAULT_L+1.
 ;---------------------------------------------------------------------------------------
 sov_draw_label:
         lda #UI_TEXT_F
-        ldx #(POPUP_L + 1)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 1)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_I
-        ldx #(POPUP_L + 2)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 2)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_L
-        ldx #(POPUP_L + 3)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 3)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_E
-        ldx #(POPUP_L + 4)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 4)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_COLON
-        ldx #(POPUP_L + 5)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 5)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         rts
 
 ;---------------------------------------------------------------------------------------
 ; sov_draw_filename: stamp the SOV_FILENAME_MAX-wide input row at popup row 3,
-; cols POPUP_L+1 .. POPUP_L+SOV_FILENAME_MAX. Typed chars use their glyph;
+; cols POPUP_DEFAULT_L+1 .. POPUP_DEFAULT_L+SOV_FILENAME_MAX. Typed chars use their glyph;
 ; empty positions show UI_TILE_PANEL (the popup's grey).
 ;---------------------------------------------------------------------------------------
 sov_draw_filename:
@@ -229,9 +230,9 @@ _sdf_stamp:
         pha
         lda sov_draw_idx
         clc
-        adc #(POPUP_L + 1)
+        adc #(POPUP_DEFAULT_L + 1)
         tax
-        ldy #(POPUP_T + 3)
+        ldy #(POPUP_DEFAULT_T + 3)
         pla
         jsr set_fcm_char
         inc sov_draw_idx
@@ -531,5 +532,5 @@ sov_chunk_buf:
         .fill 256, 0
 
         ; Sanity: the assembled overlay must end at exactly $B000 so the boot
-        ; loader copies the full SAVE_OVERLAY_SIZE bytes.
-        .cerror * != SAVE_OVERLAY_ADDR + SAVE_OVERLAY_SIZE, "save overlay overflowed its $1000-byte window"
+        ; loader copies the full OVR_WINDOW_SIZE bytes.
+        .cerror * != OVR_WINDOW_ADDR + OVR_WINDOW_SIZE, "save overlay overflowed its $1000-byte window"

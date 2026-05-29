@@ -23,8 +23,12 @@
 
 ui_tiles_start:
 
-UI_TEXT_BG = $0E
-UI_TEXT_FG = $00    ; black foreground; bakes into every glyph at asset-build time
+; Text glyph border colour. Set to $0C (light grey, same as UI_TILE_PANEL
+; and UI_TILE_MENU) so glyphs blend into the panel + chrome bar instead of
+; punching cyan rectangles around each letter on the popup. Foreground is
+; black -- baked in at asset-build time.
+UI_TEXT_BG = $0C
+UI_TEXT_FG = $00
 
 UI_TEXT_ROW .macro p0, p1, p2, p3, p4
         .byte UI_TEXT_BG, \p0, \p1, \p2, \p3, \p4, UI_TEXT_BG, UI_TEXT_BG
@@ -39,7 +43,7 @@ ui_data_panel:
 
 #UI_TILE_RECORD UI_TILE_MENU
 ui_data_menu:
-        .fill 64, $0E
+        .fill 64, $0C       ; light grey -- matches UI_TILE_PANEL and UI_TEXT_BG
 
 #UI_TILE_RECORD UI_TILE_STATUS_LIGHT
 ui_data_status_light:
@@ -550,71 +554,38 @@ PLACEHOLDER_BOX .macro
 
 ui_btn_bulldozer:
 
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$1d,$1d,$1d,$1d,$1d,$1d,$1d
-.byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
-.byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
-.byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$1c
-.byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$0c
-.byte $0c,$0c,$1d,$1c,$1d,$1d,$1c,$1c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $1d,$1d,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$1d,$0c,$0c,$0c,$0c,$0c
-.byte $1c,$0c,$1d,$0c,$0c,$0c,$0b,$0c
-.byte $1c,$1c,$1c,$1c,$0c,$0c,$0b,$0c
-.byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
-.byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
-.byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
-.byte $0c,$0c,$1c,$0b,$04,$0b,$04,$0b
-.byte $0c,$0c,$04,$1c,$1c,$04,$04,$04
-.byte $0c,$0c,$0b,$1c,$1c,$04,$1c,$04
-.byte $0c,$0c,$0c,$04,$0b,$04,$0b,$04
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
-.byte $1c,$1c,$1c,$1c,$1c,$0b,$0b,$0c
-.byte $04,$0b,$04,$1c,$1c,$0b,$0b,$0c
-.byte $04,$04,$04,$0b,$0c,$0c,$0b,$0c
-.byte $1c,$1c,$04,$04,$0c,$0c,$0b,$04
-.byte $0b,$04,$0b,$0c,$0c,$0c,$0c,$0b
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-.byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
-
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-;        .byte $0C,$1D,$1D,$1D,$1D,$1D,$1D,$1D
-;        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
-;        .byte $0C,$0C,$0C,$1C,$0C,$0C,$0C,$1C
-;        .byte $0C,$0C,$1D,$1C,$1D,$1D,$0C,$1C
-;        .byte $0C,$0C,$1D,$1C,$1D,$1C,$1C,$1C
-;        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tr
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-;        .byte $1D,$1D,$0C,$0C,$0C,$0C,$0C,$0C
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-;        .byte $0C,$0C,$0C,$1D,$0C,$0C,$0C,$0C
-;        .byte $0C,$0C,$1D,$1D,$0C,$0C,$0C,$0C
-;        .byte $1C,$1C,$1C,$1D,$1D,$0C,$1E,$1E
-;        .byte $1C,$1C,$1C,$1C,$1C,$1D,$1E,$1E
-;        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C   ; bl
-;        .byte $0C,$1C,$1C,$1C,$1C,$1C,$1C,$1C
-;        .byte $0C,$1D,$1C,$1C,$1C,$1C,$1C,$1C
-;        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
-;        .byte $0C,$1E,$1D,$1C,$1D,$1C,$1D,$1C
-;        .byte $0C,$1E,$1E,$1E,$1E,$1E,$1E,$1E
-;        .byte $0C,$0C,$1D,$0C,$1D,$0C,$1D,$0C
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-;        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E   ; br
-;        .byte $1C,$1C,$1C,$1C,$1C,$1C,$1E,$1E
-;        .byte $1C,$1C,$1C,$1C,$1C,$0C,$1E,$1E
-;        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
-;        .byte $1D,$1C,$1D,$1E,$0C,$0C,$1E,$1E
-;        .byte $1E,$1E,$1E,$1E,$1E,$0C,$1E,$1E
-;        .byte $1D,$0C,$1D,$0C,$0C,$0C,$0C,$0C
-;        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$1d,$1d,$1d,$1d,$1d,$1d,$1d
+        .byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
+        .byte $0c,$0c,$0c,$1c,$0c,$0c,$0c,$1c
+        .byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$1c
+        .byte $0c,$0c,$0c,$1c,$1d,$0c,$0c,$0c
+        .byte $0c,$0c,$1d,$1c,$1d,$1d,$1c,$1c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $1d,$1d,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$1d,$0c,$0c,$0c,$0c,$0c
+        .byte $1c,$0c,$1d,$0c,$0c,$0c,$0b,$0c
+        .byte $1c,$1c,$1c,$1c,$0c,$0c,$0b,$0c
+        .byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
+        .byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
+        .byte $0c,$1c,$1c,$1c,$1c,$1c,$1c,$1c
+        .byte $0c,$0c,$1c,$0b,$04,$0b,$04,$0b
+        .byte $0c,$0c,$04,$1c,$1c,$04,$04,$04
+        .byte $0c,$0c,$0b,$1c,$1c,$04,$1c,$04
+        .byte $0c,$0c,$0c,$04,$0b,$04,$0b,$04
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $1c,$1c,$1c,$1c,$1c,$0c,$0b,$0c
+        .byte $1c,$1c,$1c,$1c,$1c,$0b,$0b,$0c
+        .byte $04,$0b,$04,$1c,$1c,$0b,$0b,$0c
+        .byte $04,$04,$04,$0b,$0c,$0c,$0b,$0c
+        .byte $1c,$1c,$04,$04,$0c,$0c,$0b,$04
+        .byte $0b,$04,$0b,$0c,$0c,$0c,$0c,$0b
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
+        .byte $0c,$0c,$0c,$0c,$0c,$0c,$0c,$0c
 
 ui_btn_road:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; tl

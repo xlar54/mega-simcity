@@ -236,6 +236,8 @@ TILE_INSPECT            = 9     ; pointer/inspect mode (no placement, queries th
 TILE_LOAD               = 10    ; menu action: load city (no map paint)
 TILE_SAVE               = 11    ; menu action: save city (no map paint)
 TILE_RAIL               = 12    ; tool id for the rail tool (1x1, see RAIL_CELL_* below)
+TILE_PARK               = 13    ; tool id for the small park (4x4 cells = 2x2 tiles, see PARK_CELL_*)
+TILE_POLICE             = 14    ; tool id for the police department (4x4 cells = 2x2 tiles, see POLICE_CELL_*)
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is a
 ; 3x3 block of zone cells (see ZONE_CELL_* below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -414,6 +416,44 @@ RAIL_CELL_V_ROAD        = RAIL_CELL_FIRST + 16                       ; 171
 RAIL_CELL_COUNT         = 17
 RAIL_CELL_LAST          = RAIL_CELL_FIRST + RAIL_CELL_COUNT - 1     ; 171
 
+; --- Debris (1x1, translated range -- 1 cell) ---
+; Left behind when a structure (coal/nuclear plant today; future fires) gets
+; bulldozed. The cell renders as a single rubble bitmap and behaves like
+; ground for placement rules EXCEPT every paint tool rejects it: the player
+; has to bulldoze the debris first (clearing it to TILE_GROUND for
+; COST_BULLDOZE), then build whatever they want on the cleared cell.
+DEBRIS_CELL_FIRST       = RAIL_CELL_LAST + 1                        ; 172
+DEBRIS_CELL_COUNT       = 1
+DEBRIS_CELL_LAST        = DEBRIS_CELL_FIRST + DEBRIS_CELL_COUNT - 1 ; 172
+DEBRIS_CELL             = DEBRIS_CELL_FIRST                          ; the value
+
+; --- Park (4x4 cells, 32x32 px, 2x2 tiles) ---
+; A decorative top-down park: trees in the four corners, a 2x2 cell stone
+; fountain in the middle, grass with flowers around the rest. Routed through
+; the structures.asm table the same way the coal/nuclear plants are, so
+; placement + cell encoding + cell_to_char + bulldoze-to-debris all reuse
+; existing code. Park is neither a power source nor a power consumer
+; (struct_flags = 0 in structures.asm); it just sits there looking nice.
+PARK_COLS               = 4
+PARK_ROWS               = 4
+PARK_CELL_COUNT         = PARK_COLS * PARK_ROWS                      ; 16
+PARK_CELL_FIRST         = DEBRIS_CELL_LAST + 1                       ; 173
+PARK_CELL_LAST          = PARK_CELL_FIRST + PARK_CELL_COUNT - 1     ; 188
+
+; --- Police department (3x3 cells, 24x24 px) ---
+; Same 3x3 footprint as a residential / commercial / industrial zone. Top 2
+; rows are the blue PD building (white border + "PD" letters in the centre
+; cell); bottom row is the landscaped grounds (grass with flowers and a
+; small driveway). Same structures.asm dispatch as park / coal / nuclear;
+; struct_flags = 0 (consumes power but is not a source; is_power_node has
+; a special-case check for the police cell range below ZONE so the power
+; flood reaches it).
+POLICE_COLS             = 3
+POLICE_ROWS             = 3
+POLICE_CELL_COUNT       = POLICE_COLS * POLICE_ROWS                  ; 9
+POLICE_CELL_FIRST       = PARK_CELL_LAST + 1                         ; 189
+POLICE_CELL_LAST        = POLICE_CELL_FIRST + POLICE_CELL_COUNT - 1 ; 197
+
 ; Encoding guards. cell_to_char checks each range in order, so the contiguous
 ; building/terrain ranges must stay below ZONE_CELL_FIRST (or each other), and
 ; the whole encoded space must stay inside a single byte.
@@ -422,6 +462,9 @@ RAIL_CELL_LAST          = RAIL_CELL_FIRST + RAIL_CELL_COUNT - 1     ; 171
         .cerror WATER_SHORE_CELL_LAST >= ZONE_CELL_FIRST, "water-shore cell range overlaps zones"
         .cerror POWER_BRIDGE_CELL_LAST >= 255,          "power-bridge cell range LAST is 255; cmp #LAST+1 idiom truncates"
         .cerror RAIL_CELL_LAST >= 255,                  "rail cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror DEBRIS_CELL_LAST >= 255,                "debris cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror PARK_CELL_LAST >= 255,                  "park cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror POLICE_CELL_LAST >= 255,                "police cell range LAST is 255; cmp #LAST+1 idiom truncates"
         ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.
@@ -462,26 +505,28 @@ ATTIC_POWER_ADDR        = $0000
 ATTIC_POWER_PHYS        = $8300000
 ATTIC_PSTACK_PHYS       = $8400000
 
-; Save / load overlays -- separate PRGs that the player invokes at SAVE / LOAD
-; click. Each is loaded from disk into its own Attic slot at boot (mirroring
-; the tile assets); on demand main game DMAs the active overlay from Attic to
-; $A000 and enters via jsr $A000. Both overlays share the same CPU window
-; ($A000-$AFFF) -- only one is live at a time. Sized to 4KB ($1000) -- room
-; for the popup-input UI and the streaming I/O loop.
-ATTIC_SAVE_OVERLAY_MB    = $85
-ATTIC_SAVE_OVERLAY_BANK  = $00
-ATTIC_SAVE_OVERLAY_ADDR  = $0000
-ATTIC_SAVE_OVERLAY_PHYS  = $8500000
-ATTIC_LOAD_OVERLAY_MB    = $86
-ATTIC_LOAD_OVERLAY_BANK  = $00
-ATTIC_LOAD_OVERLAY_ADDR  = $0000
-ATTIC_LOAD_OVERLAY_PHYS  = $8600000
-SAVE_OVERLAY_ADDR        = $A000
-SAVE_OVERLAY_SIZE        = $1000        ; 4 KB window (shared with load overlay)
-SAVE_OVERLAY_ASSET_SIZE  = SAVE_OVERLAY_SIZE
-LOAD_OVERLAY_ADDR        = SAVE_OVERLAY_ADDR
-LOAD_OVERLAY_SIZE        = SAVE_OVERLAY_SIZE
-LOAD_OVERLAY_ASSET_SIZE  = LOAD_OVERLAY_SIZE
+; Overlays -- separate PRGs that the player invokes from the toolbar (SAVE /
+; LOAD / INSPECT today). Each is loaded from disk into its own Attic slot at
+; boot (mirroring the tile assets); on demand the main game DMAs the active
+; overlay from Attic to $A000 and tail-jumps in. All overlays share the same
+; CPU window ($A000-$AFFF) -- only one is live at a time. The 4KB ($1000)
+; window has comfortably fit every overlay so far (popup UI, keyboard input
+; loop, streamed disk I/O).
+OVR_WINDOW_ADDR          = $A000
+OVR_WINDOW_SIZE          = $1000        ; 4 KB CPU window shared by every overlay
+OVR_ASSET_SIZE           = OVR_WINDOW_SIZE
+ATTIC_OVR_SAVE_MB        = $85
+ATTIC_OVR_SAVE_BANK      = $00
+ATTIC_OVR_SAVE_ADDR      = $0000
+ATTIC_OVR_SAVE_PHYS      = $8500000
+ATTIC_OVR_LOAD_MB        = $86
+ATTIC_OVR_LOAD_BANK      = $00
+ATTIC_OVR_LOAD_ADDR      = $0000
+ATTIC_OVR_LOAD_PHYS      = $8600000
+ATTIC_OVR_INSPECTOR_MB   = $87
+ATTIC_OVR_INSPECTOR_BANK = $00
+ATTIC_OVR_INSPECTOR_ADDR = $0000
+ATTIC_OVR_INSPECTOR_PHYS = $8700000
 
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)

@@ -1,9 +1,9 @@
 ;=======================================================================================
 ; Load overlay (PRG, compiles to $A000 -- shared window with save_overlay).
 ;
-; Loaded from disk at boot into Attic ($86.0000) by boot_load_load_overlay; on
+; Loaded from disk at boot into Attic ($86.0000) by boot_load_ovr_load; on
 ; LOAD click the main game DMAs this overlay from Attic to $A000 and enters via
-; jsr load_overlay_main. The overlay drives its own modal loop (mouse + key
+; jsr ovr_load_main. The overlay drives its own modal loop (mouse + key
 ; polling, popup drawing, filename input) and on OK confirmation reads the
 ; save file via streamed CHRIN:
 ;
@@ -31,7 +31,7 @@
 
         .include "../../target/mega-simcity.lbl"
 
-        * = LOAD_OVERLAY_ADDR
+        * = OVR_WINDOW_ADDR
 
 LOV_FILENAME_MAX = 12
 MAP_LOAD_SIZE    = CELL_COLS * CELL_ROWS
@@ -39,7 +39,8 @@ MAP_LOAD_SIZE    = CELL_COLS * CELL_ROWS
 ;---------------------------------------------------------------------------------------
 ; Entry. Caller has DMA'd this overlay to $A000 and jsr'd here.
 ;---------------------------------------------------------------------------------------
-load_overlay_main:
+ovr_load_main:
+        jsr overlay_set_default_geometry
         lda #<lov_title
         ldx #>lov_title
         ldy #lov_title_len
@@ -83,14 +84,14 @@ _lov_after_key:
         lda mouse_x+1
         bne _lov_loop
         lda mouse_x
-        cmp #POPUP_OK_COL * 8
+        cmp popup_ok_x_pixel
         bcc _lov_loop
-        cmp #(POPUP_OK_COL + POPUP_OK_W) * 8
+        cmp popup_ok_x_pixel_end
         bcs _lov_loop
         lda mouse_y
-        cmp #POPUP_OK_ROW * 8
+        cmp popup_ok_y_pixel
         bcc _lov_loop
-        cmp #(POPUP_OK_ROW + POPUP_OK_H) * 8
+        cmp popup_ok_y_pixel_end
         bcs _lov_loop
 
 _lov_do_load:
@@ -160,24 +161,24 @@ _lta_done:
 ;---------------------------------------------------------------------------------------
 lov_draw_label:
         lda #UI_TEXT_F
-        ldx #(POPUP_L + 1)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 1)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_I
-        ldx #(POPUP_L + 2)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 2)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_L
-        ldx #(POPUP_L + 3)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 3)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_E
-        ldx #(POPUP_L + 4)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 4)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         lda #UI_TEXT_COLON
-        ldx #(POPUP_L + 5)
-        ldy #(POPUP_T + 2)
+        ldx #(POPUP_DEFAULT_L + 5)
+        ldy #(POPUP_DEFAULT_T + 2)
         jsr set_fcm_char
         rts
 
@@ -201,9 +202,9 @@ _ldf_stamp:
         pha
         lda lov_draw_idx
         clc
-        adc #(POPUP_L + 1)
+        adc #(POPUP_DEFAULT_L + 1)
         tax
-        ldy #(POPUP_T + 3)
+        ldy #(POPUP_DEFAULT_T + 3)
         pla
         jsr set_fcm_char
         inc lov_draw_idx
@@ -523,4 +524,4 @@ lov_full_name_len:      .byte 0
 lov_chunk_buf:
         .fill 256, 0
 
-        .cerror * != LOAD_OVERLAY_ADDR + LOAD_OVERLAY_SIZE, "load overlay overflowed its $1000-byte window"
+        .cerror * != OVR_WINDOW_ADDR + OVR_WINDOW_SIZE, "load overlay overflowed its $1000-byte window"

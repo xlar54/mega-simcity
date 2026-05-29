@@ -63,21 +63,29 @@ ui_tiles_name:
         .text "uitiles"
 ui_tiles_name_end:
 
-boot_load_save_overlay:
-        #LOAD_ASSET save_overlay_name, save_overlay_name_end - save_overlay_name, SAVE_OVERLAY_ASSET_SIZE, ATTIC_SAVE_OVERLAY_MB, ATTIC_SAVE_OVERLAY_ADDR, ATTIC_SAVE_OVERLAY_BANK
+boot_load_ovr_save:
+        #LOAD_ASSET ovr_save_name, ovr_save_name_end - ovr_save_name, OVR_ASSET_SIZE, ATTIC_OVR_SAVE_MB, ATTIC_OVR_SAVE_ADDR, ATTIC_OVR_SAVE_BANK
         rts
 
-save_overlay_name:
-        .text "saveover"
-save_overlay_name_end:
+ovr_save_name:
+        .text "ovr-save"
+ovr_save_name_end:
 
-boot_load_load_overlay:
-        #LOAD_ASSET load_overlay_name, load_overlay_name_end - load_overlay_name, LOAD_OVERLAY_ASSET_SIZE, ATTIC_LOAD_OVERLAY_MB, ATTIC_LOAD_OVERLAY_ADDR, ATTIC_LOAD_OVERLAY_BANK
+boot_load_ovr_load:
+        #LOAD_ASSET ovr_load_name, ovr_load_name_end - ovr_load_name, OVR_ASSET_SIZE, ATTIC_OVR_LOAD_MB, ATTIC_OVR_LOAD_ADDR, ATTIC_OVR_LOAD_BANK
         rts
 
-load_overlay_name:
-        .text "loadover"
-load_overlay_name_end:
+ovr_load_name:
+        .text "ovr-load"
+ovr_load_name_end:
+
+boot_load_ovr_inspect:
+        #LOAD_ASSET ovr_inspect_name, ovr_inspect_name_end - ovr_inspect_name, OVR_ASSET_SIZE, ATTIC_OVR_INSPECTOR_MB, ATTIC_OVR_INSPECTOR_ADDR, ATTIC_OVR_INSPECTOR_BANK
+        rts
+
+ovr_inspect_name:
+        .text "ovr-inspect"
+ovr_inspect_name_end:
 
 ;---------------------------------------------------------------------------------------
 ; Palette (shared by both tilesets)
@@ -156,6 +164,9 @@ tiles_load:
         jsr tiles_load_powerlines
         jsr tiles_load_button_ok
         jsr tiles_load_rails
+        jsr tiles_load_debris
+        jsr tiles_load_park
+        jsr tiles_load_police
         rts
 
 tiles_dma_city_from_attic:
@@ -1510,4 +1521,274 @@ tiles_load_rails:
         #STAMP_CHAR RAIL_CHAR_BASE+14, fcm_rail_bridge_v
         #STAMP_CHAR RAIL_CHAR_BASE+15, fcm_rail_h_road
         #STAMP_CHAR RAIL_CHAR_BASE+16, fcm_rail_v_road
+        rts
+
+;---------------------------------------------------------------------------------------
+; Debris -- one bitmap of scattered rubble, drawn over the ground brown ($13)
+; base with dark-brown chunks ($24) and dark-grey shadow flecks ($0B). Left
+; behind when a power plant (or, future, a fire) gets bulldozed; player has
+; to clear it with the bulldozer for COST_BULLDOZE before building on the cell.
+;---------------------------------------------------------------------------------------
+fcm_debris:
+        .byte $13,$13,$24,$24,$13,$13,$24,$13
+        .byte $13,$24,$24,$13,$0B,$24,$24,$13
+        .byte $24,$24,$0B,$24,$24,$24,$13,$24
+        .byte $13,$0B,$24,$24,$13,$24,$24,$0B
+        .byte $13,$13,$24,$0B,$24,$13,$0B,$24
+        .byte $24,$24,$13,$13,$24,$24,$24,$13
+        .byte $13,$13,$24,$24,$0B,$24,$13,$13
+        .byte $24,$0B,$24,$13,$13,$24,$24,$13
+
+tiles_load_debris:
+        #STAMP_CHAR DEBRIS_CHAR_BASE, fcm_debris
+        rts
+
+;---------------------------------------------------------------------------------------
+; Park -- a 4x4 cell (32x32 px = 2x2 tile) structure with trees in the four
+; corners, a 2x2 stone fountain in the centre (water $18 in the middle, light-
+; grey $0C stone surround, dark-grey $0B rim), and grass with white/yellow
+; flowers around the rest. 7 unique bitmaps reused across 16 char slots so the
+; corner trees share art, the edge grass alternates between two flower
+; arrangements for visual variety, and the centre uses 4 distinct fountain
+; quadrants that mesh into a circular pool when tiled.
+;---------------------------------------------------------------------------------------
+
+; Tree centered in 8x8 with a small brown trunk -- shared by all four corners.
+fcm_park_tree:
+        .byte $02,$02,$02,$03,$03,$02,$02,$02
+        .byte $02,$02,$03,$07,$07,$03,$02,$02
+        .byte $02,$03,$07,$07,$07,$07,$03,$02
+        .byte $02,$03,$07,$07,$07,$07,$03,$02
+        .byte $02,$03,$07,$07,$07,$07,$03,$02
+        .byte $02,$02,$03,$07,$07,$03,$02,$02
+        .byte $02,$02,$02,$04,$04,$02,$02,$02
+        .byte $02,$02,$02,$04,$04,$02,$02,$02
+
+; Grass with yellow ($06) dandelion-style flowers (variant A).
+fcm_park_grass_a:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$06,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$06,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+
+; Grass with white ($0F) flowers (variant B) -- different positions.
+fcm_park_grass_b:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$0F,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$0F,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$0F,$02,$02
+        .byte $02,$0F,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$0F,$02,$02,$02
+
+; Fountain TL quadrant: stone in the NW, water spreading out toward SE so the
+; four quadrants mesh into a circular pool with stone rim.
+fcm_park_fnt_tl:
+        .byte $02,$02,$0B,$0B,$0C,$0C,$0C,$0C
+        .byte $02,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0C,$0C,$18,$18,$18
+        .byte $0C,$0C,$0C,$0C,$18,$18,$18,$18
+        .byte $0C,$0C,$0C,$18,$18,$18,$18,$18
+        .byte $0C,$0C,$18,$18,$18,$18,$18,$18
+        .byte $0C,$0C,$18,$18,$18,$18,$18,$18
+
+; Fountain TR quadrant (mirror horizontally of TL).
+fcm_park_fnt_tr:
+        .byte $0C,$0C,$0C,$0C,$0B,$0B,$02,$02
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0B,$02
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $18,$18,$18,$0C,$0C,$0C,$0C,$0B
+        .byte $18,$18,$18,$18,$0C,$0C,$0C,$0C
+        .byte $18,$18,$18,$18,$18,$0C,$0C,$0C
+        .byte $18,$18,$18,$18,$18,$18,$0C,$0C
+        .byte $18,$18,$18,$18,$18,$18,$0C,$0C
+
+; Fountain BL quadrant (mirror vertically of TL).
+fcm_park_fnt_bl:
+        .byte $0C,$0C,$18,$18,$18,$18,$18,$18
+        .byte $0C,$0C,$18,$18,$18,$18,$18,$18
+        .byte $0C,$0C,$0C,$18,$18,$18,$18,$18
+        .byte $0C,$0C,$0C,$0C,$18,$18,$18,$18
+        .byte $0B,$0C,$0C,$0C,$0C,$18,$18,$18
+        .byte $0B,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $02,$0B,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $02,$02,$0B,$0B,$0C,$0C,$0C,$0C
+
+; Fountain BR quadrant (mirror both axes).
+fcm_park_fnt_br:
+        .byte $18,$18,$18,$18,$18,$18,$0C,$0C
+        .byte $18,$18,$18,$18,$18,$18,$0C,$0C
+        .byte $18,$18,$18,$18,$18,$0C,$0C,$0C
+        .byte $18,$18,$18,$18,$0C,$0C,$0C,$0C
+        .byte $18,$18,$18,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0B,$02
+        .byte $0C,$0C,$0C,$0C,$0B,$0B,$02,$02
+
+; Load the 16 park chars. Each cell of the 4x4 footprint gets its own char id
+; (PARK_CHAR_BASE+0 through +15) but the actual bitmap reuses one of 7 shared
+; templates -- corners use the same tree, edges alternate between grass_a/b,
+; centre uses the four fountain quadrants in NW/NE/SW/SE positions.
+;
+; 4x4 char layout (row-major, same order structure_stamp writes cells):
+;     +0  +1  +2  +3       tree  gA   gB   tree
+;     +4  +5  +6  +7       gB    fTL  fTR  gA
+;     +8  +9 +10 +11       gA    fBL  fBR  gB
+;    +12 +13 +14 +15       tree  gB   gA   tree
+tiles_load_park:
+        #STAMP_CHAR PARK_CHAR_BASE+0,  fcm_park_tree
+        #STAMP_CHAR PARK_CHAR_BASE+1,  fcm_park_grass_a
+        #STAMP_CHAR PARK_CHAR_BASE+2,  fcm_park_grass_b
+        #STAMP_CHAR PARK_CHAR_BASE+3,  fcm_park_tree
+        #STAMP_CHAR PARK_CHAR_BASE+4,  fcm_park_grass_b
+        #STAMP_CHAR PARK_CHAR_BASE+5,  fcm_park_fnt_tl
+        #STAMP_CHAR PARK_CHAR_BASE+6,  fcm_park_fnt_tr
+        #STAMP_CHAR PARK_CHAR_BASE+7,  fcm_park_grass_a
+        #STAMP_CHAR PARK_CHAR_BASE+8,  fcm_park_grass_a
+        #STAMP_CHAR PARK_CHAR_BASE+9,  fcm_park_fnt_bl
+        #STAMP_CHAR PARK_CHAR_BASE+10, fcm_park_fnt_br
+        #STAMP_CHAR PARK_CHAR_BASE+11, fcm_park_grass_b
+        #STAMP_CHAR PARK_CHAR_BASE+12, fcm_park_tree
+        #STAMP_CHAR PARK_CHAR_BASE+13, fcm_park_grass_b
+        #STAMP_CHAR PARK_CHAR_BASE+14, fcm_park_grass_a
+        #STAMP_CHAR PARK_CHAR_BASE+15, fcm_park_tree
+        rts
+
+;---------------------------------------------------------------------------------------
+; Police department -- a 3x3 cell (24x24 px) building, same footprint as a
+; residential/commercial/industrial zone. The blue ($08 commercial-blue) PD
+; building sits in the top 2 rows (rows 0-1 of the 3x3 grid) framed by a white
+; ($0F) edge moulding, with the "PD" letters in white in the centre cell. The
+; bottom row is the building's landscaped grounds: grass ($02) with yellow
+; ($06) flower dots and a dark-grey ($0B) driveway in the middle cell.
+;
+; 9 unique bitmaps -- one per cell of the 3x3 grid.
+;---------------------------------------------------------------------------------------
+
+; Row 0: blue building roof with white top edge.
+fcm_pol_tl:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white top edge
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08   ; white left edge + blue body
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+
+fcm_pol_tc:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white top edge
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+
+fcm_pol_tr:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+
+; Row 1: middle of building. ML has the white left edge; centre has PD letters;
+; MR has the white right edge. Bottom row of each is the white south edge of
+; the building (the building ends here -- row 2 is grass below).
+fcm_pol_ml:
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white south edge
+
+; Centre cell with "PD" in white on blue.
+;   col:  0   1   2   3   4   5   6   7
+; row 0:  .   .   .   .   .   .   .   .
+; row 1:  .   P   P   P   .   D   D   .       PPP DD
+; row 2:  .   P   .   P   .   D   .   D       P P D D
+; row 3:  .   P   P   P   .   D   .   D       PPP D D
+; row 4:  .   P   .   .   .   D   .   D       P   D D
+; row 5:  .   P   .   .   .   D   D   .       P   DD
+; row 6:  .   .   .   .   .   .   .   .
+; row 7:  white south edge
+fcm_pol_c:
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $08,$0F,$0F,$0F,$08,$0F,$0F,$08
+        .byte $08,$0F,$08,$0F,$08,$0F,$08,$0F
+        .byte $08,$0F,$0F,$0F,$08,$0F,$08,$0F
+        .byte $08,$0F,$08,$08,$08,$0F,$08,$0F
+        .byte $08,$0F,$08,$08,$08,$0F,$0F,$08
+        .byte $08,$08,$08,$08,$08,$08,$08,$08
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+fcm_pol_mr:
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $08,$08,$08,$08,$08,$08,$08,$0F
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+; Row 2: grass ($02) with yellow ($06) flower dots; centre cell has a dark
+; ($0B) driveway approaching the building from the south.
+fcm_pol_bl:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$06,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$06,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+
+fcm_pol_bc:
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$06,$0B,$0B,$0B,$0B,$06,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+
+fcm_pol_br:
+        .byte $02,$02,$02,$06,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$06,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$06,$02
+        .byte $02,$02,$02,$06,$02,$02,$02,$02
+
+; 3x3 char layout (row-major, same order structure_stamp writes cells):
+;     +0  +1  +2       tl   tc   tr            (building roof)
+;     +3  +4  +5       ml   c    mr            (building middle + "PD")
+;     +6  +7  +8       bl   bc   br            (grounds: grass + driveway)
+tiles_load_police:
+        #STAMP_CHAR POLICE_CHAR_BASE+0, fcm_pol_tl
+        #STAMP_CHAR POLICE_CHAR_BASE+1, fcm_pol_tc
+        #STAMP_CHAR POLICE_CHAR_BASE+2, fcm_pol_tr
+        #STAMP_CHAR POLICE_CHAR_BASE+3, fcm_pol_ml
+        #STAMP_CHAR POLICE_CHAR_BASE+4, fcm_pol_c
+        #STAMP_CHAR POLICE_CHAR_BASE+5, fcm_pol_mr
+        #STAMP_CHAR POLICE_CHAR_BASE+6, fcm_pol_bl
+        #STAMP_CHAR POLICE_CHAR_BASE+7, fcm_pol_bc
+        #STAMP_CHAR POLICE_CHAR_BASE+8, fcm_pol_br
         rts

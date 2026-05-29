@@ -256,12 +256,12 @@ _thct_loop:
         lda selected_tile
         cmp #TILE_SAVE
         bne _thct_chk_load
-        jsr save_overlay_invoke
+        jsr ovr_save_invoke
         bra _thct_no_oneshot
 _thct_chk_load:
         cmp #TILE_LOAD
         bne _thct_no_oneshot
-        jsr load_overlay_invoke
+        jsr ovr_load_invoke
 _thct_no_oneshot:
         jmp render_top_buttons      ; flip idle <-> selected for the new state
 _thct_next:
@@ -306,12 +306,16 @@ _thc_row:
         beq _thc_rail               ; slot 2 -> rail (1x1)
         cmp #3
         beq _thc_power              ; slot 3 -> power lines (1x1)
+        cmp #4
+        beq _thc_park               ; slot 4 -> park (4x4 cells)
         cmp #5
         beq _thc_residential        ; slot 5 -> residential zone (3x3)
         cmp #6
         beq _thc_commercial         ; slot 6 -> commercial zone (3x3)
         cmp #7
         beq _thc_industrial         ; slot 7 -> industrial zone (3x3)
+        cmp #8
+        beq _thc_police             ; slot 8 -> police department (4x4 cells)
         cmp #12
         beq _thc_coalpp             ; slot 12 -> coal power plant (3x4)
         cmp #13
@@ -330,6 +334,10 @@ _thc_power:
         lda #TILE_POWER
         sta selected_tile
         bra _thc_done
+_thc_park:
+        lda #TILE_PARK
+        sta selected_tile
+        bra _thc_done
 _thc_residential:
         lda #TILE_RESIDENTIAL
         sta selected_tile
@@ -340,6 +348,10 @@ _thc_commercial:
         bra _thc_done
 _thc_industrial:
         lda #TILE_INDUSTRIAL
+        sta selected_tile
+        bra _thc_done
+_thc_police:
+        lda #TILE_POLICE
         sta selected_tile
         bra _thc_done
 _thc_coalpp:

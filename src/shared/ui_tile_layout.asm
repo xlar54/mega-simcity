@@ -136,6 +136,20 @@ BTN_OK_BK_CHAR          = POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT  ; 25
 ; when the static id exceeds 255).
 RAIL_CHAR_BASE          = BTN_OK_BK_CHAR + 1                                ; 256
 
+; Debris char. A single rubble-pattern bitmap left behind when a structure is
+; bulldozed; cell_to_char translates DEBRIS_CELL_FIRST -> DEBRIS_CHAR_BASE.
+DEBRIS_CHAR_BASE        = RAIL_CHAR_BASE + RAIL_CELL_COUNT                  ; 273
+
+; Park chars. 16 bitmaps for the 4x4 park (corner trees, edge grass, centre
+; fountain). cell_to_char goes through the structures.asm dispatch -- park
+; chars get loaded via struct_char_base_lo/hi lookups.
+PARK_CHAR_BASE          = DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT              ; 274
+
+; Police chars. 16 bitmaps for the 4x4 federal building (north cornice, plain
+; roof / west + east, south portico with column-stripes, central 2x2 dome).
+; Same struct-table dispatch as park.
+POLICE_CHAR_BASE        = PARK_CHAR_BASE + PARK_CELL_COUNT                  ; 290
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 LOAD_ICON_COL           = 2
@@ -156,6 +170,9 @@ TOP_BTN_H               = 2
         .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 1024, "tree chars exceed resident char-bank window"
         .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 1024, "water shore chars exceed resident char-bank window"
         .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 1024, "power bridge chars exceed resident char-bank window"
+        .cerror DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT > 1024, "debris chars exceed resident char-bank window"
+        .cerror PARK_CHAR_BASE + PARK_CELL_COUNT > 1024, "park chars exceed resident char-bank window"
+        .cerror POLICE_CHAR_BASE + POLICE_CELL_COUNT > 1024, "police chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
         .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
         ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),

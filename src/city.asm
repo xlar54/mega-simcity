@@ -173,18 +173,10 @@ _cps_inspect:
         clc
         adc mouse_cell_y
         sta city_ptr_y
-        jsr city_cell_ptr
-        ldz #0
-        lda [MAP_PTR],z             ; A = cell value at the clicked position
-        jsr tile_name_for_cell      ; X = ptr lo, Y = ptr hi, A = length
-        ; Re-pack into overlay_open's calling convention: A = lo, X = hi, Y = len.
-        sta inspect_title_len
-        stx inspect_title_lo
-        sty inspect_title_hi
-        lda inspect_title_lo
-        ldx inspect_title_hi
-        ldy inspect_title_len
-        jmp overlay_open
+        jsr city_cell_ptr               ; MAP_PTR -> the inspected cell
+        jmp ovr_inspect_invoke          ; tail-call: DMA + jmp the overlay
+                                        ;   (overlay does the cell read,
+                                        ;   name lookup, popup_open)
 _cps_not_inspect:
         cmp #TILE_ROAD
         beq _cps_road
@@ -292,6 +284,16 @@ _cps_road:
         bcs _cps_road_skip
         cmp #TILE_GROUND
         beq _cps_road_skip
+        ; Debris cells require an edge-triggered click (no held drag) so the
+        ; same bulldoze action that demolished a plant doesn't immediately
+        ; scrub the cursor's resulting debris back to ground on the next
+        ; frame. mouse_left_click is edge-only (mouse_update_click sets it
+        ; just once per confirmed press), so dragging through debris no-ops.
+        cmp #DEBRIS_CELL
+        bne _cps_road_save_cell
+        ldx mouse_left_click            ; X = 1 only on the press-edge frame
+        beq _cps_road_skip              ; held frame -> leave debris alone
+_cps_road_save_cell:
         sta bulldoze_cell               ; save what we're demolishing for the
                                         ; bridge-vs-everything-else decision below
         ; Multi-cell structures (coal/nuclear plants) demolish as a unit. A
@@ -1384,12 +1386,6 @@ cps_2x2_orig_y:
 cps_bridge_value:               ; bridge cell value picked by the anchor scan
         .byte 0
 bulldoze_cell:                  ; saved existing-cell value for bridge detection
-        .byte 0
-inspect_title_lo:               ; tile_name_for_cell -> overlay_open shuffle
-        .byte 0
-inspect_title_hi:
-        .byte 0
-inspect_title_len:
         .byte 0
 road_cross_save:                ; cell overwritten while testing a road/power cross
         .byte 0

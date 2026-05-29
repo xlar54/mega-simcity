@@ -43,6 +43,15 @@ _ipn_cross:
 _ipn_zone:
         jsr is_zone_value           ; any zone cell counts as a power node
         bcs _ipn_yes
+        ; Police cells consume power: any cell in the police range is a node
+        ; so the flood reaches the building and the powered marker gets set
+        ; (sprites.asm bolt_test_update reads that marker to decide whether
+        ; to show the lightning bolt over an unpowered police origin).
+        cmp #POLICE_CELL_FIRST
+        bcc _ipn_check_source
+        cmp #POLICE_CELL_LAST+1
+        bcc _ipn_yes
+_ipn_check_source:
         jmp is_power_source_cell    ; structure table: any power-source row
 _ipn_yes:
         sec

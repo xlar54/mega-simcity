@@ -63,8 +63,9 @@ app_init:
 
         jsr boot_load_tileset
         jsr boot_load_ui_tiles
-        jsr boot_load_save_overlay
-        jsr boot_load_load_overlay
+        jsr boot_load_ovr_save
+        jsr boot_load_ovr_load
+        jsr boot_load_ovr_inspect
 
         lda #MODE_FCM40
         jsr set_screen_mode
@@ -215,44 +216,69 @@ _mhu_done:
 ; rts back here when done. Triggered from toolbar.asm when the SAVE icon is
 ; clicked.
 ;=======================================================================================
-save_overlay_invoke:
+ovr_save_invoke:
         lda #$00
         sta $D707                    ; F018B DMA list at next bytes
-        .byte $80, ATTIC_SAVE_OVERLAY_MB    ; src MB
+        .byte $80, ATTIC_OVR_SAVE_MB    ; src MB
         .byte $81, $00                       ; dst MB = bank 0
         .byte $00                            ; end of MB options
         .byte $00                            ; job: copy
-        .word SAVE_OVERLAY_SIZE              ; bytes
-        .word ATTIC_SAVE_OVERLAY_ADDR        ; src addr
-        .byte ATTIC_SAVE_OVERLAY_BANK        ; src bank
-        .word SAVE_OVERLAY_ADDR              ; dst addr ($A000)
+        .word OVR_WINDOW_SIZE              ; bytes
+        .word ATTIC_OVR_SAVE_ADDR        ; src addr
+        .byte ATTIC_OVR_SAVE_BANK        ; src bank
+        .word OVR_WINDOW_ADDR              ; dst addr ($A000)
         .byte $00                            ; dst bank
         .byte $00                            ; end of list
         .word $0000
 
-        jmp SAVE_OVERLAY_ADDR        ; tail-call the overlay; it rts's back to our caller
+        jmp OVR_WINDOW_ADDR        ; tail-call the overlay; it rts's back to our caller
 
 ;=======================================================================================
-; Load overlay invoke. Same idea as save_overlay_invoke -- the LOAD overlay
+; Load overlay invoke. Same idea as ovr_save_invoke -- the LOAD overlay
 ; shares the $A000 CPU window, so DMA whichever overlay is needed at trigger
 ; time and jsr its entry point. Triggered from toolbar.asm when LOAD is clicked.
 ;=======================================================================================
-load_overlay_invoke:
+ovr_load_invoke:
         lda #$00
         sta $D707
-        .byte $80, ATTIC_LOAD_OVERLAY_MB
+        .byte $80, ATTIC_OVR_LOAD_MB
         .byte $81, $00
         .byte $00
         .byte $00
-        .word LOAD_OVERLAY_SIZE
-        .word ATTIC_LOAD_OVERLAY_ADDR
-        .byte ATTIC_LOAD_OVERLAY_BANK
-        .word LOAD_OVERLAY_ADDR
+        .word OVR_WINDOW_SIZE
+        .word ATTIC_OVR_LOAD_ADDR
+        .byte ATTIC_OVR_LOAD_BANK
+        .word OVR_WINDOW_ADDR
         .byte $00
         .byte $00
         .word $0000
 
-        jmp LOAD_OVERLAY_ADDR
+        jmp OVR_WINDOW_ADDR
+
+;=======================================================================================
+; Inspect overlay invoke. DMA the inspector PRG to $A000 and tail-jump in.
+; Caller (city.asm _cps_inspect) has set city_ptr_x/y + called city_cell_ptr
+; so MAP_PTR (zero page) is already pointing at the inspected cell -- the
+; DMA + jmp preserves zero page. The overlay reads the cell, looks up its
+; label, sets default popup geometry, and opens the popup; main game's
+; mouse_dispatch / overlay_handle_click handle the OK click afterwards.
+;=======================================================================================
+ovr_inspect_invoke:
+        lda #$00
+        sta $D707
+        .byte $80, ATTIC_OVR_INSPECTOR_MB
+        .byte $81, $00
+        .byte $00
+        .byte $00
+        .word OVR_WINDOW_SIZE
+        .word ATTIC_OVR_INSPECTOR_ADDR
+        .byte ATTIC_OVR_INSPECTOR_BANK
+        .word OVR_WINDOW_ADDR
+        .byte $00
+        .byte $00
+        .word $0000
+
+        jmp OVR_WINDOW_ADDR
 
 ;=======================================================================================
 ; Modules.
@@ -281,7 +307,6 @@ load_overlay_invoke:
         .include "input.asm"
         .include "audio.asm"
         .include "overlays/popup.asm"
-        .include "overlays/tile_names.asm"
 
 ; The world map (240x200 cells) lives in Attic RAM at ATTIC_MAP_PHYS, filled by
 ; city_fill_ground at boot -- it is not allocated in chip RAM. See city.asm.

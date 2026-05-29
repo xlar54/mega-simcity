@@ -273,6 +273,7 @@ _rdt_stamp_char:
 ;   ZONE_CELL_FIRST..LAST       -> zone;        char = ZONE_GEN_BASE + (value - ZONE_CELL_FIRST)
 ;   POWER_BRIDGE_CELL_FIRST..LAST -> bridge;    char = POWER_BRIDGE_CHAR_BASE + (value - POWER_BRIDGE_CELL_FIRST)
 ;   RAIL_CELL_FIRST..LAST       -> rail;        char = RAIL_CHAR_BASE + (value - RAIL_CELL_FIRST)
+;   DEBRIS_CELL_FIRST..LAST     -> debris;      char = DEBRIS_CHAR_BASE + (value - DEBRIS_CELL_FIRST)
 ;   COALPP_CELL_FIRST..LAST / NUCLEARPP_CELL_FIRST..LAST -> structure table
 ;   otherwise (water/ground/power base types) -> 2x2 tile, char = type*4 + parity
 ;
@@ -361,13 +362,28 @@ _ctc_check_rail:
         cmp #RAIL_CELL_FIRST
         bcc _ctc_struct_scan
         cmp #RAIL_CELL_LAST+1
-        bcs _ctc_struct_scan        ; above LAST -> unallocated today
+        bcs _ctc_check_debris
         sec                         ; rail: (value - FIRST) + RAIL_CHAR_BASE
         sbc #RAIL_CELL_FIRST
         clc
         adc #<RAIL_CHAR_BASE
         pha
         lda #>RAIL_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_check_debris:
+        cmp #DEBRIS_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #DEBRIS_CELL_LAST+1
+        bcs _ctc_struct_scan        ; above LAST -> unallocated today
+        sec                         ; debris: (value - FIRST) + DEBRIS_CHAR_BASE
+        sbc #DEBRIS_CELL_FIRST
+        clc
+        adc #<DEBRIS_CHAR_BASE
+        pha
+        lda #>DEBRIS_CHAR_BASE
         adc #0
         sta ctc_char_hi
         pla

@@ -261,7 +261,13 @@ _btu_col:
         ldz #0
         lda [MAP_PTR],z
         jsr is_zone_origin_value
-        bcc _btu_next
+        bcs _btu_found
+        ; Police buildings consume power too -- show the bolt over an unpowered
+        ; one. The TL cell of the 3x3 footprint has value POLICE_CELL_FIRST
+        ; (offset 0), so a simple equality check picks the origin without
+        ; iterating the rest of the structure footprint.
+        cmp #POLICE_CELL_FIRST
+        bne _btu_next
 _btu_found:
         ; only round-robin over UNPOWERED zones (power.asm marked the powered ones).
         ; city_cell_ptr above left the cell offset, so reuse it for the power array.

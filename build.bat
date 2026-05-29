@@ -11,8 +11,9 @@ del target\*.lbl 2>nul
 del target\mega-simcity 2>nul
 del target\tileset 2>nul
 del target\uitiles 2>nul
-del target\saveover 2>nul
-del target\loadover 2>nul
+del target\ovr-save 2>nul
+del target\ovr-load 2>nul
+del target\ovr-inspect 2>nul
 
 REM One disk for both platforms: the program detects Xemu vs real hardware at
 REM boot ($D60F bit 5) and applies the sprite-X correction at runtime.
@@ -25,11 +26,14 @@ if errorlevel 1 exit /b 1
 .\64tass.exe --cbm-prg -a src\assets\ui_tiles.asm -l target\uitiles.lbl -L target\uitiles.lst -o target\uitiles
 if errorlevel 1 exit /b 1
 
-REM save/load overlays import the main-game label file, so they must build AFTER main.
-.\64tass.exe --cbm-prg -a src\overlays\save_overlay.asm -L target\save_overlay.lst -o target\saveover
+REM Overlays (ovr-*) import the main-game label file, so they must build AFTER main.
+.\64tass.exe --cbm-prg -a src\overlays\ovr-save.asm -L target\ovr-save.lst -o target\ovr-save
 if errorlevel 1 exit /b 1
 
-.\64tass.exe --cbm-prg -a src\overlays\load_overlay.asm -L target\load_overlay.lst -o target\loadover
+.\64tass.exe --cbm-prg -a src\overlays\ovr-load.asm -L target\ovr-load.lst -o target\ovr-load
+if errorlevel 1 exit /b 1
+
+.\64tass.exe --cbm-prg -a src\overlays\ovr-inspect.asm -L target\ovr-inspect.lst -o target\ovr-inspect
 if errorlevel 1 exit /b 1
 
 cd target
@@ -41,9 +45,11 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write uitiles uitiles
 if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write saveover saveover
+..\c1541.exe -attach mega-simcity.d81 -write ovr-save ovr-save
 if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write loadover loadover
+..\c1541.exe -attach mega-simcity.d81 -write ovr-load ovr-load
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write ovr-inspect ovr-inspect
 if errorlevel 1 exit /b 1
 cd ..
 

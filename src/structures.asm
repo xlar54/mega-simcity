@@ -22,19 +22,19 @@ COAL_OUTPUT       = 40              ; zones powered per coal plant (docs/TILE_RU
 NUCLEARPP_OUTPUT  = 120             ; zones powered per nuclear plant
 
 ; --- The table (parallel byte arrays; one column per row). ---
-struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP
-struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS
-struct_rows:           .byte COALPP_ROWS,                    NUCLEARPP_ROWS
-struct_cell_base:      .byte COALPP_CELL_FIRST,              NUCLEARPP_CELL_FIRST
-struct_cell_count:     .byte COALPP_CELL_COUNT,              NUCLEARPP_CELL_COUNT
-struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BASE
-struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE
-struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP
-struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP
-struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE
-struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT
+struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP,                                                TILE_PARK,                                                    TILE_POLICE
+struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS,                                                PARK_COLS,                                                    POLICE_COLS
+struct_rows:           .byte COALPP_ROWS,                    NUCLEARPP_ROWS,                                                PARK_ROWS,                                                    POLICE_ROWS
+struct_cell_base:      .byte COALPP_CELL_FIRST,              NUCLEARPP_CELL_FIRST,                                          PARK_CELL_FIRST,                                              POLICE_CELL_FIRST
+struct_cell_count:     .byte COALPP_CELL_COUNT,              NUCLEARPP_CELL_COUNT,                                          PARK_CELL_COUNT,                                              POLICE_CELL_COUNT
+struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BASE,                                          <PARK_CHAR_BASE,                                              <POLICE_CHAR_BASE
+struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE,                                          >PARK_CHAR_BASE,                                              >POLICE_CHAR_BASE
+struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP,                                               <COST_PARK,                                                   <COST_POLICE
+struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP,                                               >COST_PARK,                                                   >COST_POLICE
+struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, $00, $00
+struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT,                                              0,                                                            0
 
-struct_count           = 2
+struct_count           = 4
 
 ; Carry SET if cell value A is in any structure's [cell_base, cell_base+count)
 ; range. A is preserved. Used by powerline orientation (zones/plants are
@@ -327,14 +327,16 @@ _srd_col:
 ; power model honest: power.asm/power_sum_capacity grants the plant's full
 ; struct_output to every still-registered origin, so a one-cell remnant would
 ; otherwise keep producing 40/120 zones of power. With the whole footprint
-; cleared to TILE_GROUND, power_seed prunes the origin from plant_origin_* on
-; the next recompute and the output goes to zero.
+; cleared (to DEBRIS, not bare ground), power_seed prunes the origin from
+; plant_origin_* on the next recompute and the output goes to zero. The
+; debris cells are deliberately non-buildable -- the player has to bulldoze
+; each one for COST_BULLDOZE before placing anything new there.
 ;
 ; Input:   A = cell value (caller has confirmed it's a structure cell via
 ;              is_structure_cell), city_ptr_x/y = cell coords of A.
 ; Action:  finds the structure row; recovers its origin from the cell offset;
 ;          charges the full footprint bulldoze cost (COST_BULLDOZE * cols * rows);
-;          stamps TILE_GROUND across the entire footprint and redraws every
+;          stamps DEBRIS_CELL across the entire footprint and redraws every
 ;          covered tile; plays the explosion sfx; marks the power network dirty;
 ;          refreshes the perimeter (roads + power lines re-orient around the
 ;          now-empty rect). Silently bails if the player can't afford the cost.
@@ -426,7 +428,9 @@ _sdc_div_done:
         bcc _sdc_done                   ; can't afford -> silent bail (no change)
         jsr funds_subtract
 
-        ; Stamp TILE_GROUND across the full footprint + redraw each tile.
+        ; Stamp DEBRIS_CELL across the full footprint + redraw each tile.
+        ; Player has to bulldoze each debris cell (COST_BULLDOZE) to clear it
+        ; back to TILE_GROUND before anything new can be placed there.
         ldx sdc_row
         lda #0
         sta cs_dy
@@ -444,7 +448,7 @@ _sdc_col:
         sta city_ptr_y
         jsr city_cell_ptr
         ldz #0
-        lda #TILE_GROUND
+        lda #DEBRIS_CELL
         sta [MAP_PTR],z
         jsr render_redraw_cell_tile     ; clobbers X
         ldx sdc_row
