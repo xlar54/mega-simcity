@@ -249,6 +249,20 @@ _thct_loop:
         lda top_btn_tile,y
         sta selected_tile
         jsr audio_click
+        ; SAVE / LOAD are one-shot actions: invoke their overlays immediately.
+        ; Each overlay drives its own modal loop and rts's back here; then
+        ; render_top_buttons repaints the strip in its final state. Reload A
+        ; from selected_tile -- audio_click clobbers it.
+        lda selected_tile
+        cmp #TILE_SAVE
+        bne _thct_chk_load
+        jsr save_overlay_invoke
+        bra _thct_no_oneshot
+_thct_chk_load:
+        cmp #TILE_LOAD
+        bne _thct_no_oneshot
+        jsr load_overlay_invoke
+_thct_no_oneshot:
         jmp render_top_buttons      ; flip idle <-> selected for the new state
 _thct_next:
         iny

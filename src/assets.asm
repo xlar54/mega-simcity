@@ -63,6 +63,22 @@ ui_tiles_name:
         .text "uitiles"
 ui_tiles_name_end:
 
+boot_load_save_overlay:
+        #LOAD_ASSET save_overlay_name, save_overlay_name_end - save_overlay_name, SAVE_OVERLAY_ASSET_SIZE, ATTIC_SAVE_OVERLAY_MB, ATTIC_SAVE_OVERLAY_ADDR, ATTIC_SAVE_OVERLAY_BANK
+        rts
+
+save_overlay_name:
+        .text "saveover"
+save_overlay_name_end:
+
+boot_load_load_overlay:
+        #LOAD_ASSET load_overlay_name, load_overlay_name_end - load_overlay_name, LOAD_OVERLAY_ASSET_SIZE, ATTIC_LOAD_OVERLAY_MB, ATTIC_LOAD_OVERLAY_ADDR, ATTIC_LOAD_OVERLAY_BANK
+        rts
+
+load_overlay_name:
+        .text "loadover"
+load_overlay_name_end:
+
 ;---------------------------------------------------------------------------------------
 ; Palette (shared by both tilesets)
 ;---------------------------------------------------------------------------------------

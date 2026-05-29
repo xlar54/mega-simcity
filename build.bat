@@ -11,6 +11,8 @@ del target\*.lbl 2>nul
 del target\mega-simcity 2>nul
 del target\tileset 2>nul
 del target\uitiles 2>nul
+del target\saveover 2>nul
+del target\loadover 2>nul
 
 REM One disk for both platforms: the program detects Xemu vs real hardware at
 REM boot ($D60F bit 5) and applies the sprite-X correction at runtime.
@@ -23,6 +25,13 @@ if errorlevel 1 exit /b 1
 .\64tass.exe --cbm-prg -a src\assets\ui_tiles.asm -l target\uitiles.lbl -L target\uitiles.lst -o target\uitiles
 if errorlevel 1 exit /b 1
 
+REM save/load overlays import the main-game label file, so they must build AFTER main.
+.\64tass.exe --cbm-prg -a src\overlays\save_overlay.asm -L target\save_overlay.lst -o target\saveover
+if errorlevel 1 exit /b 1
+
+.\64tass.exe --cbm-prg -a src\overlays\load_overlay.asm -L target\load_overlay.lst -o target\loadover
+if errorlevel 1 exit /b 1
+
 cd target
 ..\c1541.exe -format "simcity,01" d81 mega-simcity.d81
 if errorlevel 1 exit /b 1
@@ -31,6 +40,10 @@ if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write tileset tileset
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write uitiles uitiles
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write saveover saveover
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write loadover loadover
 if errorlevel 1 exit /b 1
 cd ..
 

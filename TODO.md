@@ -75,6 +75,28 @@ when we cross either limit.
       position)` byte (16 structures, ≤16 cells each); (c) widen the map cell to
       2 bytes (most invasive). Decide before the encoding actually overflows.
 
+## Save / load
+
+- [ ] **In-game KERNAL I/O hardening for real hardware.** The save overlay
+      (`src/save_overlay.asm`) calls `KERNAL_OPEN` / `CHKOUT` / `CHROUT` /
+      `CLOSE` from inside the game loop. This codebase doesn't install a
+      custom MAP and doesn't touch `$00`/`$01`/`$D030`, so on Xemu the calls
+      go through fine. Real hardware may still hang HYPPO -- the pristine
+      boot environment isn't fully reconstructed (IRQ is in `sei` state).
+      Plan: build a tiny trampoline that captures the boot `$01`/`$D030` and
+      IRQ state at `app_init`, switches in for the duration of the OPEN/SAVE
+      chain, and restores afterwards. Test on metal.
+
+- [ ] **Save error reporting.** `sov_disk_save` silently bails on OPEN /
+      CHKOUT errors today. Should pop a "DISK ERROR" popup (reusing the
+      inspect popup style) and let the user retry.
+
+- [ ] **Load.** Symmetric overlay that reads a save file back into the map +
+      funds + clock state. Same architecture as save (loaded from disk into
+      Attic at boot, DMA'd to $A000 on demand, drives its own modal loop).
+      Needs a filename picker that reads the disk directory rather than
+      typed entry.
+
 ## Rail (deferred work)
 
 - [ ] **Axis-aware neighbour classifier for *_POWER and *_ROAD crossings.**

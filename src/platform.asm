@@ -75,11 +75,18 @@ MULTINB                 = $D774
 MULTOUT                 = $D778
 
 KERNAL_SETBNK           = $FF6B
-KERNAL_CHROUT           = $FFD2
+KERNAL_CHROUT           = $FFD2     ; same as BSOUT -- one byte to current output channel
 KERNAL_GETIN            = $FFE4
 KERNAL_SETLFS           = $FFBA
 KERNAL_SETNAM           = $FFBD
+KERNAL_OPEN             = $FFC0     ; in-game file open (write mode for save)
+KERNAL_CLOSE            = $FFC3
+KERNAL_CHKIN            = $FFC6     ; redirect CHRIN to an open file
+KERNAL_CHKOUT           = $FFC9     ; redirect CHROUT to an open file
+KERNAL_CLRCHN           = $FFCC     ; restore default I/O channels
+KERNAL_CHRIN            = $FFCF     ; one byte from current input channel
 KERNAL_LOAD             = $FFD5
+KERNAL_SAVE             = $FFD8
 KERNAL_PLOT             = $FFF0
 
 ; Keep runtime display buffers away from the KERNAL/DOS workspace range at
@@ -454,6 +461,27 @@ ATTIC_POWER_BANK        = $00
 ATTIC_POWER_ADDR        = $0000
 ATTIC_POWER_PHYS        = $8300000
 ATTIC_PSTACK_PHYS       = $8400000
+
+; Save / load overlays -- separate PRGs that the player invokes at SAVE / LOAD
+; click. Each is loaded from disk into its own Attic slot at boot (mirroring
+; the tile assets); on demand main game DMAs the active overlay from Attic to
+; $A000 and enters via jsr $A000. Both overlays share the same CPU window
+; ($A000-$AFFF) -- only one is live at a time. Sized to 4KB ($1000) -- room
+; for the popup-input UI and the streaming I/O loop.
+ATTIC_SAVE_OVERLAY_MB    = $85
+ATTIC_SAVE_OVERLAY_BANK  = $00
+ATTIC_SAVE_OVERLAY_ADDR  = $0000
+ATTIC_SAVE_OVERLAY_PHYS  = $8500000
+ATTIC_LOAD_OVERLAY_MB    = $86
+ATTIC_LOAD_OVERLAY_BANK  = $00
+ATTIC_LOAD_OVERLAY_ADDR  = $0000
+ATTIC_LOAD_OVERLAY_PHYS  = $8600000
+SAVE_OVERLAY_ADDR        = $A000
+SAVE_OVERLAY_SIZE        = $1000        ; 4 KB window (shared with load overlay)
+SAVE_OVERLAY_ASSET_SIZE  = SAVE_OVERLAY_SIZE
+LOAD_OVERLAY_ADDR        = SAVE_OVERLAY_ADDR
+LOAD_OVERLAY_SIZE        = SAVE_OVERLAY_SIZE
+LOAD_OVERLAY_ASSET_SIZE  = LOAD_OVERLAY_SIZE
 
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)

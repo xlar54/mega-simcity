@@ -63,6 +63,8 @@ app_init:
 
         jsr boot_load_tileset
         jsr boot_load_ui_tiles
+        jsr boot_load_save_overlay
+        jsr boot_load_load_overlay
 
         lda #MODE_FCM40
         jsr set_screen_mode
@@ -206,6 +208,51 @@ _mhu_toolbar:
         jmp toolbar_handle_click
 _mhu_done:
         rts
+
+;=======================================================================================
+; Save overlay invoke. DMA the save-overlay PRG from its Attic slot down to
+; $A000, then jsr the entry point. The overlay drives its own modal loop and
+; rts back here when done. Triggered from toolbar.asm when the SAVE icon is
+; clicked.
+;=======================================================================================
+save_overlay_invoke:
+        lda #$00
+        sta $D707                    ; F018B DMA list at next bytes
+        .byte $80, ATTIC_SAVE_OVERLAY_MB    ; src MB
+        .byte $81, $00                       ; dst MB = bank 0
+        .byte $00                            ; end of MB options
+        .byte $00                            ; job: copy
+        .word SAVE_OVERLAY_SIZE              ; bytes
+        .word ATTIC_SAVE_OVERLAY_ADDR        ; src addr
+        .byte ATTIC_SAVE_OVERLAY_BANK        ; src bank
+        .word SAVE_OVERLAY_ADDR              ; dst addr ($A000)
+        .byte $00                            ; dst bank
+        .byte $00                            ; end of list
+        .word $0000
+
+        jmp SAVE_OVERLAY_ADDR        ; tail-call the overlay; it rts's back to our caller
+
+;=======================================================================================
+; Load overlay invoke. Same idea as save_overlay_invoke -- the LOAD overlay
+; shares the $A000 CPU window, so DMA whichever overlay is needed at trigger
+; time and jsr its entry point. Triggered from toolbar.asm when LOAD is clicked.
+;=======================================================================================
+load_overlay_invoke:
+        lda #$00
+        sta $D707
+        .byte $80, ATTIC_LOAD_OVERLAY_MB
+        .byte $81, $00
+        .byte $00
+        .byte $00
+        .word LOAD_OVERLAY_SIZE
+        .word ATTIC_LOAD_OVERLAY_ADDR
+        .byte ATTIC_LOAD_OVERLAY_BANK
+        .word LOAD_OVERLAY_ADDR
+        .byte $00
+        .byte $00
+        .word $0000
+
+        jmp LOAD_OVERLAY_ADDR
 
 ;=======================================================================================
 ; Modules.
