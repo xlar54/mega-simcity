@@ -9,6 +9,7 @@ del target\*.d81 2>nul
 del target\*.lst 2>nul
 del target\*.lbl 2>nul
 del target\mega-simcity 2>nul
+del target\loader 2>nul
 del target\tileset 2>nul
 del target\uitiles 2>nul
 del target\ovr-save 2>nul
@@ -36,6 +37,12 @@ if errorlevel 1 exit /b 1
 .\64tass.exe --cbm-prg -a src\overlays\ovr-inspect.asm -L target\ovr-inspect.lst -o target\ovr-inspect
 if errorlevel 1 exit /b 1
 
+REM Boot loader. Imports main's .lbl to resolve main_entry, so it must build
+REM AFTER main. Phase 1: loader runs on SYS, stages assets, trampoline-loads
+REM mega-simcity.prg, JMPs main_entry. Main is unchanged in Phase 1.
+.\64tass.exe --cbm-prg -a src\loader.asm -L target\loader.lst -o target\loader
+if errorlevel 1 exit /b 1
+
 cd target
 ..\c1541.exe -format "simcity,01" d81 mega-simcity.d81
 if errorlevel 1 exit /b 1
@@ -50,6 +57,8 @@ if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-load ovr-load
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-inspect ovr-inspect
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write loader loader
 if errorlevel 1 exit /b 1
 cd ..
 

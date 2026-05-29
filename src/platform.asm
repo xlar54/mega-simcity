@@ -505,6 +505,15 @@ ATTIC_POWER_ADDR        = $0000
 ATTIC_POWER_PHYS        = $8300000
 ATTIC_PSTACK_PHYS       = $8400000
 
+; Loader trampoline page. The boot loader (loader.asm) parks its tail
+; KERNAL_LOAD routine here and JMPs to it so the subsequent KERNAL_LOAD of
+; mega-simcity.prg at $2001 can overwrite the loader without trampling its
+; own caller. $1600-$16FF is documented in the MEGA65 Compendium / CLAUDE.md
+; as "always available for program use," meaning no KERNAL/BASIC code lives
+; there and no part of mega-simcity.prg's load range ($2001..end) touches it.
+; This file reserves the constant so no other module is tempted to use $1600.
+TRAMP_DEST              = $1600
+
 ; Overlays -- separate PRGs that the player invokes from the toolbar (SAVE /
 ; LOAD / INSPECT today). Each is loaded from disk into its own Attic slot at
 ; boot (mirroring the tile assets); on demand the main game DMAs the active
