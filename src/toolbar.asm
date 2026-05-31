@@ -133,24 +133,24 @@ btn_stamp_2x2:
 ; button is 2x2 cells. The same table feeds the click hit-test in
 ; _thc_check_top further down.
 ;---------------------------------------------------------------------------------------
-TOP_BTN_COUNT = 3
+TOP_BTN_COUNT = 2
 
 top_btn_col:
-        .byte INSPECT_ICON_COL, LOAD_ICON_COL, SAVE_ICON_COL
+        .byte INSPECT_ICON_COL, DISK_ICON_COL
 top_btn_row:
-        .byte INSPECT_ICON_ROW, LOAD_ICON_ROW, SAVE_ICON_ROW
+        .byte INSPECT_ICON_ROW, DISK_ICON_ROW
 top_btn_tile:
-        .byte TILE_INSPECT, TILE_LOAD, TILE_SAVE
+        .byte TILE_INSPECT, TILE_DISK
 ; Char bases are split into lo/hi parallel arrays so any base can exceed 255
 ; without silently truncating the high byte. Add a row = one entry in each.
 top_btn_base_idle_lo:
-        .byte <INSPECT_CHAR_BASE, <LOAD_CHAR_BASE, <SAVE_CHAR_BASE
+        .byte <INSPECT_CHAR_BASE, <DISK_CHAR_BASE
 top_btn_base_idle_hi:
-        .byte >INSPECT_CHAR_BASE, >LOAD_CHAR_BASE, >SAVE_CHAR_BASE
+        .byte >INSPECT_CHAR_BASE, >DISK_CHAR_BASE
 top_btn_base_sel_lo:
-        .byte <INSPECT_INSET_CHAR_BASE, <LOAD_INSET_CHAR_BASE, <SAVE_INSET_CHAR_BASE
+        .byte <INSPECT_INSET_CHAR_BASE, <DISK_INSET_CHAR_BASE
 top_btn_base_sel_hi:
-        .byte >INSPECT_INSET_CHAR_BASE, >LOAD_INSET_CHAR_BASE, >SAVE_INSET_CHAR_BASE
+        .byte >INSPECT_INSET_CHAR_BASE, >DISK_INSET_CHAR_BASE
 
 ; Redraw every top-strip button. The button whose tile id matches selected_tile
 ; gets its SELECTED (pressed) chars; the rest get IDLE (raised). Called from
@@ -245,25 +245,20 @@ _thct_loop:
         bcc _thct_next              ; row < button row
         cmp #TOP_BTN_H
         bcs _thct_next              ; row >= button row + H
-        ; hit
+        ; hit. DISK is a one-shot action (overlay), not a persistent
+        ; selection -- don't write TILE_DISK to selected_tile, or the button
+        ; would stay rendered in the SELECTED/pressed state after the overlay
+        ; closes. Other top-strip buttons (inspect) DO persist.
         lda top_btn_tile,y
+        cmp #TILE_DISK
+        beq _thct_disk_oneshot
         sta selected_tile
         jsr audio_click
-        ; SAVE / LOAD are one-shot actions: invoke their overlays immediately.
-        ; Each overlay drives its own modal loop and rts's back here; then
-        ; render_top_buttons repaints the strip in its final state. Reload A
-        ; from selected_tile -- audio_click clobbers it.
-        lda selected_tile
-        cmp #TILE_SAVE
-        bne _thct_chk_load
-        jsr ovr_save_invoke
-        bra _thct_no_oneshot
-_thct_chk_load:
-        cmp #TILE_LOAD
-        bne _thct_no_oneshot
-        jsr ovr_load_invoke
-_thct_no_oneshot:
         jmp render_top_buttons      ; flip idle <-> selected for the new state
+_thct_disk_oneshot:
+        jsr audio_click
+        jsr ovr_disk_invoke
+        jmp render_top_buttons
 _thct_next:
         iny
         bra _thct_loop

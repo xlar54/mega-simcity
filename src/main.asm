@@ -208,49 +208,28 @@ _mhu_done:
         rts
 
 ;=======================================================================================
-; Save overlay invoke. DMA the save-overlay PRG from its Attic slot down to
-; $A000, then jsr the entry point. The overlay drives its own modal loop and
-; rts back here when done. Triggered from toolbar.asm when the SAVE icon is
-; clicked.
+; Disk-options overlay invoke. DMA the unified disk overlay (load / save /
+; replace-confirm state machine) from its Attic slot down to $A000, then
+; tail-jump to its entry point. The overlay drives its own modal loop and
+; rts back here when done. Triggered from toolbar.asm when the folder icon
+; is clicked.
 ;=======================================================================================
-ovr_save_invoke:
+ovr_disk_invoke:
         lda #$00
         sta $D707                    ; F018B DMA list at next bytes
-        .byte $80, ATTIC_OVR_SAVE_MB    ; src MB
+        .byte $80, ATTIC_OVR_DISK_MB    ; src MB
         .byte $81, $00                       ; dst MB = bank 0
         .byte $00                            ; end of MB options
         .byte $00                            ; job: copy
         .word OVR_WINDOW_SIZE              ; bytes
-        .word ATTIC_OVR_SAVE_ADDR        ; src addr
-        .byte ATTIC_OVR_SAVE_BANK        ; src bank
+        .word ATTIC_OVR_DISK_ADDR        ; src addr
+        .byte ATTIC_OVR_DISK_BANK        ; src bank
         .word OVR_WINDOW_ADDR              ; dst addr ($A000)
         .byte $00                            ; dst bank
         .byte $00                            ; end of list
         .word $0000
 
         jmp OVR_WINDOW_ADDR        ; tail-call the overlay; it rts's back to our caller
-
-;=======================================================================================
-; Load overlay invoke. Same idea as ovr_save_invoke -- the LOAD overlay
-; shares the $A000 CPU window, so DMA whichever overlay is needed at trigger
-; time and jsr its entry point. Triggered from toolbar.asm when LOAD is clicked.
-;=======================================================================================
-ovr_load_invoke:
-        lda #$00
-        sta $D707
-        .byte $80, ATTIC_OVR_LOAD_MB
-        .byte $81, $00
-        .byte $00
-        .byte $00
-        .word OVR_WINDOW_SIZE
-        .word ATTIC_OVR_LOAD_ADDR
-        .byte ATTIC_OVR_LOAD_BANK
-        .word OVR_WINDOW_ADDR
-        .byte $00
-        .byte $00
-        .word $0000
-
-        jmp OVR_WINDOW_ADDR
 
 ;=======================================================================================
 ; Inspect overlay invoke. DMA the inspector PRG to $A000 and tail-jump in.

@@ -68,8 +68,7 @@ loader_entry:
         ; boot_load_overlays sequence, lifted verbatim from assets.asm.
         jsr boot_load_tileset                ; -> ATTIC_TILE_*
         jsr boot_load_ui_tiles               ; -> ATTIC_UI_TILE_*
-        jsr boot_load_ovr_save               ; -> ATTIC_OVR_SAVE_*
-        jsr boot_load_ovr_load               ; -> ATTIC_OVR_LOAD_*
+        jsr boot_load_ovr_disk               ; -> ATTIC_OVR_DISK_*
         jsr boot_load_ovr_inspect            ; -> ATTIC_OVR_INSPECTOR_*
 
         ; --- Stage 2: char RAM ---------------------------------------------------------

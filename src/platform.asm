@@ -233,8 +233,8 @@ TILE_POWER              = 6     ; tool id for the power-LINE tool (1x1, see belo
 TILE_COALPP             = 7     ; tool id for the coal power plant (3x4 structure)
 TILE_NUCLEARPP          = 8     ; tool id for the nuclear power plant (3x4 structure)
 TILE_INSPECT            = 9     ; pointer/inspect mode (no placement, queries the map)
-TILE_LOAD               = 10    ; menu action: load city (no map paint)
-TILE_SAVE               = 11    ; menu action: save city (no map paint)
+TILE_DISK               = 10    ; menu action: open disk options panel (load/save)
+; TILE id 11 is unused (was TILE_SAVE before LOAD+SAVE were consolidated)
 TILE_RAIL               = 12    ; tool id for the rail tool (1x1, see RAIL_CELL_* below)
 TILE_PARK               = 13    ; tool id for the small park (4x4 cells = 2x2 tiles, see PARK_CELL_*)
 TILE_POLICE             = 14    ; tool id for the police department (4x4 cells = 2x2 tiles, see POLICE_CELL_*)
@@ -569,14 +569,12 @@ TRAMP_DEST              = $1600
 OVR_WINDOW_ADDR          = $A000
 OVR_WINDOW_SIZE          = $1000        ; 4 KB CPU window shared by every overlay
 OVR_ASSET_SIZE           = OVR_WINDOW_SIZE
-ATTIC_OVR_SAVE_MB        = $85
-ATTIC_OVR_SAVE_BANK      = $00
-ATTIC_OVR_SAVE_ADDR      = $0000
-ATTIC_OVR_SAVE_PHYS      = $8500000
-ATTIC_OVR_LOAD_MB        = $86
-ATTIC_OVR_LOAD_BANK      = $00
-ATTIC_OVR_LOAD_ADDR      = $0000
-ATTIC_OVR_LOAD_PHYS      = $8600000
+ATTIC_OVR_DISK_MB        = $85
+ATTIC_OVR_DISK_BANK      = $00
+ATTIC_OVR_DISK_ADDR      = $0000
+ATTIC_OVR_DISK_PHYS      = $8500000
+; MB $86 freed (was ATTIC_OVR_LOAD_*) -- consolidated into the single disk
+; overlay above. Available for the next overlay that needs an attic slot.
 ATTIC_OVR_INSPECTOR_MB   = $87
 ATTIC_OVR_INSPECTOR_BANK = $00
 ATTIC_OVR_INSPECTOR_ADDR = $0000

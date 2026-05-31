@@ -32,6 +32,9 @@ city_init:
         jsr funds_init
         jsr clock_init
         jsr population_init
+        ; Filename for ovr-disk -- starts empty (no save/load yet this session).
+        lda #0
+        sta current_city_filename_len
         rts
 
 ; Fill every cell in the Attic world map with TILE_GROUND via one DMA fill.
@@ -143,10 +146,8 @@ city_paint_selected:
         lda selected_tile
         cmp #TILE_INSPECT
         beq _cps_inspect            ; inspect mode: read cell + open popup
-        cmp #TILE_LOAD
-        beq _cps_no_paint           ; load/save are menu actions, not paint tools
-        cmp #TILE_SAVE
-        beq _cps_no_paint
+        cmp #TILE_DISK
+        beq _cps_no_paint           ; disk options is a menu action, not a paint tool
         bra _cps_not_inspect
 _cps_no_paint:
         rts
@@ -1561,6 +1562,16 @@ selected_tool:
         .byte 0
 sim_tick:
         .word 0
+
+; The filename of the city last loaded or saved (if any). Used by the disk
+; overlay to pre-populate the Save panel's filename field. Maintained by the
+; disk overlay -- ovr-disk writes both buffer + length on a successful save or
+; load. ASCII uppercase chars, 0..CITY_FILENAME_MAX chars long.
+CITY_FILENAME_MAX        = 12
+current_city_filename_len:
+        .byte 0
+current_city_filename:
+        .fill CITY_FILENAME_MAX, 0
 
 view_limit:
         .byte 0

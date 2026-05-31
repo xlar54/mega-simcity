@@ -63,21 +63,13 @@ ui_tiles_name:
         .text "uitiles"
 ui_tiles_name_end:
 
-boot_load_ovr_save:
-        #LOAD_ASSET ovr_save_name, ovr_save_name_end - ovr_save_name, OVR_ASSET_SIZE, ATTIC_OVR_SAVE_MB, ATTIC_OVR_SAVE_ADDR, ATTIC_OVR_SAVE_BANK
+boot_load_ovr_disk:
+        #LOAD_ASSET ovr_disk_name, ovr_disk_name_end - ovr_disk_name, OVR_ASSET_SIZE, ATTIC_OVR_DISK_MB, ATTIC_OVR_DISK_ADDR, ATTIC_OVR_DISK_BANK
         rts
 
-ovr_save_name:
-        .text "ovr-save"
-ovr_save_name_end:
-
-boot_load_ovr_load:
-        #LOAD_ASSET ovr_load_name, ovr_load_name_end - ovr_load_name, OVR_ASSET_SIZE, ATTIC_OVR_LOAD_MB, ATTIC_OVR_LOAD_ADDR, ATTIC_OVR_LOAD_BANK
-        rts
-
-ovr_load_name:
-        .text "ovr-load"
-ovr_load_name_end:
+ovr_disk_name:
+        .text "ovr-disk"
+ovr_disk_name_end:
 
 boot_load_ovr_inspect:
         #LOAD_ASSET ovr_inspect_name, ovr_inspect_name_end - ovr_inspect_name, OVR_ASSET_SIZE, ATTIC_OVR_INSPECTOR_MB, ATTIC_OVR_INSPECTOR_ADDR, ATTIC_OVR_INSPECTOR_BANK
@@ -308,29 +300,19 @@ tiles_load_top_buttons:
         #STAMP_CHAR INSPECT_INSET_CHAR_BASE+2, fcm_inspect_bl
         #STAMP_CHAR INSPECT_INSET_CHAR_BASE+3, fcm_inspect_br
 
-        ; --- LOAD idle (down-arrow + disk; raised) ---
-        #STAMP_CHAR LOAD_CHAR_BASE,   fcm_load_tl_idle
-        #STAMP_CHAR LOAD_CHAR_BASE+1, fcm_load_tr_idle
-        #STAMP_CHAR LOAD_CHAR_BASE+2, fcm_disk_bl_idle
-        #STAMP_CHAR LOAD_CHAR_BASE+3, fcm_disk_br_idle
+        ; --- DISK idle (folder; raised: white top + left) ---
+        #STAMP_CHAR DISK_CHAR_BASE,   fcm_folder_tl_idle
+        #STAMP_CHAR DISK_CHAR_BASE+1, fcm_folder_tr_idle
+        #STAMP_CHAR DISK_CHAR_BASE+2, fcm_folder_bl_idle
+        #STAMP_CHAR DISK_CHAR_BASE+3, fcm_folder_br_idle
 
-        ; --- LOAD selected (pressed) ---
-        #STAMP_CHAR LOAD_INSET_CHAR_BASE,   fcm_load_tl_sel
-        #STAMP_CHAR LOAD_INSET_CHAR_BASE+1, fcm_load_tr_sel
-        #STAMP_CHAR LOAD_INSET_CHAR_BASE+2, fcm_disk_bl_sel
-        #STAMP_CHAR LOAD_INSET_CHAR_BASE+3, fcm_disk_br_sel
-
-        ; --- SAVE idle (up-arrow + disk; raised) ---
-        #STAMP_CHAR SAVE_CHAR_BASE,   fcm_save_tl_idle
-        #STAMP_CHAR SAVE_CHAR_BASE+1, fcm_save_tr_idle
-        #STAMP_CHAR SAVE_CHAR_BASE+2, fcm_disk_bl_idle
-        #STAMP_CHAR SAVE_CHAR_BASE+3, fcm_disk_br_idle
-
-        ; --- SAVE selected (pressed) ---
-        #STAMP_CHAR SAVE_INSET_CHAR_BASE,   fcm_save_tl_sel
-        #STAMP_CHAR SAVE_INSET_CHAR_BASE+1, fcm_save_tr_sel
-        #STAMP_CHAR SAVE_INSET_CHAR_BASE+2, fcm_disk_bl_sel
-        #STAMP_CHAR SAVE_INSET_CHAR_BASE+3, fcm_disk_br_sel
+        ; --- DISK selected (folder; pressed: black top + left) ---
+        #STAMP_CHAR DISK_INSET_CHAR_BASE,   fcm_folder_tl_sel
+        #STAMP_CHAR DISK_INSET_CHAR_BASE+1, fcm_folder_tr_sel
+        #STAMP_CHAR DISK_INSET_CHAR_BASE+2, fcm_folder_bl_sel
+        #STAMP_CHAR DISK_INSET_CHAR_BASE+3, fcm_folder_br_sel
+        ; --- Divider line used by the disk overlay for menu button borders ---
+        #STAMP_CHAR DISK_LINE_CHAR, fcm_disk_line
         rts
 
 fcm_inspect_tl:
@@ -418,144 +400,111 @@ fcm_inspect_br_inset:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
         .byte $00,$00,$00,$00,$00,$00,$00,$00
 
-; ===== LOAD / SAVE button bitmaps =====
+; ===== DISK options button bitmaps =====
 ;
-; Each button is a 2x2-char (16x16-px) frame around an arrow stacked on top of
-; a floppy disk. The top half holds the arrow (down for LOAD, up for SAVE);
-; the bottom half holds the disk and is shared between both buttons via
-; fcm_disk_bl/br.
-;
-; For every tile we provide an `_idle` version (raised: white top + left, black
-; bottom + right) and a `_sel` version (pressed: black top + left, white bottom
-; + right). The interior arrow / disk pixels stay $00 in both states so the
-; symbol keeps its black outline regardless of which border lights up.
+; One 2x2-char (16x16-px) button showing a yellow file-folder icon, opens the
+; disk-options overlay (load / save city). Same idle/selected border swap as
+; the inspect button above -- `_idle` is raised (white top + left, dark bottom
+; + right); `_sel` is pressed (dark top + left, light bottom + right).
 
-; --- LOAD top-left: down-arrow shaft + start of head ---
-fcm_load_tl_idle:
-        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$00,$00,$00,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$00,$00,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$00,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
+; --- Folder icon, 2x2 cells, 4 chars. A 16x16 yellow ($06) file folder with a
+;     black ($00) outline on a light-grey ($0C) button background. The folder
+;     has a small left-aligned tab on top (cols 2-6 of the 16-wide design) +
+;     a wider body below (cols 2-13). Reuses the same idle/selected border
+;     swap as the inspect / save / load buttons above.
 
-fcm_load_tl_sel:
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+fcm_folder_tl_idle:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F       ; row 0: white top border
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C       ; row 1: bg
+        .byte $0F,$0C,$00,$00,$00,$00,$00,$0C       ; row 2: tab top (cols 2-6)
+        .byte $0F,$0C,$00,$06,$06,$06,$00,$00       ; row 3: tab body + folder top
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 4: folder left edge + fill
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 5
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 6
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 7
 
-; --- LOAD top-right: down-arrow shaft + rest of head ---
-fcm_load_tr_idle:
-        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$00,$00,$0C,$0C,$0C,$00
-        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+fcm_folder_tl_sel:
+        .byte $00,$00,$00,$00,$00,$00,$00,$00       ; pressed: dark top
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C       ; dark left
+        .byte $00,$0C,$00,$00,$00,$00,$00,$0C
+        .byte $00,$0C,$00,$06,$06,$06,$00,$00
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
 
-fcm_load_tr_sel:
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$00,$00,$0C,$0C,$0C,$0F
-        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-
-; --- SAVE top-left: up-arrow head tapering down to shaft ---
-fcm_save_tl_idle:
-        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$00,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$00,$00,$00
-        .byte $0F,$0C,$0C,$0C,$00,$00,$00,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
-
-fcm_save_tl_sel:
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-
-; --- SAVE top-right: up-arrow head + shaft ---
-fcm_save_tr_idle:
-        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$00,$00,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
-
-fcm_save_tr_sel:
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$00,$00,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-
-; --- Disk bottom-halves (shared between LOAD and SAVE) ---
-; A simple 3.5"-disk silhouette: rectangle outline with a small label window in
-; the middle. Same bitmap regardless of which arrow is on top.
-fcm_disk_bl_idle:
-        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $0F,$0C,$0C,$00,$00,$00,$00,$00
-        .byte $0F,$0C,$0C,$00,$0C,$0C,$0C,$0C
-        .byte $0F,$0C,$0C,$00,$0C,$00,$0C,$0C
-        .byte $0F,$0C,$0C,$00,$0C,$00,$0C,$0C
-        .byte $0F,$0C,$0C,$00,$0C,$0C,$0C,$0C
-        .byte $0F,$0C,$0C,$00,$00,$00,$00,$00
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-
-fcm_disk_bl_sel:
-        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C
-        .byte $00,$0C,$0C,$00,$00,$00,$00,$00
-        .byte $00,$0C,$0C,$00,$0C,$0C,$0C,$0C
-        .byte $00,$0C,$0C,$00,$0C,$00,$0C,$0C
-        .byte $00,$0C,$0C,$00,$0C,$00,$0C,$0C
-        .byte $00,$0C,$0C,$00,$0C,$0C,$0C,$0C
-        .byte $00,$0C,$0C,$00,$00,$00,$00,$00
-        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
-
-fcm_disk_br_idle:
+fcm_folder_tr_idle:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F       ; top border
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00       ; bg + dark right border
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
-        .byte $00,$00,$00,$00,$00,$0C,$0C,$00
-        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$00
-        .byte $0C,$0C,$00,$0C,$00,$0C,$0C,$00
-        .byte $0C,$0C,$00,$0C,$00,$0C,$0C,$00
-        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$00
-        .byte $00,$00,$00,$00,$00,$0C,$0C,$00
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $00,$00,$00,$00,$00,$00,$0C,$00       ; folder top extends + bg + right
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00       ; folder fill + right edge + bg + right
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
 
-fcm_disk_br_sel:
+fcm_folder_tr_sel:
+        .byte $00,$00,$00,$00,$00,$00,$00,$00       ; dark top
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F       ; bg + light right border
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
-        .byte $00,$00,$00,$00,$00,$0C,$0C,$0F
-        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$0F
-        .byte $0C,$0C,$00,$0C,$00,$0C,$0C,$0F
-        .byte $0C,$0C,$00,$0C,$00,$0C,$0C,$0F
-        .byte $0C,$0C,$0C,$0C,$00,$0C,$0C,$0F
-        .byte $00,$00,$00,$00,$00,$0C,$0C,$0F
+        .byte $00,$00,$00,$00,$00,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+
+fcm_folder_bl_idle:
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 8: continues folder body
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 9
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 10
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 11
+        .byte $0F,$0C,$00,$06,$06,$06,$06,$06       ; row 12
+        .byte $0F,$0C,$00,$00,$00,$00,$00,$00       ; row 13: folder bottom
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C       ; row 14: bg
+        .byte $00,$00,$00,$00,$00,$00,$00,$00       ; row 15: dark bottom border
+
+fcm_folder_bl_sel:
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$06,$06,$06,$06,$06
+        .byte $00,$0C,$00,$00,$00,$00,$00,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F       ; light bottom border (pressed)
+
+fcm_folder_br_idle:
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00       ; folder body + edge + bg + right border
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $06,$06,$06,$06,$06,$00,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$0C,$00       ; folder bottom + bg + right border
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00       ; bottom border
+
+fcm_folder_br_sel:
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $06,$06,$06,$06,$06,$00,$0C,$0F
+        .byte $00,$00,$00,$00,$00,$00,$0C,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0F
         .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+; --- DISK_LINE: panel-bg with a 1-pixel black horizontal line through the
+; middle (row 3). Stamped across a popup row by the disk overlay to draw
+; menu-button divider lines.
+fcm_disk_line:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 UI_TILE_DMA .macro index, size, offset
         lda #$00

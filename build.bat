@@ -13,8 +13,7 @@ del target\tile-edit 2>nul
 del target\loader 2>nul
 del target\tileset 2>nul
 del target\uitiles 2>nul
-del target\ovr-save 2>nul
-del target\ovr-load 2>nul
+del target\ovr-disk 2>nul
 del target\ovr-inspect 2>nul
 
 REM One disk for both platforms: the program detects Xemu vs real hardware at
@@ -32,10 +31,7 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 
 REM Overlays (ovr-*) import the main-game label file, so they must build AFTER main.
-.\64tass.exe --cbm-prg -a src\overlays\ovr-save.asm -L target\ovr-save.lst -o target\ovr-save
-if errorlevel 1 exit /b 1
-
-.\64tass.exe --cbm-prg -a src\overlays\ovr-load.asm -L target\ovr-load.lst -o target\ovr-load
+.\64tass.exe --cbm-prg -a src\overlays\ovr-disk.asm -L target\ovr-disk.lst -o target\ovr-disk
 if errorlevel 1 exit /b 1
 
 .\64tass.exe --cbm-prg -a src\overlays\ovr-inspect.asm -L target\ovr-inspect.lst -o target\ovr-inspect
@@ -59,9 +55,7 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write tile-edit tile-edit
 if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write ovr-save ovr-save
-if errorlevel 1 exit /b 1
-..\c1541.exe -attach mega-simcity.d81 -write ovr-load ovr-load
+..\c1541.exe -attach mega-simcity.d81 -write ovr-disk ovr-disk
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-inspect ovr-inspect
 if errorlevel 1 exit /b 1

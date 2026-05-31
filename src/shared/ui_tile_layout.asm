@@ -85,14 +85,21 @@ NUCLEARPP_CHAR_BASE     = COALPP_CHAR_BASE + 12     ; right after the 12 coal-pl
 ; picks between them based on selected_tile.
 INSPECT_CHAR_BASE       = NUCLEARPP_CHAR_BASE + 12  ; pointer icon, idle (4 chars)
 INSPECT_INSET_CHAR_BASE = INSPECT_CHAR_BASE + 4     ; pointer icon, selected (4 chars)
-LOAD_CHAR_BASE          = INSPECT_INSET_CHAR_BASE + 4  ; disk + down-arrow, idle
-LOAD_INSET_CHAR_BASE    = LOAD_CHAR_BASE + 4        ; disk + down-arrow, selected
-SAVE_CHAR_BASE          = LOAD_INSET_CHAR_BASE + 4  ; disk + up-arrow, idle
-SAVE_INSET_CHAR_BASE    = SAVE_CHAR_BASE + 4        ; disk + up-arrow, selected
+; Single disk-options button consolidates the old LOAD + SAVE pair into one
+; folder icon. Clicking it opens the disk-options overlay (ovr-disk).
+DISK_CHAR_BASE          = INSPECT_INSET_CHAR_BASE + 4  ; folder icon, idle
+DISK_INSET_CHAR_BASE    = DISK_CHAR_BASE + 4        ; folder icon, selected
+; Single divider-line glyph used by the disk overlay to draw borders above /
+; below the menu buttons. Light-grey ($0C) panel background with a 1-pixel
+; black ($00) line through the middle, so stamping it across the popup
+; width makes a clean horizontal rule.
+DISK_LINE_CHAR          = DISK_INSET_CHAR_BASE + 4
 
 ; Tree autotile chars. 16 bitmaps, one per 4-neighbor mask. cell_to_char in
 ; render.asm maps cell value TREE_CELL_FIRST+mask to TREE_CHAR_BASE+mask.
-TREE_CHAR_BASE          = SAVE_INSET_CHAR_BASE + 4      ; 222 -> 222..237
+; (Was at SAVE_INSET_CHAR_BASE + 4 before LOAD/SAVE were merged; the merge
+;  freed 8 chars, so this and every range above shift DOWN by 8.)
+TREE_CHAR_BASE          = DISK_LINE_CHAR + 1
 
 ; Water-shoreline chars. 15 bitmaps, one per shoreline mask (0..14). Mask 15
 ; (interior, fully surrounded by water) keeps the existing TILE_WATER quadrant
@@ -173,10 +180,8 @@ COM_HEAVY_CHAR_BASE     = IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT         ; 3
 
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
-LOAD_ICON_COL           = 2
-LOAD_ICON_ROW           = 1
-SAVE_ICON_COL           = 4
-SAVE_ICON_ROW           = 1
+DISK_ICON_COL           = 2
+DISK_ICON_ROW           = 1
 TOP_BTN_W               = 2     ; all top buttons are 2x2 cells
 TOP_BTN_H               = 2
 
@@ -187,7 +192,8 @@ TOP_BTN_H               = 2
 ; bitmap (64 bytes) must satisfy char_id*64 < $10000 -> char_id < 1024.
         .cerror COALPP_CHAR_BASE + 12 > 1024, "coal plant chars exceed resident char-bank window"
         .cerror NUCLEARPP_CHAR_BASE + 12 > 1024, "nuclear plant chars exceed resident char-bank window"
-        .cerror SAVE_INSET_CHAR_BASE + 4 > 1024, "top-strip button chars exceed resident char-bank window"
+        .cerror DISK_INSET_CHAR_BASE + 4 > 1024, "top-strip button chars exceed resident char-bank window"
+        .cerror DISK_LINE_CHAR + 1 > 1024, "disk-line char exceeds resident char-bank window"
         .cerror TREE_CHAR_BASE + TREE_CELL_COUNT > 1024, "tree chars exceed resident char-bank window"
         .cerror WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT > 1024, "water shore chars exceed resident char-bank window"
         .cerror POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT > 1024, "power bridge chars exceed resident char-bank window"
