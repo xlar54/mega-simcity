@@ -31,6 +31,7 @@ city_init:
         jsr city_clamp_view_to_cursor
         jsr funds_init
         jsr clock_init
+        jsr population_init
         rts
 
 ; Fill every cell in the Attic world map with TILE_GROUND via one DMA fill.
@@ -314,6 +315,37 @@ _cps_road_single:
         jsr funds_can_afford
         bcc _cps_road_skip
         jsr funds_subtract
+        ; Population: dispatch zone-origin bulldoze. Residential origin cell
+        ; unregisters the zone (drops its pop to 0 and re-sums); C/I origin
+        ; cell decrements the global has-jobs counter. Partial demolitions
+        ; (non-origin cells of a 3x3 zone) don't fire here -- the zone stays
+        ; registered but its power state will recompute via the existing
+        ; power_mark_dirty path further down.
+        lda bulldoze_cell
+        cmp #ZONE_CELL_FIRST                ; empty residential origin
+        beq _pop_demo_res
+        cmp #RES_HOUSE_CELL_FIRST           ; evolved residential origin (houses)
+        beq _pop_demo_res
+        cmp #APT_CELL_FIRST                 ; evolved residential origin (apartments)
+        beq _pop_demo_res
+        cmp #ZONE_CELL_FIRST + 9            ; commercial origin (empty)
+        beq _pop_demo_com
+        cmp #COM_HEAVY_CELL_FIRST           ; evolved commercial origin
+        beq _pop_demo_com
+        cmp #ZONE_CELL_FIRST + 18           ; industrial origin (empty)
+        beq _pop_demo_ind
+        cmp #IND_HEAVY_CELL_FIRST           ; evolved industrial origin
+        beq _pop_demo_ind
+        bra _pop_demo_done
+_pop_demo_res:
+        jsr population_unregister_residential
+        bra _pop_demo_done
+_pop_demo_com:
+        jsr population_unregister_commercial
+        bra _pop_demo_done
+_pop_demo_ind:
+        jsr population_unregister_industrial
+_pop_demo_done:
 
         ; Pick the replacement cell value. Bridges restore the water that was
         ; underneath; everything else (roads, zones, structures, trees, shore)
@@ -1018,6 +1050,25 @@ _cps_zone_do:
         jsr city_stamp_zone
         jsr power_mark_dirty            ; a new zone changes the power network
         jsr audio_construct             ; zone placed -> construction sound
+        ; Population: dispatch zone-placement to the registry. Residential
+        ; zones get a per-zone slot (zone_pop[X] grows monthly). Commercial /
+        ; industrial bump global counters for the "any jobs anywhere?" check
+        ; that gates residential growth.
+        lda selected_tile
+        cmp #TILE_RESIDENTIAL
+        bne _pop_check_com_place
+        jsr population_register_residential
+        bra _pop_place_done
+_pop_check_com_place:
+        cmp #TILE_COMMERCIAL
+        bne _pop_check_ind_place
+        jsr population_register_commercial
+        bra _pop_place_done
+_pop_check_ind_place:
+        cmp #TILE_INDUSTRIAL
+        bne _pop_place_done
+        jsr population_register_industrial
+_pop_place_done:
 
         ; Redraw the (up to) 2x2 tiles covering the 3x3 cell zone, by its four
         ; corner cells. render_redraw_cell_tile clobbers city_ptr_*, so re-seed
@@ -1128,9 +1179,17 @@ _csz_col:
 ;---------------------------------------------------------------------------------------
 is_zone_value:
         cmp #ZONE_CELL_FIRST
-        bcc _izv_no
+        bcc _izv_check_evolved
         cmp #ZONE_CELL_LAST+1
+        bcc _izv_yes
+_izv_check_evolved:
+        ; Evolved zones occupy a single contiguous range:
+        ; RES_HOUSE..APT..IND_HEAVY..COM_HEAVY = 198..233.
+        cmp #RES_HOUSE_CELL_FIRST
+        bcc _izv_no
+        cmp #COM_HEAVY_CELL_LAST+1
         bcs _izv_no
+_izv_yes:
         sec
         rts
 _izv_no:
@@ -1143,6 +1202,14 @@ is_zone_origin_value:
         cmp #(ZONE_CELL_FIRST + 9)          ; C origin (offset 9)
         beq _izov_yes
         cmp #(ZONE_CELL_FIRST + 18)         ; I origin (offset 18)
+        beq _izov_yes
+        cmp #RES_HOUSE_CELL_FIRST           ; evolved R origin (houses)
+        beq _izov_yes
+        cmp #APT_CELL_FIRST                 ; evolved R origin (apartments)
+        beq _izov_yes
+        cmp #IND_HEAVY_CELL_FIRST           ; evolved I origin (heavy)
+        beq _izov_yes
+        cmp #COM_HEAVY_CELL_FIRST           ; evolved C origin (heavy)
         beq _izov_yes
         clc
         rts

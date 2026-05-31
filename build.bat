@@ -9,6 +9,7 @@ del target\*.d81 2>nul
 del target\*.lst 2>nul
 del target\*.lbl 2>nul
 del target\mega-simcity 2>nul
+del target\tile-edit 2>nul
 del target\loader 2>nul
 del target\tileset 2>nul
 del target\uitiles 2>nul
@@ -19,6 +20,9 @@ del target\ovr-inspect 2>nul
 REM One disk for both platforms: the program detects Xemu vs real hardware at
 REM boot ($D60F bit 5) and applies the sprite-X correction at runtime.
 .\64tass.exe --cbm-prg -a src\main.asm -l target\mega-simcity.lbl -L target\mega-simcity.lst -o target\mega-simcity
+if errorlevel 1 exit /b 1
+
+.\64tass.exe --cbm-prg -a src\tile-edit.asm -l target\tile-edit.lbl -L target\tile-edit.lst -o target\tile-edit
 if errorlevel 1 exit /b 1
 
 .\64tass.exe --cbm-prg -a src\assets\tileset.asm -l target\tileset.lbl -L target\tileset.lst -o target\tileset
@@ -52,6 +56,8 @@ REM overlays the main game streams during gameplay, then bulk tile data.
 ..\c1541.exe -attach mega-simcity.d81 -write loader loader
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write mega-simcity mega-simcity
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write tile-edit tile-edit
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-save ovr-save
 if errorlevel 1 exit /b 1

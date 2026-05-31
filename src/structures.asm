@@ -16,6 +16,7 @@
 ; Flag bits.
 STRUCT_FLAG_OVERWRITE_POWER = $01    ; may overwrite power-line cells (zone-like)
 STRUCT_FLAG_IS_POWER_SOURCE = $02    ; register origin with power_register_plant
+STRUCT_FLAG_IS_POLICE       = $04    ; register origin with population_register_police
 
 ; Per-row tuning constants referenced from the table below.
 COAL_OUTPUT       = 40              ; zones powered per coal plant (docs/TILE_RULES.md)
@@ -31,7 +32,7 @@ struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BAS
 struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE,                                          >PARK_CHAR_BASE,                                              >POLICE_CHAR_BASE
 struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP,                                               <COST_PARK,                                                   <COST_POLICE
 struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP,                                               >COST_PARK,                                                   >COST_POLICE
-struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, $00, $00
+struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, $00, STRUCT_FLAG_IS_POLICE
 struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT,                                              0,                                                            0
 
 struct_count           = 4
@@ -185,6 +186,12 @@ cps_structure:
         beq _cs_no_register
         jsr power_register_plant
 _cs_no_register:
+        ldx struct_idx
+        lda struct_flags,x
+        and #STRUCT_FLAG_IS_POLICE
+        beq _cs_no_police_register
+        jsr population_register_police
+_cs_no_police_register:
         jsr audio_construct
         ldx struct_idx
         jsr structure_redraw
@@ -435,6 +442,16 @@ _sdc_div_done:
         jsr funds_can_afford
         bcc _sdc_done                   ; can't afford -> silent bail (no change)
         jsr funds_subtract
+
+        ; If this structure was a police HQ, unregister it from the population
+        ; police registry. zone_org_x/y were set by the origin compute above,
+        ; which population_unregister_police uses as the lookup key.
+        ldx sdc_row
+        lda struct_flags,x
+        and #STRUCT_FLAG_IS_POLICE
+        beq _sdc_no_police_unreg
+        jsr population_unregister_police
+_sdc_no_police_unreg:
 
         ; Stamp DEBRIS_CELL across the full footprint + redraw each tile.
         ; Player has to bulldoze each debris cell (COST_BULLDOZE) to clear it

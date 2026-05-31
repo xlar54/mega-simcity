@@ -48,6 +48,7 @@ app_loop:
         jsr bolt_test_update        ; round-robin the bolt over UNPOWERED zones
         jsr funds_update            ; redraw FUNDS readout if it changed
         jsr clock_update            ; redraw DATE readout if it changed
+        jsr population_update       ; redraw POP readout if it changed
         jmp app_loop
 
 shutdown:
@@ -296,6 +297,7 @@ ovr_inspect_invoke:
         .include "cost-management.asm"
         .include "structures.asm"
         .include "clock.asm"
+        .include "population.asm"
         .include "render.asm"
         .include "mouse.asm"
         .include "sprites.asm"

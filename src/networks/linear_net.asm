@@ -261,14 +261,22 @@ _nr_decide:
         beq _nr_tw
         and #(ROAD_BIT_N|ROAD_BIT_S)   ; A still = net_mask
         bne _nr_vertical
-        ; pure horizontal: a vertical power line crosses it if power sits on
-        ; both the N and S sides (only straight segments cross -- net_power_ns).
+        ; No road neighbours at all (or only E/W). Check for a perpendicular
+        ; power crossing in either direction. Vertical power line through here
+        ; -> H_POWER (horizontal road with vertical power crossing). Horizontal
+        ; power line -> V_POWER (vertical road with horizontal power crossing).
+        ; If neither, plain horizontal road.
         jsr net_power_ns
-        bcc _nr_h_plain
+        bcs _nr_h_power
+        jsr net_power_ew
+        bcs _nr_v_power
+        lda ln_h
+        bra _nr_store
+_nr_h_power:
         lda ln_h_power
         bra _nr_store
-_nr_h_plain:
-        lda ln_h
+_nr_v_power:
+        lda ln_v_power
         bra _nr_store
 _nr_4way:
         lda ln_4way

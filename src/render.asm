@@ -105,8 +105,9 @@ render_ui:
         ldx #8
         ldy #0
         jsr set_fcm_char
-        jsr funds_render            ; FUNDS: $xxx,xxx at cols 18+
-        jsr clock_render            ; DATE: MMM YYYY on row 1, cols 18+
+        jsr funds_render            ; FUNDS: $xxx,xxx at cols 30+, row 0
+        jsr clock_render            ; DATE:  Mmm YYYY at cols 20+, row 0
+        jsr population_render        ; POP:   icon + 7 digits at cols 30+, row 1
 
         ; Left toolbar and right window edge.
         lda #UI_LEFT_COLS
@@ -375,15 +376,75 @@ _ctc_check_rail:
         rts
 _ctc_check_debris:
         cmp #DEBRIS_CELL_FIRST
-        bcc _ctc_struct_scan
+        bcc _ctc_check_res_house
         cmp #DEBRIS_CELL_LAST+1
-        bcs _ctc_struct_scan        ; above LAST -> unallocated today
+        bcs _ctc_check_res_house
         sec                         ; debris: (value - FIRST) + DEBRIS_CHAR_BASE
         sbc #DEBRIS_CELL_FIRST
         clc
         adc #<DEBRIS_CHAR_BASE
         pha
         lda #>DEBRIS_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_check_res_house:
+        cmp #RES_HOUSE_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #RES_HOUSE_CELL_LAST+1
+        bcs _ctc_check_apt
+        sec                         ; res house: (value - FIRST) + CHAR_BASE
+        sbc #RES_HOUSE_CELL_FIRST
+        clc
+        adc #<RES_HOUSE_CHAR_BASE
+        pha
+        lda #>RES_HOUSE_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_check_apt:
+        cmp #APT_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #APT_CELL_LAST+1
+        bcs _ctc_check_ind_heavy
+        sec                         ; apartment: (value - FIRST) + CHAR_BASE
+        sbc #APT_CELL_FIRST
+        clc
+        adc #<APT_CHAR_BASE
+        pha
+        lda #>APT_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_check_ind_heavy:
+        cmp #IND_HEAVY_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #IND_HEAVY_CELL_LAST+1
+        bcs _ctc_check_com_heavy
+        sec                         ; industrial heavy: (value - FIRST) + CHAR_BASE
+        sbc #IND_HEAVY_CELL_FIRST
+        clc
+        adc #<IND_HEAVY_CHAR_BASE
+        pha
+        lda #>IND_HEAVY_CHAR_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_check_com_heavy:
+        cmp #COM_HEAVY_CELL_FIRST
+        bcc _ctc_struct_scan
+        cmp #COM_HEAVY_CELL_LAST+1
+        bcs _ctc_struct_scan
+        sec                         ; commercial heavy: (value - FIRST) + CHAR_BASE
+        sbc #COM_HEAVY_CELL_FIRST
+        clc
+        adc #<COM_HEAVY_CHAR_BASE
+        pha
+        lda #>COM_HEAVY_CHAR_BASE
         adc #0
         sta ctc_char_hi
         pla

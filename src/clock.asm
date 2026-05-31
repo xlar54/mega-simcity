@@ -13,7 +13,7 @@
 ; logic that reads the MEGA65 RTC minutes and advances on a 3-minute delta.
 ;=======================================================================================
 
-FRAMES_PER_MONTH = 9000     ; 3 minutes * 50 Hz (PAL); 60 Hz NTSC advances ~2.5min
+FRAMES_PER_MONTH = 4500     ; 1.5 minutes * 50 Hz (PAL); 60 Hz NTSC advances ~1.25min
 
 ; Menu-bar layout, row 0: "Mmm YYYY" centered on the menu line (date starts at
 ; col 20), then a small gap before the $ funds field.
@@ -65,6 +65,7 @@ clock_tick:
         bne _ct_dirty
         inc sim_year+1
 _ct_dirty:
+        jsr population_monthly_tick     ; per-month growth pass on registered zones
         lda #1
         sta clock_dirty
 _ct_done:

@@ -150,6 +150,27 @@ PARK_CHAR_BASE          = DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT              ; 27
 ; Same struct-table dispatch as park.
 POLICE_CHAR_BASE        = PARK_CHAR_BASE + PARK_CELL_COUNT                  ; 290
 
+; Single 8x8 human-silhouette glyph that prefixes the population readout
+; (population.asm). One char, no cell encoding -- rendered only by chrome
+; init / population_render, never by cell_to_char.
+POP_ICON_CHAR           = POLICE_CHAR_BASE + POLICE_CELL_COUNT              ; 299
+
+; Residential houses chars: 9 cells (3x3) that replace the empty residential
+; zone art once that zone's pop crosses POP_HOUSES_THRESHOLD. cell_to_char
+; maps RES_HOUSE_CELL_FIRST + offset -> RES_HOUSE_CHAR_BASE + offset.
+RES_HOUSE_CHAR_BASE     = POP_ICON_CHAR + 1                                 ; 300
+
+; Apartment chars: second residential tier. Same shape as houses; 9 cells
+; mapped from APT_CELL_FIRST + offset.
+APT_CHAR_BASE           = RES_HOUSE_CHAR_BASE + RES_HOUSE_CELL_COUNT        ; 309
+
+; Industrial-heavy chars: 9 cells for the developed industrial tier.
+; cell_to_char maps IND_HEAVY_CELL_FIRST + offset -> IND_HEAVY_CHAR_BASE + offset.
+IND_HEAVY_CHAR_BASE     = APT_CHAR_BASE + APT_CELL_COUNT                    ; 318
+
+; Commercial-heavy chars: 9 cells for the developed commercial tier.
+COM_HEAVY_CHAR_BASE     = IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT         ; 327
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 LOAD_ICON_COL           = 2
@@ -173,6 +194,11 @@ TOP_BTN_H               = 2
         .cerror DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT > 1024, "debris chars exceed resident char-bank window"
         .cerror PARK_CHAR_BASE + PARK_CELL_COUNT > 1024, "park chars exceed resident char-bank window"
         .cerror POLICE_CHAR_BASE + POLICE_CELL_COUNT > 1024, "police chars exceed resident char-bank window"
+        .cerror POP_ICON_CHAR + 1 > 1024, "population icon char exceeds resident char-bank window"
+        .cerror RES_HOUSE_CHAR_BASE + RES_HOUSE_CELL_COUNT > 1024, "residential-house chars exceed resident char-bank window"
+        .cerror APT_CHAR_BASE + APT_CELL_COUNT > 1024, "apartment chars exceed resident char-bank window"
+        .cerror IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT > 1024, "industrial-heavy chars exceed resident char-bank window"
+        .cerror COM_HEAVY_CHAR_BASE + COM_HEAVY_CELL_COUNT > 1024, "commercial-heavy chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
         .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
         ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),

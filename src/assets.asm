@@ -167,6 +167,11 @@ tiles_load:
         jsr tiles_load_debris
         jsr tiles_load_park
         jsr tiles_load_police
+        jsr tiles_load_pop_icon
+        jsr tiles_load_residential_houses
+        jsr tiles_load_apartments
+        jsr tiles_load_industrial_heavy
+        jsr tiles_load_commercial_heavy
         rts
 
 tiles_dma_city_from_attic:
@@ -1791,4 +1796,257 @@ tiles_load_police:
         #STAMP_CHAR POLICE_CHAR_BASE+6, fcm_pol_bl
         #STAMP_CHAR POLICE_CHAR_BASE+7, fcm_pol_bc
         #STAMP_CHAR POLICE_CHAR_BASE+8, fcm_pol_br
+        rts
+
+;---------------------------------------------------------------------------------------
+; Population icon -- a single 8x8 human silhouette glyph that prefixes the
+; population readout on the status row. Slightly thicker than a stick figure:
+; 2-px head, 4-px shoulders/torso, arms outstretched on row 5, legs split with
+; a 1-px gap on the bottom row. Black ($00) on the light-grey status-row tile
+; ($0C) so it reads at a glance.
+;---------------------------------------------------------------------------------------
+fcm_pop_icon:
+        .byte $0C,$0C,$0C,$00,$00,$0C,$0C,$0C   ; row 0:  . . . X X . . .
+        .byte $0C,$0C,$00,$00,$00,$00,$0C,$0C   ; row 1:  . . X X X X . .
+        .byte $0C,$0C,$00,$00,$00,$00,$0C,$0C   ; row 2:  . . X X X X . .
+        .byte $0C,$0C,$0C,$00,$00,$0C,$0C,$0C   ; row 3:  . . . X X . . .
+        .byte $0C,$0C,$00,$00,$00,$00,$0C,$0C   ; row 4:  . . X X X X . .
+        .byte $0C,$00,$00,$00,$00,$00,$00,$0C   ; row 5:  . X X X X X X .
+        .byte $0C,$0C,$00,$00,$00,$00,$0C,$0C   ; row 6:  . . X X X X . .
+        .byte $0C,$0C,$00,$00,$0C,$00,$00,$0C   ; row 7:  . . X X . X X .
+
+tiles_load_pop_icon:
+        #STAMP_CHAR POP_ICON_CHAR, fcm_pop_icon
+        rts
+
+;---------------------------------------------------------------------------------------
+; Residential houses -- low-density evolution of the 3x3 residential zone.
+; 9 char slots loaded with 3 unique bitmaps:
+;   * fcm_res_house  -- small top-down house with red roof + white walls on
+;                       grass, used at the 4 corner positions of the zone.
+;   * fcm_res_yard   -- a small dark-green tree on grass, in the center.
+;   * fcm_res_grass  -- grass with a couple of yellow dots (flowers), filling
+;                       the 4 edge positions between the houses.
+; Layout matches structures.asm's row-major (dy*3+dx) cell-offset ordering:
+;     +0  +1  +2     house  grass  house
+;     +3  +4  +5     grass  yard   grass
+;     +6  +7  +8     house  grass  house
+;---------------------------------------------------------------------------------------
+
+; Centered top-down house: red ($0D) peaked roof on rows 1-3, white ($0F)
+; walls on rows 4-6 with a 2-pixel-wide black ($00) door, grass ($02)
+; everywhere else.
+fcm_res_house:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$0D,$0D,$0D,$0D,$02,$02
+        .byte $02,$0D,$0D,$0D,$0D,$0D,$0D,$02
+        .byte $02,$0D,$0D,$0D,$0D,$0D,$0D,$02
+        .byte $02,$0F,$0F,$0F,$0F,$0F,$0F,$02
+        .byte $02,$0F,$00,$00,$00,$00,$0F,$02
+        .byte $02,$0F,$0F,$0F,$0F,$0F,$0F,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+
+; Center cell: small dark-green ($03) tree with a brown ($04) trunk on a
+; grass ($02) field. Different from corner trees so the center reads as a
+; deliberate yard / common, not just more landscape.
+fcm_res_yard:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$03,$03,$03,$02,$02,$02
+        .byte $02,$03,$03,$03,$03,$03,$02,$02
+        .byte $02,$03,$03,$03,$03,$03,$02,$02
+        .byte $02,$03,$03,$03,$03,$03,$02,$02
+        .byte $02,$02,$03,$03,$03,$02,$02,$02
+        .byte $02,$02,$02,$04,$04,$02,$02,$02
+        .byte $02,$02,$02,$04,$04,$02,$02,$02
+
+; Edge cell: plain grass with a couple of yellow ($06) flower dots. Reused
+; across all 4 edge positions; the pattern reads as "grass" without obvious
+; tiling seams against either the corner house or the centre yard.
+fcm_res_grass:
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$06,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$06,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+
+tiles_load_residential_houses:
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+0, fcm_res_house    ; NW corner
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+1, fcm_res_grass    ; N edge
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+2, fcm_res_house    ; NE corner
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+3, fcm_res_grass    ; W edge
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+4, fcm_res_yard     ; center
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+5, fcm_res_grass    ; E edge
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+6, fcm_res_house    ; SW corner
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+7, fcm_res_grass    ; S edge
+        #STAMP_CHAR RES_HOUSE_CHAR_BASE+8, fcm_res_house    ; SE corner
+        rts
+
+;---------------------------------------------------------------------------------------
+; Residential apartments -- mid-density evolution. Three unique bitmaps reused
+; across the 9 char slots:
+;   * fcm_apt_building -- a multi-story apartment block (dark gray roof + light
+;                         gray walls + dark windows). Used at the 4 corners.
+;   * fcm_apt_pavement -- solid road-gray asphalt for the 4 edges, reading as
+;                         the lot between buildings.
+;   * fcm_apt_court    -- a small paved courtyard with a green bush border in
+;                         the middle, used at the center.
+;---------------------------------------------------------------------------------------
+
+; Apartment building: 3 floors of windows on light-grey walls with a dark
+; roof + foundation; 1-pixel grass borders on left/right so the building
+; reads as sitting in its lot rather than tiling edge-to-edge.
+fcm_apt_building:
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02   ; row 0: roof top
+        .byte $02,$0B,$0B,$0B,$0B,$0B,$0B,$02   ; row 1: roof
+        .byte $02,$0C,$0C,$0C,$0C,$0C,$0C,$02   ; row 2: top of wall
+        .byte $02,$0C,$00,$0C,$0C,$00,$0C,$02   ; row 3: windows
+        .byte $02,$0C,$0C,$0C,$0C,$0C,$0C,$02   ; row 4: between floors
+        .byte $02,$0C,$00,$0C,$0C,$00,$0C,$02   ; row 5: windows
+        .byte $02,$0C,$0C,$0C,$0C,$0C,$0C,$02   ; row 6: bottom of wall
+        .byte $02,$0B,$0B,$0B,$0B,$0B,$0B,$02   ; row 7: foundation
+
+; Pavement: solid road-gray, no markings (street/lot fill between buildings).
+fcm_apt_pavement:
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+
+; Courtyard: pavement border around a small grass patch with dark-green
+; shrubs forming a hollow square. Sits between the 4 corner apartments.
+fcm_apt_court:
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+        .byte $05,$02,$02,$02,$02,$02,$02,$05
+        .byte $05,$02,$03,$03,$03,$03,$02,$05
+        .byte $05,$02,$03,$02,$02,$03,$02,$05
+        .byte $05,$02,$03,$02,$02,$03,$02,$05
+        .byte $05,$02,$03,$03,$03,$03,$02,$05
+        .byte $05,$02,$02,$02,$02,$02,$02,$05
+        .byte $05,$05,$05,$05,$05,$05,$05,$05
+
+tiles_load_apartments:
+        #STAMP_CHAR APT_CHAR_BASE+0, fcm_apt_building    ; NW corner
+        #STAMP_CHAR APT_CHAR_BASE+1, fcm_apt_pavement    ; N edge
+        #STAMP_CHAR APT_CHAR_BASE+2, fcm_apt_building    ; NE corner
+        #STAMP_CHAR APT_CHAR_BASE+3, fcm_apt_pavement    ; W edge
+        #STAMP_CHAR APT_CHAR_BASE+4, fcm_apt_court       ; center
+        #STAMP_CHAR APT_CHAR_BASE+5, fcm_apt_pavement    ; E edge
+        #STAMP_CHAR APT_CHAR_BASE+6, fcm_apt_building    ; SW corner
+        #STAMP_CHAR APT_CHAR_BASE+7, fcm_apt_pavement    ; S edge
+        #STAMP_CHAR APT_CHAR_BASE+8, fcm_apt_building    ; SE corner
+        rts
+
+;---------------------------------------------------------------------------------------
+; Industrial-heavy -- the developed industrial tier. Three unique bitmaps
+; reused across the 9 char slots, on the industrial-orange ($09) ground:
+;   * fcm_ind_factory  -- a small factory building with windows + a small
+;                         smokestack on the right. Used at the 4 corners.
+;   * fcm_ind_pavement -- orange industrial pavement with dark loading-dock
+;                         stripes. Used for the 4 edge slots.
+;   * fcm_ind_silo     -- a top-down storage tank in the centre cell.
+;---------------------------------------------------------------------------------------
+
+fcm_ind_factory:
+        .byte $09,$09,$09,$09,$09,$0B,$0B,$09   ; row 0: smokestack top
+        .byte $09,$09,$09,$09,$09,$0B,$0B,$09   ; row 1: smokestack
+        .byte $09,$09,$0B,$0B,$0B,$0B,$0B,$09   ; row 2: roof + stack base
+        .byte $09,$0B,$0B,$0B,$0B,$0B,$0B,$09   ; row 3: roof
+        .byte $09,$0C,$0C,$0C,$0C,$0C,$0C,$09   ; row 4: top of walls
+        .byte $09,$0C,$00,$0C,$00,$0C,$0C,$09   ; row 5: windows
+        .byte $09,$0C,$0C,$0C,$0C,$0C,$0C,$09   ; row 6: walls
+        .byte $09,$0B,$0B,$0B,$0B,$0B,$0B,$09   ; row 7: foundation
+
+fcm_ind_pavement:
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B   ; loading-dock stripe
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+        .byte $09,$09,$0B,$09,$09,$0B,$09,$09   ; small dark markers
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+        .byte $09,$09,$0B,$09,$09,$0B,$09,$09   ; small dark markers
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+        .byte $0B,$0B,$0B,$0B,$0B,$0B,$0B,$0B   ; loading-dock stripe
+
+fcm_ind_silo:
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+        .byte $09,$09,$0B,$0B,$0B,$0B,$09,$09   ; silo top
+        .byte $09,$0B,$0C,$0C,$0C,$0C,$0B,$09   ; silo wall (LG=$0C)
+        .byte $09,$0B,$0C,$0F,$0F,$0C,$0B,$09   ; silo + white reflection
+        .byte $09,$0B,$0C,$0C,$0C,$0C,$0B,$09
+        .byte $09,$0B,$0C,$0C,$0C,$0C,$0B,$09
+        .byte $09,$09,$0B,$0B,$0B,$0B,$09,$09   ; silo bottom
+        .byte $09,$09,$09,$09,$09,$09,$09,$09
+
+tiles_load_industrial_heavy:
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+0, fcm_ind_factory    ; NW corner
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+1, fcm_ind_pavement   ; N edge
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+2, fcm_ind_factory    ; NE corner
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+3, fcm_ind_pavement   ; W edge
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+4, fcm_ind_silo       ; center
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+5, fcm_ind_pavement   ; E edge
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+6, fcm_ind_factory    ; SW corner
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+7, fcm_ind_pavement   ; S edge
+        #STAMP_CHAR IND_HEAVY_CHAR_BASE+8, fcm_ind_factory    ; SE corner
+        rts
+
+;---------------------------------------------------------------------------------------
+; Commercial-heavy -- the developed commercial tier. Three unique bitmaps on
+; light-grey sidewalks with blue commercial accents:
+;   * fcm_com_shop     -- a storefront building with a blue awning and large
+;                         shop windows. Used at the 4 corners.
+;   * fcm_com_sidewalk -- patterned light-grey sidewalk for the 4 edges.
+;   * fcm_com_plaza    -- a small open plaza with a blue fountain in the
+;                         centre cell.
+;---------------------------------------------------------------------------------------
+
+; Storefront: light-grey walls with a blue commercial-color awning row and a
+; row of big shop windows.
+fcm_com_shop:
+        .byte $0C,$08,$08,$08,$08,$08,$08,$0C   ; row 0: blue awning
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C   ; row 1: signboard
+        .byte $0C,$0F,$00,$0F,$0F,$00,$0F,$0C   ; row 2: windows
+        .byte $0C,$0F,$00,$0F,$0F,$00,$0F,$0C   ; row 3: windows
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C   ; row 4: between
+        .byte $0C,$0F,$00,$00,$00,$00,$0F,$0C   ; row 5: big shop window
+        .byte $0C,$0F,$00,$00,$00,$00,$0F,$0C   ; row 6: big shop window
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 7: sidewalk
+
+; Sidewalk: light-grey with a darker grey tile pattern.
+fcm_com_sidewalk:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0B,$0C,$0C,$0B,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0B,$0C,$0C,$0B,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0B,$0C,$0C,$0B,$0C,$0C,$0B
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0B,$0C,$0C,$0B,$0C,$0C,$0B,$0C
+
+; Plaza: sidewalk frame around a small blue fountain in the centre.
+fcm_com_plaza:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0B,$0B,$0B,$0B,$0B,$0B,$0C
+        .byte $0C,$0B,$0C,$0C,$0C,$0C,$0B,$0C
+        .byte $0C,$0B,$0C,$01,$01,$0C,$0B,$0C   ; blue fountain
+        .byte $0C,$0B,$0C,$01,$01,$0C,$0B,$0C
+        .byte $0C,$0B,$0C,$0C,$0C,$0C,$0B,$0C
+        .byte $0C,$0B,$0B,$0B,$0B,$0B,$0B,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+tiles_load_commercial_heavy:
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+0, fcm_com_shop      ; NW corner
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+1, fcm_com_sidewalk  ; N edge
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+2, fcm_com_shop      ; NE corner
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+3, fcm_com_sidewalk  ; W edge
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+4, fcm_com_plaza     ; center
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+5, fcm_com_sidewalk  ; E edge
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+6, fcm_com_shop      ; SW corner
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+7, fcm_com_sidewalk  ; S edge
+        #STAMP_CHAR COM_HEAVY_CHAR_BASE+8, fcm_com_shop      ; SE corner
         rts

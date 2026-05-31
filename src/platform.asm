@@ -440,6 +440,47 @@ PARK_CELL_COUNT         = PARK_COLS * PARK_ROWS                      ; 16
 PARK_CELL_FIRST         = DEBRIS_CELL_LAST + 1                       ; 173
 PARK_CELL_LAST          = PARK_CELL_FIRST + PARK_CELL_COUNT - 1     ; 188
 
+; --- Residential houses (3x3 cells, low-density evolution) ---
+; When a residential zone's per-zone pop crosses POP_HOUSES_THRESHOLD
+; (population.asm) the 9 ZONE_CELL_FIRST..+8 cells get rewritten with
+; RES_HOUSE_CELL_FIRST..+8. Same 3x3 footprint, same offset layout (dy*3+dx);
+; cell_to_char and is_zone_value treat the new range the same way as the empty
+; residential zone -- they just point at different bitmaps. Future C / I
+; evolution follows the same pattern, allocated above this block.
+RES_HOUSE_COLS          = ZONE_SIZE                                  ; 3
+RES_HOUSE_ROWS          = ZONE_SIZE                                  ; 3
+RES_HOUSE_CELL_COUNT    = RES_HOUSE_COLS * RES_HOUSE_ROWS            ; 9
+RES_HOUSE_CELL_FIRST    = 198                                        ; first free byte above POLICE_CELL_LAST=197
+RES_HOUSE_CELL_LAST     = RES_HOUSE_CELL_FIRST + RES_HOUSE_CELL_COUNT - 1   ; 206
+
+; --- Residential apartments (3x3 cells, mid-density evolution) ---
+; Second residential tier: a houses-density zone whose per-zone pop crosses
+; POP_APARTMENTS_THRESHOLD rewrites its 9 cells to APT_CELL_FIRST..+8.
+; Same 3x3 footprint, same dispatch pattern as houses.
+APT_COLS                = ZONE_SIZE                                  ; 3
+APT_ROWS                = ZONE_SIZE                                  ; 3
+APT_CELL_COUNT          = APT_COLS * APT_ROWS                        ; 9
+APT_CELL_FIRST          = RES_HOUSE_CELL_LAST + 1                    ; 207
+APT_CELL_LAST           = APT_CELL_FIRST + APT_CELL_COUNT - 1        ; 215
+
+; --- Industrial heavy (3x3 cells, developed industrial evolution) ---
+; Industrial counterpart to RES_HOUSE. When an industrial zone's per-zone
+; dev level crosses the per-cell thresholds, the 9 ZONE_CELL_FIRST+18..+26
+; cells get rewritten with IND_HEAVY_CELL_FIRST..+8. Same dispatch model.
+IND_HEAVY_COLS          = ZONE_SIZE                                  ; 3
+IND_HEAVY_ROWS          = ZONE_SIZE                                  ; 3
+IND_HEAVY_CELL_COUNT    = IND_HEAVY_COLS * IND_HEAVY_ROWS            ; 9
+IND_HEAVY_CELL_FIRST    = APT_CELL_LAST + 1                          ; 216
+IND_HEAVY_CELL_LAST     = IND_HEAVY_CELL_FIRST + IND_HEAVY_CELL_COUNT - 1  ; 224
+
+; --- Commercial heavy (3x3 cells, developed commercial evolution) ---
+; Commercial counterpart to RES_HOUSE / IND_HEAVY. Same dispatch model.
+COM_HEAVY_COLS          = ZONE_SIZE                                  ; 3
+COM_HEAVY_ROWS          = ZONE_SIZE                                  ; 3
+COM_HEAVY_CELL_COUNT    = COM_HEAVY_COLS * COM_HEAVY_ROWS            ; 9
+COM_HEAVY_CELL_FIRST    = IND_HEAVY_CELL_LAST + 1                    ; 225
+COM_HEAVY_CELL_LAST     = COM_HEAVY_CELL_FIRST + COM_HEAVY_CELL_COUNT - 1  ; 233
+
 ; --- Police department (3x3 cells, 24x24 px) ---
 ; Same 3x3 footprint as a residential / commercial / industrial zone. Top 2
 ; rows are the blue PD building (white border + "PD" letters in the centre
@@ -465,6 +506,10 @@ POLICE_CELL_LAST        = POLICE_CELL_FIRST + POLICE_CELL_COUNT - 1 ; 197
         .cerror DEBRIS_CELL_LAST >= 255,                "debris cell range LAST is 255; cmp #LAST+1 idiom truncates"
         .cerror PARK_CELL_LAST >= 255,                  "park cell range LAST is 255; cmp #LAST+1 idiom truncates"
         .cerror POLICE_CELL_LAST >= 255,                "police cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror RES_HOUSE_CELL_LAST >= 255,             "residential-house cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror APT_CELL_LAST >= 255,                   "apartment cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror IND_HEAVY_CELL_LAST >= 255,             "industrial-heavy cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror COM_HEAVY_CELL_LAST >= 255,             "commercial-heavy cell range LAST is 255; cmp #LAST+1 idiom truncates"
         ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.
@@ -562,3 +607,4 @@ KEY_CRSR_LEFT           = $5F
 KEY_CRSR_UP_ALT         = $91
 KEY_CRSR_LEFT_ALT       = $9D
 KEY_RETURN              = $0D
+KEY_F7                  = $88
