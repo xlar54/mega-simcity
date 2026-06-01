@@ -77,12 +77,11 @@ loader_entry:
         ; into FCM40 here -- main_entry will do that as its first display step.
         ; Keeping the loader in BASIC text mode means the final KERNAL_LOAD in
         ; the trampoline runs in the same VIC state that the boot_load_* calls
-        ; above run in. Most tile DMAs copy from Attic (tiles_dma_city_from_attic,
-        ; ui_load); the rest STAMP_CHAR-DMA from bitmap tables baked into THIS
-        ; PRG (fcm_cursor_*, fcm_park_*, etc.).
+        ; above run in. The map and UI charsets DMA from Attic; only the small
+        ; runtime/control chars still STAMP_CHAR-DMA from bitmap tables baked
+        ; into THIS PRG (cursor, top-strip buttons, OK button, population icon).
         jsr tiles_init_palette
-        jsr tiles_load                       ; (this fans out to all the per-feature
-                                             ;  tiles_load_* routines today)
+        jsr tiles_load
         jsr ui_load
 
         ; --- Stage 3: hand off to the tail trampoline ---------------------------------

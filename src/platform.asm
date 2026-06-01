@@ -514,14 +514,15 @@ POLICE_CELL_LAST        = POLICE_CELL_FIRST + POLICE_CELL_COUNT - 1 ; 197
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.
         .cerror ZONE_CELL_LAST >= 255,                  "zone cell range LAST is 255; cmp #LAST+1 idiom truncates -- shrink the range or rework the test"
-; Tileset disk asset = base tiles (chars 0-27), then the 3x3 zone cells (loaded to
-; chars ZONE_GEN_BASE..+26), then the 12 coal-plant cells. TILESET_ASSET_SIZE is
-; the whole blob.
+; Tileset disk asset = char-indexed map viewport charset. It contains chars
+; 0..TILESET_ASSET_CHARS-1 so the editor, disk asset, and runtime char ids all
+; agree. UI/control-only chars are still stamped from assets.asm / uitiles.
 TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 TILESET_ZONE_SIZE       = ZONE_CELL_CHAR_COUNT * 64
 TILESET_COALPP_SIZE     = COALPP_CELL_COUNT * 64
 TILESET_NUCLEARPP_SIZE  = NUCLEARPP_CELL_COUNT * 64
-TILESET_ASSET_SIZE      = TILESET_BODY_SIZE + TILESET_ZONE_SIZE + TILESET_COALPP_SIZE + TILESET_NUCLEARPP_SIZE
+TILESET_ASSET_CHARS     = 329
+TILESET_ASSET_SIZE      = TILESET_ASSET_CHARS * 64
 
 ; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.
 ; Bank 5 ($50000, the top 64K of the MEGA65's 384K) keeps it clear of program

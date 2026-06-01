@@ -105,11 +105,11 @@ TREE_CHAR_BASE          = DISK_LINE_CHAR + 1
 ; (interior, fully surrounded by water) keeps the existing TILE_WATER quadrant
 ; chars (0..3). cell_to_char maps WATER_SHORE_CELL_FIRST+mask to
 ; WATER_SHORE_CHAR_BASE+mask.
-WATER_SHORE_CHAR_BASE   = TREE_CHAR_BASE + TREE_CELL_COUNT      ; 238 -> 238..252
+WATER_SHORE_CHAR_BASE   = TREE_CHAR_BASE + TREE_CELL_COUNT
 
 ; Power-bridge chars. 2 bitmaps (H/V). Road bridges piggy-back on the existing
 ; ROAD_CELL range (chars 21/22 in the city tileset), so they need no entry here.
-POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT  ; 253 -> 253..254
+POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT
 
 ; Popup OK button chars (4x2 cells, 8 bitmaps). Scattered through the gaps in
 ; char RAM rather than a single contiguous range:
@@ -125,7 +125,7 @@ POWER_BRIDGE_CHAR_BASE  = WATER_SHORE_CHAR_BASE + WATER_SHORE_CELL_COUNT  ; 253 
 ;                         chrome block (UI_TILE_PANEL = 64+).
 ;   BK                 -- continues the linear chain from POWER_BRIDGE_CHAR_BASE,
 ;                         so any new range below starts at BTN_OK_BK_CHAR + 1
-;                         rather than colliding with this entry at 255.
+;                         rather than colliding with this entry.
 BTN_OK_TL_CHAR          = 23
 BTN_OK_TR_CHAR          = 27
 BTN_OK_BL_CHAR          = 59
@@ -133,50 +133,48 @@ BTN_OK_BR_CHAR          = 60
 BTN_OK_TO_CHAR          = 61
 BTN_OK_TK_CHAR          = 62
 BTN_OK_BO_CHAR          = 63
-BTN_OK_BK_CHAR          = POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT  ; 255 today
+BTN_OK_BK_CHAR          = POWER_BRIDGE_CHAR_BASE + POWER_BRIDGE_CELL_COUNT
 
-; Rail chars. 15 bitmaps: H, V, 4-way, 4 curves, 4 T-junctions, H_POWER,
-; V_POWER, BRIDGE_H, BRIDGE_V -- one per RAIL_CELL_* offset. Cell-to-char
-; translates RAIL_CELL_FIRST + offset to RAIL_CHAR_BASE + offset. This is the
-; first range that crosses the 8-bit char-id boundary; loader uses
-; create_fcm_char16 + STAMP_CHAR (the dispatch macro picks the 16-bit entry
-; when the static id exceeds 255).
-RAIL_CHAR_BASE          = BTN_OK_BK_CHAR + 1                                ; 256
+; Rail chars. 17 bitmaps: H, V, 4-way, 4 curves, 4 T-junctions, H_POWER,
+; V_POWER, BRIDGE_H/V, and road crossings -- one per RAIL_CELL_* offset.
+; Cell-to-char translates RAIL_CELL_FIRST + offset to RAIL_CHAR_BASE + offset.
+; This range crosses the 8-bit char-id boundary, so the render path must keep
+; using set_fcm_char16/create_fcm_char16 for high chars.
+RAIL_CHAR_BASE          = BTN_OK_BK_CHAR + 1
 
 ; Debris char. A single rubble-pattern bitmap left behind when a structure is
 ; bulldozed; cell_to_char translates DEBRIS_CELL_FIRST -> DEBRIS_CHAR_BASE.
-DEBRIS_CHAR_BASE        = RAIL_CHAR_BASE + RAIL_CELL_COUNT                  ; 273
+DEBRIS_CHAR_BASE        = RAIL_CHAR_BASE + RAIL_CELL_COUNT
 
 ; Park chars. 16 bitmaps for the 4x4 park (corner trees, edge grass, centre
 ; fountain). cell_to_char goes through the structures.asm dispatch -- park
 ; chars get loaded via struct_char_base_lo/hi lookups.
-PARK_CHAR_BASE          = DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT              ; 274
+PARK_CHAR_BASE          = DEBRIS_CHAR_BASE + DEBRIS_CELL_COUNT
 
-; Police chars. 16 bitmaps for the 4x4 federal building (north cornice, plain
-; roof / west + east, south portico with column-stripes, central 2x2 dome).
-; Same struct-table dispatch as park.
-POLICE_CHAR_BASE        = PARK_CHAR_BASE + PARK_CELL_COUNT                  ; 290
+; Police chars. 9 bitmaps for the 3x3 police department. Same struct-table
+; dispatch as park.
+POLICE_CHAR_BASE        = PARK_CHAR_BASE + PARK_CELL_COUNT
 
 ; Single 8x8 human-silhouette glyph that prefixes the population readout
 ; (population.asm). One char, no cell encoding -- rendered only by chrome
 ; init / population_render, never by cell_to_char.
-POP_ICON_CHAR           = POLICE_CHAR_BASE + POLICE_CELL_COUNT              ; 299
+POP_ICON_CHAR           = POLICE_CHAR_BASE + POLICE_CELL_COUNT
 
 ; Residential houses chars: 9 cells (3x3) that replace the empty residential
 ; zone art once that zone's pop crosses POP_HOUSES_THRESHOLD. cell_to_char
 ; maps RES_HOUSE_CELL_FIRST + offset -> RES_HOUSE_CHAR_BASE + offset.
-RES_HOUSE_CHAR_BASE     = POP_ICON_CHAR + 1                                 ; 300
+RES_HOUSE_CHAR_BASE     = POP_ICON_CHAR + 1
 
 ; Apartment chars: second residential tier. Same shape as houses; 9 cells
 ; mapped from APT_CELL_FIRST + offset.
-APT_CHAR_BASE           = RES_HOUSE_CHAR_BASE + RES_HOUSE_CELL_COUNT        ; 309
+APT_CHAR_BASE           = RES_HOUSE_CHAR_BASE + RES_HOUSE_CELL_COUNT
 
 ; Industrial-heavy chars: 9 cells for the developed industrial tier.
 ; cell_to_char maps IND_HEAVY_CELL_FIRST + offset -> IND_HEAVY_CHAR_BASE + offset.
-IND_HEAVY_CHAR_BASE     = APT_CHAR_BASE + APT_CELL_COUNT                    ; 318
+IND_HEAVY_CHAR_BASE     = APT_CHAR_BASE + APT_CELL_COUNT
 
 ; Commercial-heavy chars: 9 cells for the developed commercial tier.
-COM_HEAVY_CHAR_BASE     = IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT         ; 327
+COM_HEAVY_CHAR_BASE     = IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT
 
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
@@ -207,6 +205,7 @@ TOP_BTN_H               = 2
         .cerror COM_HEAVY_CHAR_BASE + COM_HEAVY_CELL_COUNT > 1024, "commercial-heavy chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
         .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
+        .cerror TILESET_ASSET_CHARS != COM_HEAVY_CHAR_BASE + COM_HEAVY_CELL_COUNT, "TILESET_ASSET_CHARS must cover every map-viewport char"
         ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),
         ; so every BTN_OK_*_CHAR must fit in a byte. BK is the only one that
         ; floats (anchored to POWER_BRIDGE_CHAR_BASE + COUNT), so cap it explicitly
@@ -219,11 +218,11 @@ TOP_BTN_H               = 2
         .cerror BTN_OK_BO_CHAR >= UI_TILE_PANEL, "OK button mid-block collides with chrome chars"
 
 ; --- Attic load address + asset sizing ---
-; UI tiles are staged at Attic $2000 (not $1000) so the city tileset -- now large
-; enough with the coal plant to exceed $1000 -- has room below it.
+; UI tiles are staged at Attic $6000 so the now char-indexed map tileset
+; (0..COM_HEAVY last char) has clear room below it.
 ATTIC_UI_TILE_MB        = $80
 ATTIC_UI_TILE_BANK      = $00
-ATTIC_UI_TILE_ADDR      = $2000
+ATTIC_UI_TILE_ADDR      = $6000
 UI_TILE_CHAR_SIZE       = 64
 UI_BTN_CELLS_X          = 2
 UI_BTN_CELLS_Y          = 2
