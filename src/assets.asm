@@ -81,62 +81,111 @@ ovr_inspect_name_end:
 
 ;---------------------------------------------------------------------------------------
 ; Palette (shared by both tilesets)
+;
+; The palette is no longer hardcoded; it lives in a disk asset PALETTE.PRG
+; (built from src/assets/palette.asm) with the same on-disk layout the tile
+; editor (src/tile-edit.asm) emits: 2-byte PRG header + 256 R + 256 G +
+; 256 B, MEGA65 nibble-swapped bytes ready for $D100/$D200/$D300. Editing
+; the palette is just "save PALETTE from the tile editor, reboot the game."
+;
+; Boot flow:
+;   boot_load_palette  -- KERNAL_LOAD into staging (bounded retry), then DMA
+;                         the 768-byte body to PALETTE_SHADOW_ADDR in chip
+;                         RAM. On hard fail flips palette_load_failed=1.
+;   tiles_apply_palette -- write the shadow into the VIC-IV palette
+;                         registers. If the load failed, fall back to the
+;                         C65 ROM default 16-color palette (just enough to
+;                         keep the screen legible for the error case).
+;   tiles_init_palette  -- legacy entry: do both, in order. The loader
+;                         still calls this name; keeps the contract stable.
 ;---------------------------------------------------------------------------------------
 
-; Palette color from natural 0-255 RGB. Each channel is nibble-swapped at
-; assemble time because the MEGA65 stores palette bytes nibble-swapped (a
-; display value of $37 is stored as $73), giving full 8-bit-per-channel color.
-SET_COLOR .macro index, red, green, blue
-        lda #\index
-        ldx #((((\red) & $0F) << 4) | (((\red) >> 4) & $0F))
-        ldy #((((\green) & $0F) << 4) | (((\green) >> 4) & $0F))
-        ldz #((((\blue) & $0F) << 4) | (((\blue) >> 4) & $0F))
-        jsr set_palette_color
-.endmacro
+palette_name:
+        .text "palette"
+palette_name_end:
+PALETTE_NAME_LEN = palette_name_end - palette_name
 
-tiles_init_palette:
-        #SET_COLOR 0,    0,   0,   0    ; black / transparent-looking interior
-        #SET_COLOR 1,    0,  48, 160    ; water
-        #SET_COLOR 2,   32, 160,  32    ; grass
-        #SET_COLOR 3,    0,  96,  16    ; dark green
-        #SET_COLOR 4,  160, 112,  64    ; ground / dirt
-        #SET_COLOR 5,   96,  96,  96    ; road
-        #SET_COLOR 6,  240, 208,  16    ; stripe / yellow text
-        #SET_COLOR 7,   96, 208,  64    ; residential green
-        #SET_COLOR 8,   32,  96, 224    ; commercial blue
-        #SET_COLOR 9,  192,  96,  16    ; industrial orange
-        #SET_COLOR 10, 240, 224,  32    ; power / prompt
-        #SET_COLOR 11,  48,  48,  48    ; dark gray
-        #SET_COLOR 12, 208, 208, 208    ; light gray UI panel
-        #SET_COLOR 13, 224,  32,  32    ; red
-        #SET_COLOR 14,  32, 224, 240    ; cyan
-        #SET_COLOR 15, 240, 240, 240    ; white
-        ; ground-texture browns: exact sampled colors, full 8-bit
-        #SET_COLOR 16, 116, 86, 46
-        #SET_COLOR 17, 105, 75, 34
-        #SET_COLOR 18, 114, 85, 55
-        #SET_COLOR 19, 109, 83, 57
-        #SET_COLOR 20, 115, 81, 43
-        #SET_COLOR 21, 112, 80, 59
-        #SET_COLOR 22,  89, 70, 59
-        #SET_COLOR 23, 107, 74, 35
-        ; water blues: close shades for subtle horizontal ripple banding
-        #SET_COLOR 24,  52, 104, 180   ; base
-        #SET_COLOR 25,  44,  92, 165   ; dark band
-        #SET_COLOR 26,  64, 118, 196   ; light band
-        #SET_COLOR 27,  80, 134, 208   ; ripple glint
-        ; bulldozer icon
-        #SET_COLOR 28, 232, 148, 112   ; salmon body
-        #SET_COLOR 29, 124,  68,  66   ; maroon canopy / accents
-        #SET_COLOR 30,  44,  44,  60   ; navy treads / blade
-        ; road tile (8x8 cell)
-        #SET_COLOR 31, 113,  86,  66   ; top edge brown
-        #SET_COLOR 32, 102, 103,  99   ; asphalt
-        #SET_COLOR 33, 156, 155, 155   ; lane marking
-        #SET_COLOR 34,  63,  56,  49   ; bottom shadow
-        #SET_COLOR 35, 117,  85,  56   ; bottom edge brown
-        #SET_COLOR 36, 156, 100,  52   ; power-pole wood brown (post + crossbar)
+PALETTE_LOAD_RETRIES = 3
+
+palette_load_failed:
+        .byte 0
+
+boot_load_palette:
+        lda #PALETTE_LOAD_RETRIES
+        sta _blp_tries
+_blp_attempt:
+        lda #TILESET_STAGE_BANK         ; staging lives in bank 5
+        ldx #$00                        ; filename bank 0 (this code is bank 0)
+        jsr KERNAL_SETBNK
+        lda #0
+        ldx #8
+        ldy #0
+        jsr KERNAL_SETLFS
+        lda #PALETTE_NAME_LEN
+        ldx #<palette_name
+        ldy #>palette_name
+        jsr KERNAL_SETNAM
+        lda #$40                        ; A=$40: ignore PRG header, load to X/Y
+        ldx #<TILESET_STAGE_ADDR
+        ldy #>TILESET_STAGE_ADDR
+        jsr KERNAL_LOAD
+        bcc _blp_success
+        dec _blp_tries
+        bne _blp_attempt
+        ; All retries exhausted: flag fallback, leave shadow as-is.
+        lda #1
+        sta palette_load_failed
         rts
+
+_blp_success:
+        lda #0
+        sta palette_load_failed
+        ; DMA 768 bytes from staging+2 (skip the 2-byte PRG header) to
+        ; PALETTE_SHADOW_ADDR in chip RAM bank 0. Layout in the body is
+        ; [256 R][256 G][256 B], same as the shadow expects.
+        lda #$00
+        sta $D707
+        .byte $80, $00                  ; src megabyte
+        .byte $81, $00                  ; dst megabyte
+        .byte $00                       ; end of list
+        .byte $00                       ; cmd: copy
+        .word PALETTE_BODY_SIZE
+        .word TILESET_STAGE_ADDR + 2
+        .byte TILESET_STAGE_BANK
+        .word PALETTE_SHADOW_ADDR
+        .byte $00                       ; dst bank 0 (chip RAM)
+        .byte $00
+        .word $0000
+        rts
+
+_blp_tries:
+        .byte 0
+
+tiles_apply_palette:
+        lda palette_load_failed
+        bne _tap_fallback
+        ldx #0
+_tap_loop:
+        lda PALETTE_SHADOW_ADDR,x
+        sta $D100,x
+        lda PALETTE_SHADOW_ADDR + 256,x
+        sta $D200,x
+        lda PALETTE_SHADOW_ADDR + 512,x
+        sta $D300,x
+        inx
+        bne _tap_loop
+        rts
+_tap_fallback:
+        ; Boot LOAD couldn't read PALETTE -- restore the C65 ROM 16-color
+        ; defaults so the screen is at least legible. The rest of the
+        ; game's art will look wrong (it expects the full 37-entry custom
+        ; palette), but a wrong-looking screen beats a hung boot.
+        jmp restore_default_palette
+
+; Legacy entry. The boot loader still calls tiles_init_palette by name.
+tiles_init_palette:
+        jsr boot_load_palette
+        jmp tiles_apply_palette
 
 ;---------------------------------------------------------------------------------------
 ; Stage 2: Attic -> char RAM

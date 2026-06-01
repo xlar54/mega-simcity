@@ -559,6 +559,15 @@ ATTIC_PSTACK_PHYS       = $8400000
 ; This file reserves the constant so no other module is tempted to use $1600.
 TRAMP_DEST              = $1600
 
+; Palette shadow buffer. The boot loader KERNAL_LOADs the PALETTE file into
+; staging, then DMAs the 768-byte body (256 R + 256 G + 256 B, MEGA65
+; nibble-swapped, ready-to-write VIC-IV bytes) into here. tiles_apply_palette
+; then walks the shadow into $D100/$D200/$D300. The shadow lives in the
+; "always available" $1600-$1EFF region documented in CLAUDE.md, just past
+; the trampoline page -- $1700..$19FF inclusive (3 pages = 768 bytes).
+PALETTE_SHADOW_ADDR     = $1700
+PALETTE_BODY_SIZE       = 768
+
 ; Overlays -- separate PRGs that the player invokes from the toolbar (SAVE /
 ; LOAD / INSPECT today). Each is loaded from disk into its own Attic slot at
 ; boot (mirroring the tile assets); on demand the main game DMAs the active
