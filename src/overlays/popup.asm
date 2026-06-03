@@ -127,6 +127,10 @@ overlay_open:
 overlay_close:
         lda #0
         sta overlay_active
+        ; Drop any body-click hook so a popup that registered one doesn't
+        ; keep dispatching clicks after it closed.
+        sta popup_body_click_hook
+        sta popup_body_click_hook+1
         jmp render_mark_view_dirty
 
 ;---------------------------------------------------------------------------------------
@@ -138,18 +142,29 @@ overlay_close:
 overlay_handle_click:
         lda mouse_x+1
         bne _ohc_done               ; off-screen left -- can't be on OK
+        ; OK rect first: closes the popup unconditionally.
         lda mouse_x
         cmp popup_ok_x_pixel
-        bcc _ohc_done
+        bcc _ohc_body
         cmp popup_ok_x_pixel_end
-        bcs _ohc_done
+        bcs _ohc_body
         lda mouse_y
         cmp popup_ok_y_pixel
-        bcc _ohc_done
+        bcc _ohc_body
         cmp popup_ok_y_pixel_end
-        bcs _ohc_done
+        bcs _ohc_body
         jsr audio_click
         jsr overlay_close
+        rts
+_ohc_body:
+        ; Body click: if the active popup registered a body-click hook
+        ; (popup_body_click_hook != 0), dispatch through it. The hook
+        ; reads mouse_x/y, updates whatever popup state it owns, and rts.
+        ; Without a hook, the click is swallowed (existing behaviour).
+        lda popup_body_click_hook
+        ora popup_body_click_hook+1
+        beq _ohc_done
+        jmp (popup_body_click_hook)
 _ohc_done:
         rts
 
@@ -296,3 +311,10 @@ overlay_title_ptr:              .word 0
 overlay_title_len:              .byte 0
 overlay_row_idx:                .byte 0
 overlay_col_idx:                .byte 0
+
+; Optional body-click hook. When non-zero, overlay_handle_click jmp's through
+; it for any click NOT on the OK rect, so the popup body can run its own
+; click handler (rows, buttons, etc.). overlay_close clears the hook so it
+; doesn't fire across popup boundaries. Hook should rts (not jmp); it may
+; redraw whatever popup state changed.
+popup_body_click_hook:          .word 0

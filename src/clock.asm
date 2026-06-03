@@ -13,7 +13,11 @@
 ; logic that reads the MEGA65 RTC minutes and advances on a 3-minute delta.
 ;=======================================================================================
 
-FRAMES_PER_MONTH = 4500     ; 1.5 minutes * 50 Hz (PAL); 60 Hz NTSC advances ~1.25min
+; Per-speed frames-per-month, indexed by sim_speed (SPEED_SLOW/MEDIUM/FAST).
+; Slow is the historical 4500-frame default; Medium halves it; Fast quarters.
+; The clock_tick rollover threshold is a runtime lookup against these tables.
+sim_speed_fpm_lo:           .byte <FPM_SLOW, <FPM_MEDIUM, <FPM_FAST
+sim_speed_fpm_hi:           .byte >FPM_SLOW, >FPM_MEDIUM, >FPM_FAST
 
 ; Menu-bar layout, row 0: "Mmm YYYY" centered on the menu line (date starts at
 ; col 20), then a small gap before the $ funds field.
@@ -35,6 +39,9 @@ clock_init:
         lda #0
         sta clock_frames
         sta clock_frames+1
+        sta sim_speed                ; default to SPEED_SLOW (= 0) -- the
+                                     ; historical pace, so a save predating
+                                     ; the speed picker plays the same.
         lda #1
         sta clock_dirty
         rts
@@ -46,10 +53,14 @@ clock_tick:
         bne +
         inc clock_frames+1
 +
+        ; Threshold lookup: sim_speed indexes sim_speed_fpm_lo/hi for the
+        ; per-speed frames-per-month value. Slow = 4500 (default), Medium =
+        ; 2250, Fast = 1125. Compare 16-bit clock_frames against threshold.
+        ldx sim_speed
         lda clock_frames
-        cmp #<FRAMES_PER_MONTH
+        cmp sim_speed_fpm_lo,x
         lda clock_frames+1
-        sbc #>FRAMES_PER_MONTH
+        sbc sim_speed_fpm_hi,x
         bcc _ct_done                ; frames < threshold
         lda #0
         sta clock_frames
@@ -62,8 +73,13 @@ clock_tick:
         lda #1
         sta sim_month
         inc sim_year
-        bne _ct_dirty
+        bne _ct_yr_age
         inc sim_year+1
+_ct_yr_age:
+        ; New year -> tick each registered plant's years-left counter down by
+        ; one (clamped at 0). The inspect popup reads the counter to show
+        ; "NN YEARS LEFT" per coal / nuclear plant.
+        jsr plant_age_year
 _ct_dirty:
         jsr population_monthly_tick     ; per-month growth pass on registered zones
         lda #1
@@ -210,6 +226,8 @@ clock_frames:               ; frames elapsed since the last month tick
         .word 0
 clock_dirty:                ; nonzero -> redraw the readout next frame
         .byte 0
+sim_speed:                  ; SPEED_SLOW/MEDIUM/FAST -- indexes
+        .byte 0             ; sim_speed_fpm_lo/hi to pick the month threshold
 
 clk_tmp:                    ; scratch for the month index math
         .byte 0

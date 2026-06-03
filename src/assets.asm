@@ -304,6 +304,16 @@ tiles_load_top_buttons:
         #STAMP_CHAR DISK_INSET_CHAR_BASE+3, fcm_folder_br_sel
         ; --- Divider line used by the disk overlay for menu button borders ---
         #STAMP_CHAR DISK_LINE_CHAR, fcm_disk_line
+
+        ; --- SPEED button (single icon: idle only; never latches selected) ---
+        #STAMP_CHAR SPEED_CHAR_BASE,   fcm_speed_tl
+        #STAMP_CHAR SPEED_CHAR_BASE+1, fcm_speed_tr
+        #STAMP_CHAR SPEED_CHAR_BASE+2, fcm_speed_bl
+        #STAMP_CHAR SPEED_CHAR_BASE+3, fcm_speed_br
+
+        ; --- Checkbox glyphs for the speed popup body ---
+        #STAMP_CHAR CHECKBOX_EMPTY_CHAR,   fcm_checkbox_empty
+        #STAMP_CHAR CHECKBOX_CHECKED_CHAR, fcm_checkbox_checked
         rts
 
 fcm_inspect_tl:
@@ -495,6 +505,91 @@ fcm_disk_line:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+; --- SPEED button icon: round clock with a blue ($08) bezel, white ($0F)
+; face, and black ($00) hands -- short hour hand pointing to 12 and longer
+; minute hand pointing to 3 ("quarter past noon"). 16x16 pixels = 2x2 cells.
+; Chrome edges follow the rest of the toolbar: row 0 all white ($0F =
+; raised top), col 0 white (raised left), col 15 black ($00 = right
+; shadow), row 15 black (bottom shadow). The button is a one-shot popup
+; trigger and never latches selected, so we ship only the idle (raised)
+; state.
+;
+; Bezel forms a circle of diameter 9 inscribed in the chrome inset. Pixel
+; layout (X = blue, . = face white, H = black hand, c = chrome inset):
+;
+;   row 3:  . . . . . . X X X . . . . . . .
+;   row 4:  . . . . . X . . . X . . . . . .
+;   row 5:  . . . . X . . H . . X . . . . .
+;   row 6:  . . . X . . . H . . . X . . . .
+;   row 7:  . . . X . . . H H H H X . . . .   <- centre + minute hand right
+;   row 8:  . . . X . . . . . . . X . . . .
+;   row 9:  . . . . X . . . . . X . . . . .
+;   row 10: . . . . . X . . . X . . . . . .
+;   row 11: . . . . . . X X X . . . . . . .
+fcm_speed_tl:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; row 0: raised top edge
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 1: chrome inset
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 2: chrome inset
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$08,$08   ; row 3: bezel top arc
+        .byte $0F,$0C,$0C,$0C,$0C,$08,$0F,$0F   ; row 4
+        .byte $0F,$0C,$0C,$0C,$08,$0F,$0F,$00   ; row 5: hour hand top
+        .byte $0F,$0C,$0C,$08,$0F,$0F,$0F,$00   ; row 6: hour hand
+        .byte $0F,$0C,$0C,$08,$0F,$0F,$0F,$00   ; row 7: centre
+
+fcm_speed_tr:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; row 0: raised top edge
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 1: chrome / right shadow
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 2: chrome
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 3: bezel top arc
+        .byte $0F,$08,$0C,$0C,$0C,$0C,$0C,$00   ; row 4
+        .byte $0F,$0F,$08,$0C,$0C,$0C,$0C,$00   ; row 5
+        .byte $0F,$0F,$0F,$08,$0C,$0C,$0C,$00   ; row 6
+        .byte $00,$00,$00,$08,$0C,$0C,$0C,$00   ; row 7: minute hand right
+
+fcm_speed_bl:
+        .byte $0F,$0C,$0C,$08,$0F,$0F,$0F,$0F   ; row 8: face interior
+        .byte $0F,$0C,$0C,$0C,$08,$0F,$0F,$0F   ; row 9
+        .byte $0F,$0C,$0C,$0C,$0C,$08,$0F,$0F   ; row 10
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$08,$08   ; row 11: bezel bottom arc
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 12
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 13
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C   ; row 14
+        .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 15: bottom shadow
+
+fcm_speed_br:
+        .byte $0F,$0F,$0F,$0F,$08,$0C,$0C,$00   ; row 8
+        .byte $0F,$0F,$0F,$08,$0C,$0C,$0C,$00   ; row 9
+        .byte $0F,$0F,$08,$0C,$0C,$0C,$0C,$00   ; row 10
+        .byte $08,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 11
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 12
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 13
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 14
+        .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 15: bottom shadow
+
+; --- Checkbox glyphs for the speed popup body. 8x8 each. White ($0F) box
+; outline on the popup-panel background ($0C), with either an empty interior
+; or a black ($00) checkmark inside. speed_popup.asm stamps one or the other
+; on each of the 3 rows depending on sim_speed.
+fcm_checkbox_empty:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$0C,$0C,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$0C,$0C,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$0C,$0C,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$0C,$0C,$0F,$0C
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+fcm_checkbox_checked:
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$0C,$00,$0F,$0C
+        .byte $0C,$0F,$0C,$0C,$00,$00,$0F,$0C
+        .byte $0C,$0F,$00,$00,$00,$0C,$0F,$0C
+        .byte $0C,$0F,$0C,$00,$0C,$0C,$0F,$0C
+        .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
 
 UI_TILE_DMA .macro index, size, offset

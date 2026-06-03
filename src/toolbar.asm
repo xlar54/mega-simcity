@@ -133,24 +133,27 @@ btn_stamp_2x2:
 ; button is 2x2 cells. The same table feeds the click hit-test in
 ; _thc_check_top further down.
 ;---------------------------------------------------------------------------------------
-TOP_BTN_COUNT = 2
+TOP_BTN_COUNT = 3
 
 top_btn_col:
-        .byte INSPECT_ICON_COL, DISK_ICON_COL
+        .byte INSPECT_ICON_COL, DISK_ICON_COL, SPEED_ICON_COL
 top_btn_row:
-        .byte INSPECT_ICON_ROW, DISK_ICON_ROW
+        .byte INSPECT_ICON_ROW, DISK_ICON_ROW, SPEED_ICON_ROW
 top_btn_tile:
-        .byte TILE_INSPECT, TILE_DISK
+        .byte TILE_INSPECT, TILE_DISK, TILE_SPEED
 ; Char bases are split into lo/hi parallel arrays so any base can exceed 255
 ; without silently truncating the high byte. Add a row = one entry in each.
+; SPEED is a one-shot popup trigger -- selected_tile never latches TILE_SPEED,
+; so the sel base for that row points at the same idle bitmap (the SELECTED
+; path is unreachable for it).
 top_btn_base_idle_lo:
-        .byte <INSPECT_CHAR_BASE, <DISK_CHAR_BASE
+        .byte <INSPECT_CHAR_BASE, <DISK_CHAR_BASE, <SPEED_CHAR_BASE
 top_btn_base_idle_hi:
-        .byte >INSPECT_CHAR_BASE, >DISK_CHAR_BASE
+        .byte >INSPECT_CHAR_BASE, >DISK_CHAR_BASE, >SPEED_CHAR_BASE
 top_btn_base_sel_lo:
-        .byte <INSPECT_INSET_CHAR_BASE, <DISK_INSET_CHAR_BASE
+        .byte <INSPECT_INSET_CHAR_BASE, <DISK_INSET_CHAR_BASE, <SPEED_CHAR_BASE
 top_btn_base_sel_hi:
-        .byte >INSPECT_INSET_CHAR_BASE, >DISK_INSET_CHAR_BASE
+        .byte >INSPECT_INSET_CHAR_BASE, >DISK_INSET_CHAR_BASE, >SPEED_CHAR_BASE
 
 ; Redraw every top-strip button. The button whose tile id matches selected_tile
 ; gets its SELECTED (pressed) chars; the rest get IDLE (raised). Called from
@@ -245,19 +248,25 @@ _thct_loop:
         bcc _thct_next              ; row < button row
         cmp #TOP_BTN_H
         bcs _thct_next              ; row >= button row + H
-        ; hit. DISK is a one-shot action (overlay), not a persistent
-        ; selection -- don't write TILE_DISK to selected_tile, or the button
-        ; would stay rendered in the SELECTED/pressed state after the overlay
-        ; closes. Other top-strip buttons (inspect) DO persist.
+        ; hit. DISK and SPEED are one-shot popup triggers, not persistent
+        ; selections -- don't write their tile id to selected_tile, or the
+        ; button would stay rendered in the SELECTED/pressed state after the
+        ; popup closes. Other top-strip buttons (inspect) DO persist.
         lda top_btn_tile,y
         cmp #TILE_DISK
         beq _thct_disk_oneshot
+        cmp #TILE_SPEED
+        beq _thct_speed_oneshot
         sta selected_tile
         jsr audio_click
         jmp render_top_buttons      ; flip idle <-> selected for the new state
 _thct_disk_oneshot:
         jsr audio_click
         jsr ovr_disk_invoke
+        jmp render_top_buttons
+_thct_speed_oneshot:
+        jsr audio_click
+        jsr speed_invoke
         jmp render_top_buttons
 _thct_next:
         iny
@@ -310,7 +319,9 @@ _thc_row:
         cmp #7
         beq _thc_industrial         ; slot 7 -> industrial zone (3x3)
         cmp #8
-        beq _thc_police             ; slot 8 -> police department (4x4 cells)
+        beq _thc_police             ; slot 8 -> police department (3x3 cells)
+        cmp #9
+        beq _thc_firestation        ; slot 9 -> fire department (3x3 cells)
         cmp #12
         beq _thc_coalpp             ; slot 12 -> coal power plant (3x4)
         cmp #13
@@ -347,6 +358,10 @@ _thc_industrial:
         bra _thc_done
 _thc_police:
         lda #TILE_POLICE
+        sta selected_tile
+        bra _thc_done
+_thc_firestation:
+        lda #TILE_FIRESTATION
         sta selected_tile
         bra _thc_done
 _thc_coalpp:

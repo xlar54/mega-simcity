@@ -285,6 +285,7 @@ ovr_inspect_invoke:
         .include "input.asm"
         .include "audio.asm"
         .include "overlays/popup.asm"
+        .include "speed_popup.asm"
 
 ; Build-time guard: main.prg's resident code must not grow into the overlay
 ; window at $A000. The ovr_*_invoke DMAs in main.asm (above) write fresh

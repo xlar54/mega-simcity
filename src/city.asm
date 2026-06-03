@@ -429,11 +429,26 @@ _cps_road_build:
         beq _cps_road_on_rail_v
         ; Not ground / not water / not straight rail. A road may still CROSS an
         ; existing power line, but only perpendicularly. Tentatively drop a
-        ; road and let road_refresh decide; keep it only if it became a
-        ; crossing tile, else restore the power line.
+        ; road+power crossing variant and let road_refresh decide; keep it only
+        ; if it stayed a crossing tile, else restore the power line.
+        ;
+        ; The tentative drop is ROAD_CELL_V_POWER (not plain ROAD_CELL_H) so
+        ; road_refresh sees net_was_cross=1. That matters when the cell being
+        ; converted is the only power-line cell between two zones (Z P Z): the
+        ; "NEW crossing needs >=1 actual power-line side" rule in net_power_ns
+        ; /ew would otherwise reject the placement because both sides are
+        ; zones (class 1), not lines (class 2). The retain rule (any non-bare
+        ; side) accepts the conversion, which is correct here -- the
+        ; converted cell IS the wire that connected the two zones; V_POWER
+        ; carries the same horizontal wires straight through.
+        ;
+        ; The variant choice (V_POWER vs H_POWER) is irrelevant: the
+        ; orientation decision in _nr_vertical / _nr_h still runs net_power_*
+        ; against the actual neighbours and may flip H<->V. We pre-write
+        ; V_POWER for both axes; refresh corrects on a vertical power line.
         jsr is_powerline_value
         bcc _cps_road_skip          ; occupied by a road/zone/water -> can't build
-        lda #ROAD_CELL_H
+        lda #ROAD_CELL_V_POWER
         ldz #0
         sta [MAP_PTR],z
         jsr road_refresh            ; sets H/V + the *_POWER tile if it crosses

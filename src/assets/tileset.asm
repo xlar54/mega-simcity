@@ -2035,5 +2035,114 @@ tileset_commercial_heavy:
 tileset_commercial_heavy_end:
         .cerror tileset_commercial_heavy_end - tileset_commercial_heavy != COM_HEAVY_CELL_COUNT * 64, "commercial-heavy chars must match COM_HEAVY_CELL_COUNT"
 
+        .fill (FIRESTATION_CHAR_BASE * 64) - (tileset_commercial_heavy_end - tileset_start), $00
+
+;=======================================================================================
+; Fire department structure: 9 chars at FIRESTATION_CHAR_BASE. Same 3x3 shape
+; as police but red ($0D) body instead of blue, white ($0F) trim, and "FD"
+; lettering in the centre cell.
+;=======================================================================================
+tileset_firestation:
+        ; fcm_fire_tl
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white top edge
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D   ; white left edge + red body
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        ; fcm_fire_tc
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white top edge
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        ; fcm_fire_tr
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+
+; Row 1: building middle, with white "FD" letters on the centre cell.
+        ; fcm_fire_ml
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F   ; white south edge
+
+; Centre cell with "FD" in white on red.
+;   col:  0   1   2   3   4   5   6   7
+; row 0:  .   .   .   .   .   .   .   .
+; row 1:  .   F   F   F   .   D   D   .       FFF DD
+; row 2:  .   F   .   .   .   D   .   D       F   D D
+; row 3:  .   F   F   F   .   D   .   D       FFF D D
+; row 4:  .   F   .   .   .   D   .   D       F   D D
+; row 5:  .   F   .   .   .   D   D   .       F   DD
+; row 6:  .   .   .   .   .   .   .   .
+; row 7:  white south edge
+        ; fcm_fire_c
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0D,$0F,$0F,$0F,$0D,$0F,$0F,$0D
+        .byte $0D,$0F,$0D,$0D,$0D,$0F,$0D,$0F
+        .byte $0D,$0F,$0F,$0F,$0D,$0F,$0D,$0F
+        .byte $0D,$0F,$0D,$0D,$0D,$0F,$0D,$0F
+        .byte $0D,$0F,$0D,$0D,$0D,$0F,$0F,$0D
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0D
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        ; fcm_fire_mr
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0D,$0D,$0D,$0D,$0D,$0D,$0D,$0F
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+
+; Row 2: grounds (grass $02 with yellow $06 flower dots; centre cell has a
+; dark $0B driveway approaching the building from the south).
+        ; fcm_fire_bl
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$06,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$06,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        ; fcm_fire_bc
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$06,$0B,$0B,$0B,$0B,$06,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        .byte $02,$02,$0B,$0B,$0B,$0B,$02,$02
+        ; fcm_fire_br
+        .byte $02,$02,$02,$06,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$06,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$06,$02,$02,$02,$02,$02
+        .byte $02,$06,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$02,$02
+        .byte $02,$02,$02,$02,$02,$02,$06,$02
+        .byte $02,$02,$02,$06,$02,$02,$02,$02
+
+tileset_firestation_end:
+        .cerror tileset_firestation_end - tileset_firestation != FIRESTATION_CELL_COUNT * 64, "fire station chars must match FIRESTATION_CELL_COUNT"
+
 tileset_end:
         .cerror tileset_end - tileset_start != TILESET_ASSET_SIZE, "tileset asset must match TILESET_ASSET_SIZE"

@@ -462,22 +462,37 @@ _npew_yes:
         rts
 
 ; Classify the cell at (city_ptr_x, city_ptr_y) as a power-crossing side:
-; A = 0 none, 1 = zone (a line may run into a zone), 2 = power line. Preserves X.
+; A = 0 none (bare ground / water / non-conductor), 1 = power conductor that
+; isn't a wire (zone, police HQ, fire HQ, coal / nuclear plant), 2 = actual
+; power line. Conductors count because the wire passes power INTO them, so a
+; perpendicular crossing here still connects the network correctly. Preserves X.
 net_cross_side_at_ptr:
         jsr city_cell_ptr
         ldz #0
         lda [MAP_PTR],z
         cmp #POWERLINE_CELL_FIRST
-        bcc _ncs_chkzone
+        bcc _ncs_chk_conductor
         cmp #POWERLINE_CELL_LAST+1
-        bcs _ncs_chkzone
-        lda #2                      ; power line
+        bcs _ncs_chk_conductor
+        lda #2                      ; power line / wire
         rts
-_ncs_chkzone:
-        jsr is_zone_value
-        bcc _ncs_none
-        lda #1                      ; zone
+_ncs_chk_conductor:
+        jsr is_zone_value           ; preserves A; SET if any zone cell
+        bcs _ncs_conductor
+        cmp #POLICE_CELL_FIRST
+        bcc _ncs_chk_firestation
+        cmp #POLICE_CELL_LAST+1
+        bcc _ncs_conductor
+_ncs_chk_firestation:
+        cmp #FIRESTATION_CELL_FIRST
+        bcc _ncs_chk_source
+        cmp #FIRESTATION_CELL_LAST+1
+        bcc _ncs_conductor
+_ncs_chk_source:
+        jsr is_power_source_cell    ; structure table: coal / nuclear
+        bcs _ncs_conductor
+        lda #0                      ; truly bare
         rts
-_ncs_none:
-        lda #0
+_ncs_conductor:
+        lda #1                      ; conductor, but not a wire
         rts

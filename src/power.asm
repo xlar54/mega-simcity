@@ -48,8 +48,15 @@ _ipn_zone:
         ; (sprites.asm bolt_test_update reads that marker to decide whether
         ; to show the lightning bolt over an unpowered police origin).
         cmp #POLICE_CELL_FIRST
-        bcc _ipn_check_source
+        bcc _ipn_check_firestation
         cmp #POLICE_CELL_LAST+1
+        bcc _ipn_yes
+_ipn_check_firestation:
+        ; Fire-station cells consume power too -- same flood-fill conductivity
+        ; as police so the bolt shows over an unpowered fire HQ origin.
+        cmp #FIRESTATION_CELL_FIRST
+        bcc _ipn_check_source
+        cmp #FIRESTATION_CELL_LAST+1
         bcc _ipn_yes
 _ipn_check_source:
         jmp is_power_source_cell    ; structure table: any power-source row
@@ -218,6 +225,8 @@ _psd_prune:
         sta plant_origin_y,y
         lda plant_origin_struct,x
         sta plant_origin_struct,y
+        lda plant_origin_years_left,x
+        sta plant_origin_years_left,y
         jmp _psd_loop
 _psd_done:
         rts
@@ -468,8 +477,34 @@ power_register_plant:
         sta plant_origin_y,x
         lda struct_idx
         sta plant_origin_struct,x
+        ; Initial years-left = struct_lifespan_years for this row. Non-plant
+        ; rows (park / police / fire) have lifespan 0 -- they'll register
+        ; with a 0 here but never read it back; plant_age_year doesn't
+        ; decrement zero values, so they stay quiet.
+        ldy struct_idx
+        lda struct_lifespan_years,y
+        sta plant_origin_years_left,x
         inc plant_origin_count
 _prp_full:
+        rts
+
+; Decrement every plant's years_left counter by one, clamped at zero. Called
+; from clock.asm on each January (sim_month roll-over to 1) so each plant's
+; counter tracks its remaining service life in real game years. Skips entries
+; already at 0 so dead plants stay dead instead of wrapping. The display in
+; ovr-inspect.asm reads this directly.
+plant_age_year:
+        ldx #0
+_pay_loop:
+        cpx plant_origin_count
+        bcs _pay_done
+        lda plant_origin_years_left,x
+        beq _pay_next
+        dec plant_origin_years_left,x
+_pay_next:
+        inx
+        bra _pay_loop
+_pay_done:
         rts
 
 ; --- tuning ---
@@ -503,6 +538,11 @@ plant_origin_y:
         .fill PLANT_MAX, 0
 plant_origin_struct:            ; struct table index per origin (coal vs nuclear, ...)
         .fill PLANT_MAX, 0
+plant_origin_years_left:        ; remaining service-life years per plant,
+        .fill PLANT_MAX, 0      ; initialised from struct_lifespan_years at
+                                ; placement and ticked down once per game
+                                ; year by plant_age_year. Read by ovr-inspect
+                                ; to show "NN YEARS LEFT" in the popup.
 ps_struct:                      ; power_seed: structure row for the current origin
         .byte 0
 total_power_capacity:           ; summed struct_output across all registered plants

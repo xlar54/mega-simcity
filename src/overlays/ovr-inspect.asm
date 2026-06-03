@@ -38,6 +38,7 @@
 ovr_inspect_main:
         ldz #0
         lda [MAP_PTR],z                  ; A = cell value
+        sta inspect_cell_value           ; saved for the post-open age check
         jsr tile_name_for_cell            ; X = ptr lo, Y = ptr hi, A = length
         ; Stash so we can re-load A:X:Y in overlay_open's calling convention
         ; (A = ptr lo, X = ptr hi, Y = length).
@@ -49,7 +50,168 @@ ovr_inspect_main:
         ldx inspect_title_hi_tmp
         ldy inspect_title_len_tmp
         jsr overlay_open
+
+        ; Coal / nuclear plants get an extra body line: "NN YEARS LEFT". The
+        ; lookup needs city_ptr_x/y to identify which plant the inspected
+        ; cell belongs to; those survived overlay_open (it only touches
+        ; screen RAM and popup_*, not the map pointer state).
+        lda inspect_cell_value
+        cmp #COALPP_CELL_FIRST
+        bcc _oim_done
+        cmp #NUCLEARPP_CELL_LAST+1
+        bcs _oim_done
+        jsr find_plant_for_inspected_cell
+        bcc _oim_done                     ; not registered (shouldn't happen, defensive)
+        jsr draw_years_left
+_oim_done:
         rts
+
+;---------------------------------------------------------------------------------------
+; find_plant_for_inspected_cell
+;   In : city_ptr_x, city_ptr_y = inspected cell coords (from city.asm
+;        _cps_inspect; unchanged across overlay_open).
+;   Out: carry SET and X = plant_origin index if (city_ptr_x, city_ptr_y) is
+;        inside any registered plant's footprint. Carry CLEAR if not.
+;   Walks plant_origin_x/y arrays (main.prg state, reached via .lbl-imported
+;   labels) and uses struct_cols/struct_rows to know the footprint dimensions
+;   for whichever plant variant (coal vs nuclear) sits there.
+;---------------------------------------------------------------------------------------
+find_plant_for_inspected_cell:
+        ldx #0
+_fp_loop:
+        cpx plant_origin_count
+        bcs _fp_no
+        ; |dx| = city_ptr_x - origin_x ; reject if < 0 or >= cols
+        lda city_ptr_x
+        sec
+        sbc plant_origin_x,x
+        bcc _fp_next
+        ldy plant_origin_struct,x
+        cmp struct_cols,y
+        bcs _fp_next
+        ; |dy| same shape against rows
+        lda city_ptr_y
+        sec
+        sbc plant_origin_y,x
+        bcc _fp_next
+        cmp struct_rows,y
+        bcs _fp_next
+        sec
+        rts
+_fp_next:
+        inx
+        bra _fp_loop
+_fp_no:
+        clc
+        rts
+
+;---------------------------------------------------------------------------------------
+; draw_years_left
+;   In:  X = plant index (plant_origin_years_left,x = age in years remaining).
+;   Patches the 2 leading digits in str_years_full at runtime, then stamps the
+;   whole 13-char buffer onto the popup body at (popup_l+1, popup_t+3).
+;   Display clamps at 99 since the buffer has 2 digit positions.
+;---------------------------------------------------------------------------------------
+INSPECT_YEARS_COL_LOCAL = 1     ; mirrors the title's left padding
+INSPECT_YEARS_ROW_LOCAL = 3     ; middle of the 8-row popup body
+
+draw_years_left:
+        lda plant_origin_years_left,x
+        ; Hundreds digit (0 or 1 -- lifespan caps at 100). Suppress the
+        ; leading zero by patching the slot with UI_TILE_PANEL (visual
+        ; space) when hundreds == 0.
+        ldy #0
+        cmp #100
+        bcc _dyl_no_hundreds
+        sbc #100
+        iny
+_dyl_no_hundreds:
+        sty dyl_tmp
+        ; Tens digit (always 0..9 now; might be 0 if hundreds suppressed
+        ; AND value < 10, e.g. "  5 YEARS LEFT").
+        ldy #0
+_dyl_tens:
+        cmp #10
+        bcc _dyl_have_tens
+        sec
+        sbc #10
+        iny
+        bra _dyl_tens
+_dyl_have_tens:
+        ; A = units, Y = tens, dyl_tmp = hundreds.
+        ; Units always rendered (so "0 YEARS LEFT" stays readable).
+        clc
+        adc #UI_TEXT_0
+        sta str_years_full+2
+        ; Tens: blank if hundreds also blank AND tens == 0.
+        cpy #0
+        bne _dyl_tens_digit
+        lda dyl_tmp
+        bne _dyl_tens_digit               ; hundreds present -> show tens '0'
+        lda #UI_TILE_PANEL
+        sta str_years_full+1
+        bra _dyl_hundreds
+_dyl_tens_digit:
+        tya
+        clc
+        adc #UI_TEXT_0
+        sta str_years_full+1
+_dyl_hundreds:
+        ; Hundreds: blank if 0, else '1'.
+        lda dyl_tmp
+        bne _dyl_h_digit
+        lda #UI_TILE_PANEL
+        sta str_years_full
+        bra _dyl_after_digits
+_dyl_h_digit:
+        clc
+        adc #UI_TEXT_0
+        sta str_years_full
+_dyl_after_digits:
+
+        ; Stamp str_years_full across (popup_l + INSPECT_YEARS_COL_LOCAL,
+        ; popup_t + INSPECT_YEARS_ROW_LOCAL).
+        lda #0
+        sta dyl_col_idx
+_dyl_stamp:
+        lda dyl_col_idx
+        cmp #STR_YEARS_FULL_LEN
+        bcs _dyl_done
+        ldy dyl_col_idx
+        lda str_years_full,y
+        pha
+        clc
+        lda dyl_col_idx
+        adc popup_l
+        clc
+        adc #INSPECT_YEARS_COL_LOCAL
+        tax
+        clc
+        lda popup_t
+        adc #INSPECT_YEARS_ROW_LOCAL
+        tay
+        pla
+        jsr set_fcm_char
+        inc dyl_col_idx
+        bra _dyl_stamp
+_dyl_done:
+        rts
+
+; Body string: "NNN YEARS LEFT" (14 cells). Bytes 0..2 are runtime-patched
+; with the digit glyphs (with leading-blank handling so 50 reads as "_50",
+; not "050"); the rest are static. UI_TILE_PANEL acts as a visual space
+; (same convention as the disk overlay's menu labels).
+str_years_full:
+        .byte UI_TEXT_0, UI_TEXT_0, UI_TEXT_0   ; runtime-patched: H, T, U
+        .byte UI_TILE_PANEL
+        .byte UI_TEXT_Y, UI_TEXT_E, UI_TEXT_A, UI_TEXT_R, UI_TEXT_S
+        .byte UI_TILE_PANEL
+        .byte UI_TEXT_L, UI_TEXT_E, UI_TEXT_F, UI_TEXT_T
+STR_YEARS_FULL_LEN = * - str_years_full
+        .cerror STR_YEARS_FULL_LEN > POPUP_DEFAULT_W - 2, "years body line too wide for default popup"
+
+dyl_col_idx:    .byte 0
+dyl_tmp:        .byte 0
 
 ;---------------------------------------------------------------------------------------
 ; tile_name_for_cell(A) -> X:Y = string pointer, A = length
@@ -114,8 +276,12 @@ tile_name_for_cell:
         cmp #POLICE_CELL_FIRST
         bcc _tnfc_unknown
         cmp #POLICE_CELL_LAST+1
-        bcc _tnfc_police            ; 189..204
-        ; fall through to unknown for 205..255
+        bcc _tnfc_police            ; 189..197
+        cmp #FIRESTATION_CELL_FIRST
+        bcc _tnfc_unknown
+        cmp #FIRESTATION_CELL_LAST+1
+        bcc _tnfc_firestation       ; 234..242
+        ; fall through to unknown for everything else
 
 _tnfc_unknown:
         ldx #<str_unknown
@@ -217,6 +383,11 @@ _tnfc_police:
         ldy #>str_police
         lda #str_police_len
         rts
+_tnfc_firestation:
+        ldx #<str_firestation
+        ldy #>str_firestation
+        lda #str_firestation_len
+        rts
 
 ;---------------------------------------------------------------------------------------
 ; Strings -- bytes are UI_TEXT_* char ids.
@@ -278,6 +449,9 @@ str_park_len    = * - str_park
 str_police:     .byte UI_TEXT_P, UI_TEXT_O, UI_TEXT_L, UI_TEXT_I, UI_TEXT_C, UI_TEXT_E
 str_police_len  = * - str_police
 
+str_firestation: .byte UI_TEXT_F, UI_TEXT_I, UI_TEXT_R, UI_TEXT_E
+str_firestation_len = * - str_firestation
+
 str_unknown:    .byte UI_TEXT_DOT, UI_TEXT_DOT, UI_TEXT_DOT
 str_unknown_len = * - str_unknown
 
@@ -300,6 +474,7 @@ str_unknown_len = * - str_unknown
         .cerror str_debris_len  > POPUP_TITLE_MAX, "DEBRIS label too long"
         .cerror str_park_len    > POPUP_TITLE_MAX, "PARK label too long"
         .cerror str_police_len  > POPUP_TITLE_MAX, "POLICE label too long"
+        .cerror str_firestation_len > POPUP_TITLE_MAX, "FIRE label too long"
 
 ;---------------------------------------------------------------------------------------
 ; Scratch -- shuffle bytes between tile_name_for_cell's X/Y/A return order
@@ -308,6 +483,7 @@ str_unknown_len = * - str_unknown
 inspect_title_lo_tmp:   .byte 0
 inspect_title_hi_tmp:   .byte 0
 inspect_title_len_tmp:  .byte 0
+inspect_cell_value:     .byte 0
 
         ; Sanity: the assembled overlay must end before $B000 (window upper
         ; bound). Inspect doesn't fill the whole 4KB the way save/load do --

@@ -318,11 +318,13 @@ _btu_col:
         lda [MAP_PTR],z
         jsr is_zone_origin_value
         bcs _btu_found
-        ; Police buildings consume power too -- show the bolt over an unpowered
-        ; one. The TL cell of the 3x3 footprint has value POLICE_CELL_FIRST
-        ; (offset 0), so a simple equality check picks the origin without
-        ; iterating the rest of the structure footprint.
+        ; Police + fire-station buildings consume power too -- show the bolt
+        ; over an unpowered one. The TL cell of each 3x3 footprint has value
+        ; *_CELL_FIRST (offset 0), so a simple equality check picks the origin
+        ; without iterating the rest of the structure footprint.
         cmp #POLICE_CELL_FIRST
+        beq _btu_found
+        cmp #FIRESTATION_CELL_FIRST
         bne _btu_next
 _btu_found:
         ; only round-robin over UNPOWERED zones (power.asm marked the powered ones).

@@ -238,6 +238,18 @@ TILE_DISK               = 10    ; menu action: open disk options panel (load/sav
 TILE_RAIL               = 12    ; tool id for the rail tool (1x1, see RAIL_CELL_* below)
 TILE_PARK               = 13    ; tool id for the small park (4x4 cells = 2x2 tiles, see PARK_CELL_*)
 TILE_POLICE             = 14    ; tool id for the police department (4x4 cells = 2x2 tiles, see POLICE_CELL_*)
+TILE_FIRESTATION        = 15    ; tool id for the fire department (3x3 cells, see FIRESTATION_CELL_*)
+TILE_SPEED              = 16    ; tool id for the speed-picker top-strip button (popup-only, no map cells)
+
+; Game speed enum (sim_speed) + per-speed frames-per-month. The clock uses
+; these to pick the rollover threshold. Slow = current default; Medium = half
+; the time; Fast = quarter.
+SPEED_SLOW              = 0
+SPEED_MEDIUM            = 1
+SPEED_FAST              = 2
+FPM_SLOW                = 4500
+FPM_MEDIUM              = 2250
+FPM_FAST                = 1125
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is a
 ; 3x3 block of zone cells (see ZONE_CELL_* below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -495,6 +507,19 @@ POLICE_CELL_COUNT       = POLICE_COLS * POLICE_ROWS                  ; 9
 POLICE_CELL_FIRST       = PARK_CELL_LAST + 1                         ; 189
 POLICE_CELL_LAST        = POLICE_CELL_FIRST + POLICE_CELL_COUNT - 1 ; 197
 
+; --- Fire department (3x3 cells, 24x24 px) ---
+; Same shape as the police HQ but red ($0D) instead of blue ($08), with "FD"
+; lettering in the centre cell. Consumes power (is_power_node has a
+; FIRESTATION range check, mirroring police), and population.asm gives nearby
+; R/C/I zones a development bonus when a fire HQ is within FIRESTATION_RADIUS
+; Manhattan cells. struct_flags = STRUCT_FLAG_IS_FIRESTATION drives the
+; population_register_firestation call from cps_structure.
+FIRESTATION_COLS        = 3
+FIRESTATION_ROWS        = 3
+FIRESTATION_CELL_COUNT  = FIRESTATION_COLS * FIRESTATION_ROWS                 ; 9
+FIRESTATION_CELL_FIRST  = COM_HEAVY_CELL_LAST + 1                              ; 234
+FIRESTATION_CELL_LAST   = FIRESTATION_CELL_FIRST + FIRESTATION_CELL_COUNT - 1  ; 242
+
 ; Encoding guards. cell_to_char checks each range in order, so the contiguous
 ; building/terrain ranges must stay below ZONE_CELL_FIRST (or each other), and
 ; the whole encoded space must stay inside a single byte.
@@ -510,6 +535,7 @@ POLICE_CELL_LAST        = POLICE_CELL_FIRST + POLICE_CELL_COUNT - 1 ; 197
         .cerror APT_CELL_LAST >= 255,                   "apartment cell range LAST is 255; cmp #LAST+1 idiom truncates"
         .cerror IND_HEAVY_CELL_LAST >= 255,             "industrial-heavy cell range LAST is 255; cmp #LAST+1 idiom truncates"
         .cerror COM_HEAVY_CELL_LAST >= 255,             "commercial-heavy cell range LAST is 255; cmp #LAST+1 idiom truncates"
+        .cerror FIRESTATION_CELL_LAST >= 255,           "fire station cell range LAST is 255; cmp #LAST+1 idiom truncates"
         ; Range checks elsewhere use `cmp #FOO_LAST+1`, so LAST itself must
         ; stay strictly below 255 -- LAST==255 would produce `cmp #256`, which
         ; truncates to `cmp #0` and corrupts the range test.
@@ -521,7 +547,7 @@ TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 TILESET_ZONE_SIZE       = ZONE_CELL_CHAR_COUNT * 64
 TILESET_COALPP_SIZE     = COALPP_CELL_COUNT * 64
 TILESET_NUCLEARPP_SIZE  = NUCLEARPP_CELL_COUNT * 64
-TILESET_ASSET_CHARS     = 329
+TILESET_ASSET_CHARS     = 338    ; 329 (through COM_HEAVY) + 9 (fire station)
 TILESET_ASSET_SIZE      = TILESET_ASSET_CHARS * 64
 
 ; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.

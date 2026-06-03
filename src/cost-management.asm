@@ -21,6 +21,7 @@ COST_RAIL_BRIDGE = 100          ; rail bridge per tile (straight only over water
 COST_ZONE       = 100
 COST_PARK       = 500
 COST_POLICE     = 700
+COST_FIRESTATION = 700
 COST_COALPP     = 3000
 COST_NUCLEARPP  = 5000
 

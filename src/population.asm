@@ -55,13 +55,21 @@ COM_GROWTH_PER_MONTH    = 20    ; dev added per commercial zone per growing mont
 COM_DEV_MAX             = 1000
 MIN_POP_FOR_COMMERCIAL  = 50    ; total city pop required before C zones grow
 
-; --- Police bonus (commercial) ---
-; Each police HQ within POLICE_RADIUS Manhattan cells of a C zone subtracts
-; POLICE_BONUS_STEP from that zone's distance bonus (clamped to >= 0). So:
-;   1 police nearby -> a modest speedup
-;   2+ police       -> noticeable; effective distance bonus collapses
-POLICE_RADIUS           = 25
-POLICE_BONUS_STEP       = 60
+; --- Emergency-services bonus (police + fire) ---
+; Each police HQ or fire-department HQ within EMERGENCY_RADIUS Manhattan
+; cells of a zone subtracts EMERGENCY_BONUS_STEP from that cell's effective
+; house threshold (clamped to >= 0), so growth crosses the threshold sooner.
+; Applies to R, C, and I zones uniformly -- a neighborhood with emergency
+; services nearby develops faster regardless of type.
+;
+; Radius is 10 cells (Manhattan), matching the displayed 10-cell rule in the
+; manual. Bonus step is calibrated so 1 nearby HQ is a modest speedup and 2
+; stacked services (police AND fire within range) is noticeable.
+EMERGENCY_RADIUS        = 10
+EMERGENCY_BONUS_STEP    = 60
+; Legacy aliases kept so any existing comments / debug code still resolves.
+POLICE_RADIUS           = EMERGENCY_RADIUS
+POLICE_BONUS_STEP       = EMERGENCY_BONUS_STEP
 
 ; --- Pollution ---
 ; Each industrial zone within POLLUTION_RADIUS Manhattan cells of a residential
@@ -102,8 +110,9 @@ population_init:
         sta commercial_count
         sta industrial_count
         sta police_count
+        sta firestation_count
         sta zad_nearby_ind
-        sta zad_nearby_police
+        sta zad_nearby_emergency
         lda #1
         sta pop_display_dirty
         rts
@@ -288,6 +297,50 @@ _pup_next:
         inx
         bra _pup_loop
 
+; Fire-department registry helpers. Mirror image of the police pair; called
+; from structures.asm via STRUCT_FLAG_IS_FIRESTATION at place/demolish time.
+; zone_org_x/y is set by cps_structure / structure_demolish_at_cell, so both
+; read from there.
+population_register_firestation:
+        ldx firestation_count
+        cpx #ZONE_POP_MAX_COUNT
+        bcs _prf_full
+        lda zone_org_x
+        sta firestation_org_x_arr,x
+        lda zone_org_y
+        sta firestation_org_y_arr,x
+        inc firestation_count
+_prf_full:
+        rts
+
+population_unregister_firestation:
+        ldx #0
+_puf_loop:
+        cpx firestation_count
+        bcs _puf_done
+        lda firestation_org_x_arr,x
+        cmp zone_org_x
+        bne _puf_next
+        lda firestation_org_y_arr,x
+        cmp zone_org_y
+        bne _puf_next
+        stx pop_tmp_idx
+        ldy firestation_count
+        dey
+        cpy pop_tmp_idx
+        beq _puf_drop
+        lda firestation_org_x_arr,y
+        sta firestation_org_x_arr,x
+        lda firestation_org_y_arr,y
+        sta firestation_org_y_arr,x
+_puf_drop:
+        dec firestation_count
+_puf_done:
+        rts
+_puf_next:
+        inx
+        bra _puf_loop
+
 population_register_industrial:
         ldx industrial_count
         cpx #ZONE_POP_MAX_COUNT
@@ -377,6 +430,10 @@ _pmt_loop:
         ; center stay below ZONE_POP_MAX). Far zones effectively never grow
         ; their inner cells.
         jsr compute_zone_distance_to_workplace
+        ; Count police+fire HQs within EMERGENCY_RADIUS; the per-cell apply
+        ; subtracts a bonus from each cell's effective threshold so a zone
+        ; near emergency services develops faster.
+        jsr count_nearby_emergency_at_tmp
 
         ldx pop_tmp_idx
         jsr zone_grow_x
@@ -408,6 +465,9 @@ _imt_loop:
         bcc _imt_next
         jsr compute_road_side_mask     ; gates AND populates zad_road_mask
         bcc _imt_next
+        ; Emergency-services bonus applies to industrial zones too -- a fire
+        ; HQ near a factory district speeds factory build-out.
+        jsr count_nearby_emergency_at_tmp
 
         ldx pop_tmp_idx
         jsr industrial_grow_x
@@ -706,6 +766,55 @@ _icc_yes:
         sec
         rts
 
+; Pre-compute zad_emergency_total_lo/hi = zad_nearby_emergency *
+; EMERGENCY_BONUS_STEP. Called once per zone at the top of each
+; *_apply_development_state so the per-cell threshold loop can subtract a
+; single 16-bit value instead of running its own counter loop. Clobbers A, X.
+precompute_emergency_total:
+        lda #0
+        sta zad_emergency_total_lo
+        sta zad_emergency_total_hi
+        ldx zad_nearby_emergency
+        beq _pet_done
+_pet_loop:
+        clc
+        lda zad_emergency_total_lo
+        adc #EMERGENCY_BONUS_STEP
+        sta zad_emergency_total_lo
+        lda zad_emergency_total_hi
+        adc #0
+        sta zad_emergency_total_hi
+        dex
+        bne _pet_loop
+_pet_done:
+        rts
+
+; Subtract the precomputed emergency bonus (zad_emergency_total_lo/hi) from
+; a 16-bit threshold pair (lo, hi) in scratch, clamping the result at zero.
+; Used per-cell so a zone near a police/fire HQ crosses each cell's threshold
+; sooner. Macro form so the target address is resolved at assemble time --
+; the callers want zad_eff_h_lo/hi and zad_eff_a_lo/hi, both known up-front.
+; Anonymous labels (+/-) are unique per macro expansion, so calling this
+; multiple times in the same scope is safe.
+EMERGENCY_BONUS_SUB .macro lo_addr, hi_addr
+        sec
+        lda \lo_addr
+        sbc zad_emergency_total_lo
+        sta pop_tmp
+        lda \hi_addr
+        sbc zad_emergency_total_hi
+        bcc +
+        sta \hi_addr
+        lda pop_tmp
+        sta \lo_addr
+        bra ++
++
+        lda #0
+        sta \lo_addr
+        sta \hi_addr
++
+.endmacro
+
 ; Grow zone X by POP_GROWTH_PER_MONTH (clamped at ZONE_POP_MAX), then run the
 ; per-cell development pass. X must be preserved by caller. zad_road_mask is
 ; expected to be set (the monthly tick calls compute_road_side_mask first).
@@ -765,6 +874,7 @@ zone_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        jsr precompute_emergency_total
 
         ; Pre-compute distance bonus (zad_distance << 3) as 16-bit so we can
         ; add it to each cell's base threshold below. zad_distance is 0..255,
@@ -866,6 +976,11 @@ _zad_loop:
         lsr zad_eff_a_hi
         ror zad_eff_a_lo
 _zad_no_road_bonus:
+        ; --- emergency-services bonus: each nearby police+fire HQ subtracts
+        ; EMERGENCY_BONUS_STEP from both thresholds (clamped at 0), so a zone
+        ; in coverage develops past house AND apartment tiers sooner.
+        #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
+        #EMERGENCY_BONUS_SUB zad_eff_a_lo, zad_eff_a_hi
 
         ; --- pick target stage from zone_pop vs effective thresholds ---
         ; Compare pop >= eff_a ?
@@ -981,6 +1096,7 @@ industrial_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        jsr precompute_emergency_total
 
         ldy #0
 _iad_loop:
@@ -1007,6 +1123,10 @@ _iad_loop:
         lsr zad_eff_h_hi
         ror zad_eff_h_lo
 _iad_no_road_bonus:
+        ; Emergency-services bonus -- same shape as R: each nearby HQ
+        ; subtracts EMERGENCY_BONUS_STEP from the effective threshold so an
+        ; industrial zone in coverage develops to heavy industrial sooner.
+        #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
 
         ; Pick target: dev >= eff_h -> heavy, else empty.
         lda zad_pop_hi
@@ -1126,7 +1246,7 @@ _cmt_loop:
         jsr compute_road_side_mask
         bcc _cmt_next
 
-        jsr compute_commercial_distance_and_police
+        jsr compute_commercial_distance_and_emergency
         ldx pop_tmp_idx
         jsr commercial_grow_x
 _cmt_next:
@@ -1166,19 +1286,17 @@ _cg_store:
         jmp commercial_apply_development_state
 
 ; For the current C zone at (pop_tmp_cx, pop_tmp_cy):
-;   * zad_distance  = min Manhattan distance to any R origin (clamped 255)
-;   * zad_nearby_police = count of police origins within POLICE_RADIUS
+;   * zad_distance       = min Manhattan distance to any R origin (clamped 255)
+;   * zad_nearby_emergency = count of police+fire origins within EMERGENCY_RADIUS
 ; Same per-iteration cost as compute_zone_distance_to_workplace but pointed
 ; at a different pair of arrays.
-compute_commercial_distance_and_police:
+compute_commercial_distance_and_emergency:
         lda #$FF
         sta zad_distance
-        lda #0
-        sta zad_nearby_police
         ; --- distance to nearest R ---
         ldy zone_org_count
-        beq _ccdp_check_police
-_ccdp_r_loop:
+        beq _ccde_count_emergency
+_ccde_r_loop:
         dey
         lda zone_org_x_arr,y
         sta cdw_dx
@@ -1186,12 +1304,20 @@ _ccdp_r_loop:
         sta cdw_dy
         jsr cdw_distance_then_min
         cpy #0
-        bne _ccdp_r_loop
-_ccdp_check_police:
-        ; --- count police HQs within POLICE_RADIUS ---
+        bne _ccde_r_loop
+_ccde_count_emergency:
+        jmp count_nearby_emergency_at_tmp
+
+; Count emergency-service HQs (police + fire) within EMERGENCY_RADIUS Manhattan
+; cells of the zone at (pop_tmp_cx, pop_tmp_cy). Result in zad_nearby_emergency.
+; Shared by the R, C, and I monthly ticks so every zone type sees the same bonus.
+count_nearby_emergency_at_tmp:
+        lda #0
+        sta zad_nearby_emergency
+        ; --- police HQs ---
         ldy police_count
-        beq _ccdp_done
-_ccdp_p_loop:
+        beq _cne_check_fire
+_cne_p_loop:
         dey
         lda police_org_x_arr,y
         sta cdw_dx
@@ -1199,18 +1325,36 @@ _ccdp_p_loop:
         sta cdw_dy
         jsr cdw_distance_only
         lda cdw_d
-        cmp #POLICE_RADIUS+1
-        bcs _ccdp_p_far
-        inc zad_nearby_police
-_ccdp_p_far:
+        cmp #EMERGENCY_RADIUS+1
+        bcs _cne_p_far
+        inc zad_nearby_emergency
+_cne_p_far:
         cpy #0
-        bne _ccdp_p_loop
-_ccdp_done:
+        bne _cne_p_loop
+_cne_check_fire:
+        ; --- fire HQs (same scan, different arrays) ---
+        ldy firestation_count
+        beq _cne_done
+_cne_f_loop:
+        dey
+        lda firestation_org_x_arr,y
+        sta cdw_dx
+        lda firestation_org_y_arr,y
+        sta cdw_dy
+        jsr cdw_distance_only
+        lda cdw_d
+        cmp #EMERGENCY_RADIUS+1
+        bcs _cne_f_far
+        inc zad_nearby_emergency
+_cne_f_far:
+        cpy #0
+        bne _cne_f_loop
+_cne_done:
         rts
 
 ; cdw_dx, cdw_dy -> Manhattan distance from (pop_tmp_cx, pop_tmp_cy), clamped
 ; at 255, stored in cdw_d. Like cdw_distance_then_min but no min-of-pair tracking.
-; Preserves Y. Used by the police scan in compute_commercial_distance_and_police.
+; Preserves Y. Used by the emergency-services scan in count_nearby_emergency_at_tmp.
 cdw_distance_only:
         sty cdw_y_save
         lda pop_tmp_cx
@@ -1243,8 +1387,9 @@ _cdo_no_clamp:
 
 ;---------------------------------------------------------------------------------------
 ; Commercial per-cell development pass. Single tier (empty -> heavy). Mirrors
-; industrial_apply_development_state plus a distance-bonus and a
-; police-bonus that subtracts from the distance bonus (clamped to >= 0).
+; industrial_apply_development_state plus a distance-bonus from the C zone's
+; distance to the nearest R, and the shared emergency-services bonus that
+; subtracts from each cell's effective threshold (clamped at 0).
 ;---------------------------------------------------------------------------------------
 commercial_apply_development_state:
         stx pop_tmp_idx
@@ -1256,6 +1401,7 @@ commercial_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        jsr precompute_emergency_total
 
         ; Distance bonus: zad_distance << 3 as 16-bit -- same shape as R.
         lda #0
@@ -1268,41 +1414,6 @@ commercial_apply_development_state:
         asl
         rol zad_dist_hi
         sta zad_dist_lo
-
-        ; Police bonus: zad_nearby_police * POLICE_BONUS_STEP subtracted from
-        ; the distance bonus, clamped at 0. (Loop add-subtract to avoid a mul.)
-        lda zad_nearby_police
-        beq _cad_no_police
-_cad_police_loop:
-        pha
-        ; 16-bit subtract; clamp at 0 if we'd go negative.
-        sec
-        lda zad_dist_lo
-        sbc #POLICE_BONUS_STEP
-        sta pop_tmp
-        lda zad_dist_hi
-        sbc #0
-        sta pop_tmp+1
-        bcc _cad_clamp_zero        ; borrow out -> result < 0
-        lda pop_tmp
-        sta zad_dist_lo
-        lda pop_tmp+1
-        sta zad_dist_hi
-        bra _cad_police_next
-_cad_clamp_zero:
-        lda #0
-        sta zad_dist_lo
-        sta zad_dist_hi
-        ; stay in the loop only if there are more sources to subtract -- but
-        ; further subtractions would just keep clamping at zero, so bail.
-        pla
-        bra _cad_no_police
-_cad_police_next:
-        pla
-        sec
-        sbc #1
-        bne _cad_police_loop
-_cad_no_police:
 
         ldy #0
 _cad_loop:
@@ -1336,6 +1447,11 @@ _cad_loop:
         lsr zad_eff_h_hi
         ror zad_eff_h_lo
 _cad_no_road_bonus:
+        ; Emergency-services bonus: each nearby police+fire HQ subtracts
+        ; EMERGENCY_BONUS_STEP from the effective threshold (clamped at 0),
+        ; applied AFTER the road halving so the bonus is meaningful even when
+        ; the road already halved the threshold.
+        #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
 
         lda zad_pop_hi
         cmp zad_eff_h_hi
@@ -1717,12 +1833,21 @@ commercial_rand_arr:            ; per-zone random seed (jitter source)
 ; Police HQ registry: origin positions of every placed police structure.
 ; Maintained by population_register_police / population_unregister_police,
 ; which structures.asm calls via the STRUCT_FLAG_IS_POLICE flag at place /
-; demolish time. Read by compute_commercial_distance_and_police.
+; demolish time. Read by count_nearby_emergency_at_tmp.
 police_count:
         .byte 0
 police_org_x_arr:
         .fill ZONE_POP_MAX_COUNT, 0
 police_org_y_arr:
+        .fill ZONE_POP_MAX_COUNT, 0
+
+; Fire-department HQ registry: identical shape to police, maintained via the
+; STRUCT_FLAG_IS_FIRESTATION flag. count_nearby_emergency_at_tmp scans both.
+firestation_count:
+        .byte 0
+firestation_org_x_arr:
+        .fill ZONE_POP_MAX_COUNT, 0
+firestation_org_y_arr:
         .fill ZONE_POP_MAX_COUNT, 0
 
 ; --- scratch ---
@@ -1783,10 +1908,16 @@ zad_nearby_ind:                 ; # of industrial origins within POLLUTION_RADIU
         .byte 0                 ; of the current R zone (populated by
                                 ; compute_zone_distance_to_workplace, consumed
                                 ; by zone_apply_development_state)
-zad_nearby_police:              ; # of police HQs within POLICE_RADIUS of the
-        .byte 0                 ; current C zone (populated by
-                                ; compute_commercial_distance_and_police,
-                                ; consumed by commercial_apply_development_state)
+zad_nearby_emergency:           ; # of emergency-service HQs (police + fire)
+        .byte 0                 ; within EMERGENCY_RADIUS of the current zone.
+                                ; Populated by count_nearby_emergency_at_tmp
+                                ; once per zone in each monthly tick; consumed
+                                ; by *_apply_development_state to subtract a
+                                ; bonus from each cell's effective threshold.
+zad_emergency_total_lo:         ; zad_nearby_emergency * EMERGENCY_BONUS_STEP,
+        .byte 0                 ; precomputed once per zone so the per-cell
+zad_emergency_total_hi:         ; loop subtracts a single 16-bit value
+        .byte 0                 ; instead of looping.
 
 pd_work:                        ; pop_to_digits 24-bit working copy
         .byte 0, 0, 0

@@ -17,25 +17,32 @@
 STRUCT_FLAG_OVERWRITE_POWER = $01    ; may overwrite power-line cells (zone-like)
 STRUCT_FLAG_IS_POWER_SOURCE = $02    ; register origin with power_register_plant
 STRUCT_FLAG_IS_POLICE       = $04    ; register origin with population_register_police
+STRUCT_FLAG_IS_FIRESTATION  = $08    ; register origin with population_register_firestation
 
 ; Per-row tuning constants referenced from the table below.
 COAL_OUTPUT       = 40              ; zones powered per coal plant (docs/TILE_RULES.md)
 NUCLEARPP_OUTPUT  = 120             ; zones powered per nuclear plant
+COAL_LIFESPAN_YEARS    = 50         ; service life before the plant is "old"
+NUCLEARPP_LIFESPAN_YEARS = 100      ; nuclear plants run twice as long as coal
+; Non-plant rows use a lifespan of 0 -- power_register_plant only initialises
+; plant_origin_years_left when this is nonzero, so park / police / fire have
+; no age tracking.
 
 ; --- The table (parallel byte arrays; one column per row). ---
-struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP,                                                TILE_PARK,                                                    TILE_POLICE
-struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS,                                                PARK_COLS,                                                    POLICE_COLS
-struct_rows:           .byte COALPP_ROWS,                    NUCLEARPP_ROWS,                                                PARK_ROWS,                                                    POLICE_ROWS
-struct_cell_base:      .byte COALPP_CELL_FIRST,              NUCLEARPP_CELL_FIRST,                                          PARK_CELL_FIRST,                                              POLICE_CELL_FIRST
-struct_cell_count:     .byte COALPP_CELL_COUNT,              NUCLEARPP_CELL_COUNT,                                          PARK_CELL_COUNT,                                              POLICE_CELL_COUNT
-struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BASE,                                          <PARK_CHAR_BASE,                                              <POLICE_CHAR_BASE
-struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE,                                          >PARK_CHAR_BASE,                                              >POLICE_CHAR_BASE
-struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP,                                               <COST_PARK,                                                   <COST_POLICE
-struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP,                                               >COST_PARK,                                                   >COST_POLICE
-struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, $00, STRUCT_FLAG_IS_POLICE
-struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT,                                              0,                                                            0
+struct_tool_id:        .byte TILE_COALPP,                    TILE_NUCLEARPP,                                                TILE_PARK,                                                    TILE_POLICE,                  TILE_FIRESTATION
+struct_cols:           .byte COALPP_COLS,                    NUCLEARPP_COLS,                                                PARK_COLS,                                                    POLICE_COLS,                  FIRESTATION_COLS
+struct_rows:           .byte COALPP_ROWS,                    NUCLEARPP_ROWS,                                                PARK_ROWS,                                                    POLICE_ROWS,                  FIRESTATION_ROWS
+struct_cell_base:      .byte COALPP_CELL_FIRST,              NUCLEARPP_CELL_FIRST,                                          PARK_CELL_FIRST,                                              POLICE_CELL_FIRST,            FIRESTATION_CELL_FIRST
+struct_cell_count:     .byte COALPP_CELL_COUNT,              NUCLEARPP_CELL_COUNT,                                          PARK_CELL_COUNT,                                              POLICE_CELL_COUNT,            FIRESTATION_CELL_COUNT
+struct_char_base_lo:   .byte <COALPP_CHAR_BASE,              <NUCLEARPP_CHAR_BASE,                                          <PARK_CHAR_BASE,                                              <POLICE_CHAR_BASE,            <FIRESTATION_CHAR_BASE
+struct_char_base_hi:   .byte >COALPP_CHAR_BASE,              >NUCLEARPP_CHAR_BASE,                                          >PARK_CHAR_BASE,                                              >POLICE_CHAR_BASE,            >FIRESTATION_CHAR_BASE
+struct_cost_lo:        .byte <COST_COALPP,                   <COST_NUCLEARPP,                                               <COST_PARK,                                                   <COST_POLICE,                 <COST_FIRESTATION
+struct_cost_hi:        .byte >COST_COALPP,                   >COST_NUCLEARPP,                                               >COST_PARK,                                                   >COST_POLICE,                 >COST_FIRESTATION
+struct_flags:          .byte STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, STRUCT_FLAG_OVERWRITE_POWER | STRUCT_FLAG_IS_POWER_SOURCE, $00, STRUCT_FLAG_IS_POLICE,        STRUCT_FLAG_IS_FIRESTATION
+struct_output:         .byte COAL_OUTPUT,                    NUCLEARPP_OUTPUT,                                              0,                                                            0,                            0
+struct_lifespan_years: .byte COAL_LIFESPAN_YEARS,            NUCLEARPP_LIFESPAN_YEARS,                                      0,                                                            0,                            0
 
-struct_count           = 4
+struct_count           = 5
 
 ; Carry SET if cell value A is in any structure's [cell_base, cell_base+count)
 ; range. A is preserved. Used by powerline orientation (zones/plants are
@@ -192,6 +199,12 @@ _cs_no_register:
         beq _cs_no_police_register
         jsr population_register_police
 _cs_no_police_register:
+        ldx struct_idx
+        lda struct_flags,x
+        and #STRUCT_FLAG_IS_FIRESTATION
+        beq _cs_no_firestation_register
+        jsr population_register_firestation
+_cs_no_firestation_register:
         jsr audio_construct
         ldx struct_idx
         jsr structure_redraw
@@ -452,6 +465,12 @@ _sdc_div_done:
         beq _sdc_no_police_unreg
         jsr population_unregister_police
 _sdc_no_police_unreg:
+        ldx sdc_row
+        lda struct_flags,x
+        and #STRUCT_FLAG_IS_FIRESTATION
+        beq _sdc_no_firestation_unreg
+        jsr population_unregister_firestation
+_sdc_no_firestation_unreg:
 
         ; Stamp DEBRIS_CELL across the full footprint + redraw each tile.
         ; Player has to bulldoze each debris cell (COST_BULLDOZE) to clear it
