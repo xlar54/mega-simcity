@@ -550,7 +550,16 @@ _cps_road_skip:
 ; water cells' shore masks don't change -- the shoreline flows under the span.
 ; ----------------------------------------------------------------------------
 _cps_road_try_bridge:
-        ; E neighbor (road_cx+1, road_cy)
+        ; Score compatible anchors on both axes. "Compatible" means the
+        ; neighbour actually connects back toward this water cell: an E
+        ; neighbour must have a west-facing road edge, a N neighbour must have
+        ; a south-facing edge, etc. This avoids treating a parallel road/bridge
+        ; row as a perpendicular bridge anchor.
+        lda #0
+        sta cps_bridge_h_score
+        sta cps_bridge_v_score
+
+        ; E neighbor (road_cx+1, road_cy): needs a west-facing edge.
         lda road_cx
         cmp #CELL_COLS-1
         bcs _cpsrtb_e_done
@@ -559,10 +568,14 @@ _cps_road_try_bridge:
         sta city_ptr_x
         lda road_cy
         sta city_ptr_y
-        jsr road_at_ptr
-        bcs _cps_road_bridge_h
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr _road_connects_w
+        bcc _cpsrtb_e_done
+        inc cps_bridge_h_score
 _cpsrtb_e_done:
-        ; W neighbor (road_cx-1, road_cy)
+        ; W neighbor (road_cx-1, road_cy): needs an east-facing edge.
         lda road_cx
         beq _cpsrtb_w_done
         sec
@@ -570,10 +583,14 @@ _cpsrtb_e_done:
         sta city_ptr_x
         lda road_cy
         sta city_ptr_y
-        jsr road_at_ptr
-        bcs _cps_road_bridge_h
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr _road_connects_e
+        bcc _cpsrtb_w_done
+        inc cps_bridge_h_score
 _cpsrtb_w_done:
-        ; N neighbor (road_cx, road_cy-1)
+        ; N neighbor (road_cx, road_cy-1): needs a south-facing edge.
         lda road_cy
         beq _cpsrtb_n_done
         sec
@@ -581,20 +598,40 @@ _cpsrtb_w_done:
         sta city_ptr_y
         lda road_cx
         sta city_ptr_x
-        jsr road_at_ptr
-        bcs _cps_road_bridge_v
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr _road_connects_s
+        bcc _cpsrtb_n_done
+        inc cps_bridge_v_score
 _cpsrtb_n_done:
-        ; S neighbor (road_cx, road_cy+1)
+        ; S neighbor (road_cx, road_cy+1): needs a north-facing edge.
         lda road_cy
         cmp #CELL_ROWS-1
-        bcs _cps_road_skip
+        bcs _cpsrtb_s_done
         clc
         adc #1
         sta city_ptr_y
         lda road_cx
         sta city_ptr_x
-        jsr road_at_ptr
-        bcs _cps_road_bridge_v
+        jsr city_cell_ptr
+        ldz #0
+        lda [MAP_PTR],z
+        jsr _road_connects_n
+        bcc _cpsrtb_s_done
+        inc cps_bridge_v_score
+_cpsrtb_s_done:
+        ; Pick the stronger axis. If both axes tie, reject instead of
+        ; guessing: over-water intersections are intentionally unsupported.
+        lda cps_bridge_h_score
+        beq _cpsrtb_no_h
+        cmp cps_bridge_v_score
+        beq _cps_road_skip
+        bcc _cps_road_bridge_v
+        bra _cps_road_bridge_h
+_cpsrtb_no_h:
+        lda cps_bridge_v_score
+        bne _cps_road_bridge_v
         rts                              ; no anchor in any direction
 
 _cps_road_bridge_h:
@@ -619,6 +656,106 @@ _cps_road_bridge_commit:
         ; masks are unchanged because is_water_or_bridge counts the bridge as
         ; water. Only adjacent roads need to re-check their orientation.
         jmp road_refresh_neighbors
+
+_road_connects_w:
+        cmp #ROAD_CELL_H
+        beq _rc_yes
+        cmp #ROAD_CELL_H_POWER
+        beq _rc_yes
+        cmp #ROAD_CELL_BRIDGE_H
+        beq _rc_yes
+        cmp #ROAD_CELL_4WAY
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_NW
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_SW
+        beq _rc_yes
+        cmp #ROAD_CELL_T_N
+        beq _rc_yes
+        cmp #ROAD_CELL_T_S
+        beq _rc_yes
+        cmp #ROAD_CELL_T_W
+        beq _rc_yes
+        cmp #RAIL_CELL_V_ROAD
+        beq _rc_yes
+        clc
+        rts
+
+_road_connects_e:
+        cmp #ROAD_CELL_H
+        beq _rc_yes
+        cmp #ROAD_CELL_H_POWER
+        beq _rc_yes
+        cmp #ROAD_CELL_BRIDGE_H
+        beq _rc_yes
+        cmp #ROAD_CELL_4WAY
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_NE
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_SE
+        beq _rc_yes
+        cmp #ROAD_CELL_T_N
+        beq _rc_yes
+        cmp #ROAD_CELL_T_S
+        beq _rc_yes
+        cmp #ROAD_CELL_T_E
+        beq _rc_yes
+        cmp #RAIL_CELL_V_ROAD
+        beq _rc_yes
+        clc
+        rts
+
+_road_connects_n:
+        cmp #ROAD_CELL_V
+        beq _rc_yes
+        cmp #ROAD_CELL_V_POWER
+        beq _rc_yes
+        cmp #ROAD_CELL_BRIDGE_V
+        beq _rc_yes
+        cmp #ROAD_CELL_4WAY
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_NW
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_NE
+        beq _rc_yes
+        cmp #ROAD_CELL_T_N
+        beq _rc_yes
+        cmp #ROAD_CELL_T_E
+        beq _rc_yes
+        cmp #ROAD_CELL_T_W
+        beq _rc_yes
+        cmp #RAIL_CELL_H_ROAD
+        beq _rc_yes
+        clc
+        rts
+
+_road_connects_s:
+        cmp #ROAD_CELL_V
+        beq _rc_yes
+        cmp #ROAD_CELL_V_POWER
+        beq _rc_yes
+        cmp #ROAD_CELL_BRIDGE_V
+        beq _rc_yes
+        cmp #ROAD_CELL_4WAY
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_SW
+        beq _rc_yes
+        cmp #ROAD_CELL_CURVE_SE
+        beq _rc_yes
+        cmp #ROAD_CELL_T_S
+        beq _rc_yes
+        cmp #ROAD_CELL_T_E
+        beq _rc_yes
+        cmp #ROAD_CELL_T_W
+        beq _rc_yes
+        cmp #RAIL_CELL_H_ROAD
+        beq _rc_yes
+        clc
+        rts
+
+_rc_yes:
+        sec
+        rts
 
 ;-----------------------------------------------------------------------------
 ; Rail paint path (1x1, mirrors _cps_road). Places rail on ground; on water
@@ -1622,6 +1759,10 @@ cps_2x2_orig_x:                 ; saved 2x2 origin across the 4 shoreline refres
 cps_2x2_orig_y:
         .byte 0
 cps_bridge_value:               ; bridge cell value picked by the anchor scan
+        .byte 0
+cps_bridge_h_score:             ; road bridge placement: compatible E/W anchors
+        .byte 0
+cps_bridge_v_score:             ; road bridge placement: compatible N/S anchors
         .byte 0
 bulldoze_cell:                  ; saved existing-cell value for bridge detection
         .byte 0
