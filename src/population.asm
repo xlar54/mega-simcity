@@ -71,6 +71,27 @@ EMERGENCY_BONUS_STEP    = 60
 POLICE_RADIUS           = EMERGENCY_RADIUS
 POLICE_BONUS_STEP       = EMERGENCY_BONUS_STEP
 
+; --- Traffic ---
+; Per road-cell traffic level (0..TRAFFIC_LEVEL_MAX), recomputed at the
+; monthly tick by traffic_recompute (counts R + C + I origins within
+; TRAFFIC_RADIUS Manhattan cells of each road cell, clamped). The render
+; path reads it from Attic to vary the animated-car phase threshold so
+; busy corridors animate cars more often than rural roads.
+;
+; Zones perceive their local traffic by sampling the road cells immediately
+; adjacent to their footprint -- a 3x3 zone with all 4 cardinal road sides
+; busy "feels" max traffic. zad_zone_traffic in [0..TRAFFIC_LEVEL_MAX]
+; folds into both a per-cell threshold penalty (slower zone development)
+; and a per-zone decay above TRAFFIC_DECAY_LEVEL (people / dev actually
+; pack up and leave -- "urban decay").
+TRAFFIC_RADIUS          = 8     ; Manhattan; each in-range origin adds 1 to level
+TRAFFIC_LEVEL_MAX       = 4     ; matches TRAFFIC_ROAD_PHASE_COUNT in the renderer
+TRAFFIC_PENALTY_STEP    = 60    ; threshold add per zone-traffic level
+TRAFFIC_DECAY_LEVEL     = 3     ; perceived level at which growth flips to decay
+POP_DECAY_PER_MONTH     = 25    ; pop lost per month for an over-trafficked R zone
+COM_DECAY_PER_MONTH     = 30    ; dev lost per month for an over-trafficked C zone
+IND_DECAY_PER_MONTH     = 30    ; dev lost per month for an over-trafficked I zone
+
 ; --- Pollution ---
 ; Each industrial zone within POLLUTION_RADIUS Manhattan cells of a residential
 ; zone counts as a pollution source for that R zone. Beyond
@@ -406,6 +427,12 @@ population_monthly_tick:
         ora industrial_count
         sta pop_has_jobs_cache         ; 0 = no jobs, nonzero = jobs exist
 
+        ; Refresh the per-cell traffic snapshot once before any zone passes
+        ; consume it. ~2300 cells x (R+C+I origins) of cheap Manhattan
+        ; distance -- the heaviest job in the monthly tick but still
+        ; comfortably under a frame at 40 MHz.
+        jsr traffic_recompute
+
         ldx #0
 _pmt_loop:
         cpx zone_org_count
@@ -434,6 +461,11 @@ _pmt_loop:
         ; subtracts a bonus from each cell's effective threshold so a zone
         ; near emergency services develops faster.
         jsr count_nearby_emergency_at_tmp
+        ; Sample traffic on roads adjacent to the zone footprint. High
+        ; level slows growth via a per-cell threshold penalty AND, above
+        ; TRAFFIC_DECAY_LEVEL, flips zone_grow_x to subtract instead of
+        ; add (people leaving). Same shape for C and I in their own ticks.
+        jsr count_zone_traffic_at_tmp
 
         ldx pop_tmp_idx
         jsr zone_grow_x
@@ -468,6 +500,7 @@ _imt_loop:
         ; Emergency-services bonus applies to industrial zones too -- a fire
         ; HQ near a factory district speeds factory build-out.
         jsr count_nearby_emergency_at_tmp
+        jsr count_zone_traffic_at_tmp
 
         ldx pop_tmp_idx
         jsr industrial_grow_x
@@ -481,7 +514,13 @@ _imt_done:
 ; Grow industrial zone X by IND_GROWTH_PER_MONTH (clamped at IND_DEV_MAX),
 ; then apply the per-cell development pass against the new dev level.
 ; X must be preserved; zad_road_mask must already be set by the caller.
+; Decays by IND_DECAY_PER_MONTH (clamped at 0) when zad_zone_traffic exceeds
+; TRAFFIC_DECAY_LEVEL -- factories with truck routes jammed solid stop
+; expanding and gradually wind down.
 industrial_grow_x:
+        lda zad_zone_traffic
+        cmp #TRAFFIC_DECAY_LEVEL+1
+        bcs _ig_decay
         clc
         lda industrial_dev_lo_arr,x
         adc #<IND_GROWTH_PER_MONTH
@@ -497,6 +536,20 @@ industrial_grow_x:
         lda pop_tmp
         cmp #<IND_DEV_MAX
         bcc _ig_store
+        bra _ig_cap
+_ig_decay:
+        sec
+        lda industrial_dev_lo_arr,x
+        sbc #<IND_DECAY_PER_MONTH
+        sta pop_tmp
+        lda industrial_dev_hi_arr,x
+        sbc #>IND_DECAY_PER_MONTH
+        sta pop_tmp+1
+        bcs _ig_store
+        lda #0
+        sta pop_tmp
+        sta pop_tmp+1
+        bra _ig_store
 _ig_cap:
         lda #<IND_DEV_MAX
         sta pop_tmp
@@ -818,7 +871,14 @@ EMERGENCY_BONUS_SUB .macro lo_addr, hi_addr
 ; Grow zone X by POP_GROWTH_PER_MONTH (clamped at ZONE_POP_MAX), then run the
 ; per-cell development pass. X must be preserved by caller. zad_road_mask is
 ; expected to be set (the monthly tick calls compute_road_side_mask first).
+; Above TRAFFIC_DECAY_LEVEL the zone DECAYS instead -- POP_DECAY_PER_MONTH
+; subtracted (clamped at 0) so people gradually leave the over-trafficked
+; block. The display dirty flag is set in either case so the readout
+; refreshes for changed totals.
 zone_grow_x:
+        lda zad_zone_traffic
+        cmp #TRAFFIC_DECAY_LEVEL+1
+        bcs _zg_decay
         clc
         lda zone_pop_lo_arr,x
         adc #<POP_GROWTH_PER_MONTH
@@ -834,6 +894,22 @@ zone_grow_x:
         lda pop_tmp
         cmp #<ZONE_POP_MAX
         bcc _zg_store
+        bra _zg_cap
+_zg_decay:
+        ; Subtract POP_DECAY_PER_MONTH; clamp at 0 on borrow-out so a zone
+        ; that's already empty doesn't wrap around into a huge value.
+        sec
+        lda zone_pop_lo_arr,x
+        sbc #<POP_DECAY_PER_MONTH
+        sta pop_tmp
+        lda zone_pop_hi_arr,x
+        sbc #>POP_DECAY_PER_MONTH
+        sta pop_tmp+1
+        bcs _zg_store               ; no borrow -> result valid
+        lda #0                       ; clamp to zero
+        sta pop_tmp
+        sta pop_tmp+1
+        bra _zg_store
 _zg_cap:
         lda #<ZONE_POP_MAX
         sta pop_tmp
@@ -875,6 +951,7 @@ zone_apply_development_state:
         lda #0
         sta zad_changed
         jsr precompute_emergency_total
+        jsr precompute_traffic_penalty
 
         ; Pre-compute distance bonus (zad_distance << 3) as 16-bit so we can
         ; add it to each cell's base threshold below. zad_distance is 0..255,
@@ -981,6 +1058,13 @@ _zad_no_road_bonus:
         ; in coverage develops past house AND apartment tiers sooner.
         #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
         #EMERGENCY_BONUS_SUB zad_eff_a_lo, zad_eff_a_hi
+        ; --- traffic penalty: each level of perceived traffic adds
+        ; TRAFFIC_PENALTY_STEP to both thresholds. High traffic raises the
+        ; bar for "people want to live here" faster than the road / police
+        ; bonuses can compensate, so cells gradually downgrade even before
+        ; pop decay kicks in at TRAFFIC_DECAY_LEVEL.
+        #TRAFFIC_PENALTY_ADD zad_eff_h_lo, zad_eff_h_hi
+        #TRAFFIC_PENALTY_ADD zad_eff_a_lo, zad_eff_a_hi
 
         ; --- pick target stage from zone_pop vs effective thresholds ---
         ; Compare pop >= eff_a ?
@@ -1097,6 +1181,7 @@ industrial_apply_development_state:
         lda #0
         sta zad_changed
         jsr precompute_emergency_total
+        jsr precompute_traffic_penalty
 
         ldy #0
 _iad_loop:
@@ -1127,6 +1212,7 @@ _iad_no_road_bonus:
         ; subtracts EMERGENCY_BONUS_STEP from the effective threshold so an
         ; industrial zone in coverage develops to heavy industrial sooner.
         #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
+        #TRAFFIC_PENALTY_ADD zad_eff_h_lo, zad_eff_h_hi
 
         ; Pick target: dev >= eff_h -> heavy, else empty.
         lda zad_pop_hi
@@ -1247,6 +1333,7 @@ _cmt_loop:
         bcc _cmt_next
 
         jsr compute_commercial_distance_and_emergency
+        jsr count_zone_traffic_at_tmp
         ldx pop_tmp_idx
         jsr commercial_grow_x
 _cmt_next:
@@ -1257,8 +1344,13 @@ _cmt_done:
         rts
 
 ; Grow commercial zone X by COM_GROWTH_PER_MONTH (clamped at COM_DEV_MAX),
-; then run the per-cell development pass.
+; then run the per-cell development pass. Decays by COM_DECAY_PER_MONTH
+; (clamped at 0) when zad_zone_traffic exceeds TRAFFIC_DECAY_LEVEL --
+; shops shutter when their street gets too congested for foot traffic.
 commercial_grow_x:
+        lda zad_zone_traffic
+        cmp #TRAFFIC_DECAY_LEVEL+1
+        bcs _cg_decay
         clc
         lda commercial_dev_lo_arr,x
         adc #<COM_GROWTH_PER_MONTH
@@ -1273,6 +1365,20 @@ commercial_grow_x:
         lda pop_tmp
         cmp #<COM_DEV_MAX
         bcc _cg_store
+        bra _cg_cap
+_cg_decay:
+        sec
+        lda commercial_dev_lo_arr,x
+        sbc #<COM_DECAY_PER_MONTH
+        sta pop_tmp
+        lda commercial_dev_hi_arr,x
+        sbc #>COM_DECAY_PER_MONTH
+        sta pop_tmp+1
+        bcs _cg_store
+        lda #0
+        sta pop_tmp
+        sta pop_tmp+1
+        bra _cg_store
 _cg_cap:
         lda #<COM_DEV_MAX
         sta pop_tmp
@@ -1352,6 +1458,303 @@ _cne_f_far:
 _cne_done:
         rts
 
+;---------------------------------------------------------------------------------------
+; Traffic system.
+;
+; traffic_init  -- zero the Attic traffic-level array. Called once from
+;                  city_init. The array is only meaningful after traffic_
+;                  recompute has populated it; zeroing means "no traffic
+;                  anywhere yet" so the road animation degrades gracefully
+;                  to plain (empty) roads on the very first frame.
+;
+; traffic_recompute -- walk every cell of the world map. For each road cell
+;                  (ROAD_CELL_FIRST..LAST), count the R + C + I zone origins
+;                  within TRAFFIC_RADIUS Manhattan cells; clamp at
+;                  TRAFFIC_LEVEL_MAX; write to the Attic traffic array.
+;                  Non-road cells are written 0 so the renderer can read
+;                  the same byte for any cell without a type check.
+;
+; count_zone_traffic_at_tmp -- sample the perimeter of the 3x3 zone at
+;                  (pop_tmp_cx, pop_tmp_cy); take the max traffic_level
+;                  found on any adjacent road cell into zad_zone_traffic.
+;                  Same role as count_nearby_emergency_at_tmp.
+;---------------------------------------------------------------------------------------
+
+; Set MAP_PTR to point at the Attic traffic-level cell at (city_ptr_x,
+; city_ptr_y). Assumes city_ptr_lo/hi are already set (call after
+; city_cell_ptr or whenever city_ptr_lo/hi are current). Clobbers A.
+traffic_ptr_into_map:
+        clc
+        lda #<ATTIC_TRAFFIC_PHYS
+        adc city_ptr_lo
+        sta MAP_PTR
+        lda #>ATTIC_TRAFFIC_PHYS
+        adc city_ptr_hi
+        sta MAP_PTR+1
+        lda #`ATTIC_TRAFFIC_PHYS
+        adc #0
+        sta MAP_PTR+2
+        lda #(ATTIC_TRAFFIC_PHYS >> 24)
+        adc #0
+        sta MAP_PTR+3
+        rts
+
+; Clear the entire traffic-level array. Iterates over every cell in the map
+; and DMA would be overkill for ~2.3 KB at boot. Plain loop.
+traffic_init:
+        lda #0
+        sta ctr_y
+_ti_row:
+        lda #0
+        sta ctr_x
+_ti_col:
+        lda ctr_x
+        sta city_ptr_x
+        lda ctr_y
+        sta city_ptr_y
+        jsr city_cell_ptr
+        jsr traffic_ptr_into_map
+        ldz #0
+        lda #0
+        sta [MAP_PTR],z
+        inc ctr_x
+        lda ctr_x
+        cmp #CELL_COLS
+        bne _ti_col
+        inc ctr_y
+        lda ctr_y
+        cmp #CELL_ROWS
+        bne _ti_row
+        rts
+
+; Recompute traffic_level for every cell. Non-road cells write 0; road cells
+; (ROAD_CELL_FIRST..LAST inclusive) write the clamped count of R + C + I
+; origins within TRAFFIC_RADIUS. Called once per monthly tick before the
+; per-zone passes run, so zad_zone_traffic reads a fresh snapshot.
+traffic_recompute:
+        lda #0
+        sta ctr_y
+_trr_row:
+        lda #0
+        sta ctr_x
+_trr_col:
+        ; Read the map cell value.
+        lda ctr_x
+        sta city_ptr_x
+        sta pop_tmp_cx              ; cdw_distance_only reads pop_tmp_c*
+        lda ctr_y
+        sta city_ptr_y
+        sta pop_tmp_cy
+        jsr city_cell_ptr            ; MAP_PTR -> map cell
+        ldz #0
+        lda [MAP_PTR],z
+        ; Is it a road? (ROAD_CELL_FIRST..LAST, includes H/V/curves/T/4way/
+        ; bridges/*_POWER -- anything cars could drive on.)
+        cmp #ROAD_CELL_FIRST
+        bcc _trr_no_road
+        cmp #ROAD_CELL_LAST+1
+        bcs _trr_no_road
+        ; Score this road cell against R, C, I origins. Each origin within
+        ; TRAFFIC_RADIUS Manhattan cells contributes +1; clamp at
+        ; TRAFFIC_LEVEL_MAX so the renderer's 4-position threshold works.
+        lda #0
+        sta ctr_level
+        jsr ctr_score_residential
+        jsr ctr_score_commercial
+        jsr ctr_score_industrial
+        lda ctr_level
+        cmp #TRAFFIC_LEVEL_MAX+1
+        bcc _trr_have_level
+        lda #TRAFFIC_LEVEL_MAX
+_trr_have_level:
+        bra _trr_write
+_trr_no_road:
+        lda #0
+_trr_write:
+        pha
+        ; MAP_PTR currently points at the MAP cell. Re-derive for traffic.
+        jsr traffic_ptr_into_map
+        pla
+        ldz #0
+        sta [MAP_PTR],z
+        inc ctr_x
+        lda ctr_x
+        cmp #CELL_COLS
+        bne _trr_col
+        inc ctr_y
+        lda ctr_y
+        cmp #CELL_ROWS
+        bne _trr_row
+        rts
+
+; Each ctr_score_* routine adds +1 to ctr_level for every origin of its zone
+; type within TRAFFIC_RADIUS of (pop_tmp_cx, pop_tmp_cy). Cap is applied at
+; the call site after all three run.
+ctr_score_residential:
+        ldy zone_org_count
+        beq _ctrr_done
+_ctrr_loop:
+        dey
+        lda zone_org_x_arr,y
+        sta cdw_dx
+        lda zone_org_y_arr,y
+        sta cdw_dy
+        jsr cdw_distance_only
+        lda cdw_d
+        cmp #TRAFFIC_RADIUS+1
+        bcs _ctrr_far
+        inc ctr_level
+_ctrr_far:
+        cpy #0
+        bne _ctrr_loop
+_ctrr_done:
+        rts
+
+ctr_score_commercial:
+        ldy commercial_count
+        beq _ctrc_done
+_ctrc_loop:
+        dey
+        lda commercial_org_x_arr,y
+        sta cdw_dx
+        lda commercial_org_y_arr,y
+        sta cdw_dy
+        jsr cdw_distance_only
+        lda cdw_d
+        cmp #TRAFFIC_RADIUS+1
+        bcs _ctrc_far
+        inc ctr_level
+_ctrc_far:
+        cpy #0
+        bne _ctrc_loop
+_ctrc_done:
+        rts
+
+ctr_score_industrial:
+        ldy industrial_count
+        beq _ctri_done
+_ctri_loop:
+        dey
+        lda industrial_org_x_arr,y
+        sta cdw_dx
+        lda industrial_org_y_arr,y
+        sta cdw_dy
+        jsr cdw_distance_only
+        lda cdw_d
+        cmp #TRAFFIC_RADIUS+1
+        bcs _ctri_far
+        inc ctr_level
+_ctri_far:
+        cpy #0
+        bne _ctri_loop
+_ctri_done:
+        rts
+
+; For the zone at (pop_tmp_cx, pop_tmp_cy), scan the cells immediately
+; surrounding the 3x3 footprint (an outer 5x5 ring minus the zone itself).
+; Take the MAX traffic_level seen on any adjacent cell into zad_zone_traffic.
+; "Max" so a single bordering busy road causes the whole zone to feel it --
+; matches how a real busy-side-street ruins one block of housing even if
+; the others sides are quiet.
+count_zone_traffic_at_tmp:
+        lda #0
+        sta czt_level
+        lda #$FF                    ; -1: start one cell northwest of origin
+        sta czt_dy
+_czt_row:
+        lda #$FF
+        sta czt_dx
+_czt_col:
+        ; Skip cells INSIDE the zone footprint (dx in 0..2 AND dy in 0..2).
+        lda czt_dx
+        cmp #3
+        bcs _czt_outside            ; dx >= 3 -> outside footprint to the east
+        ; dx in $FF (-1), 0, 1, 2: 0/1/2 are inside on x; -1 is outside
+        cmp #0
+        bcc _czt_outside            ; dx == $FF
+        ; dx in 0..2 here -- check dy too
+        lda czt_dy
+        cmp #3
+        bcs _czt_outside
+        cmp #0
+        bcc _czt_outside
+        ; (dx,dy) both 0..2 -> inside the zone, skip.
+        bra _czt_next
+_czt_outside:
+        ; Build absolute cell coords. Skip if off map (any underflow / overflow).
+        clc
+        lda pop_tmp_cx
+        adc czt_dx
+        bcc _czt_next_no_carry      ; underflow (dx was $FF and pop_tmp_cx == 0)
+        cmp #CELL_COLS
+        bcs _czt_next               ; off east edge
+        sta city_ptr_x
+        clc
+        lda pop_tmp_cy
+        adc czt_dy
+        bcc _czt_next_no_carry
+        cmp #CELL_ROWS
+        bcs _czt_next
+        sta city_ptr_y
+        ; Read traffic_level at this cell.
+        jsr city_cell_ptr
+        jsr traffic_ptr_into_map
+        ldz #0
+        lda [MAP_PTR],z
+        cmp czt_level
+        bcc _czt_next               ; not higher than current max
+        sta czt_level
+_czt_next:
+_czt_next_no_carry:
+        inc czt_dx
+        lda czt_dx
+        cmp #4                       ; dx range: -1, 0, 1, 2, 3 -- 5 values
+        bne _czt_col
+        inc czt_dy
+        lda czt_dy
+        cmp #4
+        bne _czt_row
+        lda czt_level
+        sta zad_zone_traffic
+        rts
+
+; Precompute zad_traffic_penalty_lo/hi = zad_zone_traffic *
+; TRAFFIC_PENALTY_STEP, so each cell's apply loop can add a single 16-bit
+; constant to its effective threshold instead of looping. Mirrors
+; precompute_emergency_total.
+precompute_traffic_penalty:
+        lda #0
+        sta zad_traffic_penalty_lo
+        sta zad_traffic_penalty_hi
+        ldx zad_zone_traffic
+        beq _ptp_done
+_ptp_loop:
+        clc
+        lda zad_traffic_penalty_lo
+        adc #TRAFFIC_PENALTY_STEP
+        sta zad_traffic_penalty_lo
+        lda zad_traffic_penalty_hi
+        adc #0
+        sta zad_traffic_penalty_hi
+        dex
+        bne _ptp_loop
+_ptp_done:
+        rts
+
+; Add the precomputed traffic penalty (zad_traffic_penalty_lo/hi) to the 16-
+; bit threshold (lo_addr, hi_addr). Symmetric to EMERGENCY_BONUS_SUB but on
+; the addition side. No clamp -- the threshold simply grows out of reach,
+; preventing the cell from developing while traffic is high.
+TRAFFIC_PENALTY_ADD .macro lo_addr, hi_addr
+        clc
+        lda \lo_addr
+        adc zad_traffic_penalty_lo
+        sta \lo_addr
+        lda \hi_addr
+        adc zad_traffic_penalty_hi
+        sta \hi_addr
+.endmacro
+
 ; cdw_dx, cdw_dy -> Manhattan distance from (pop_tmp_cx, pop_tmp_cy), clamped
 ; at 255, stored in cdw_d. Like cdw_distance_then_min but no min-of-pair tracking.
 ; Preserves Y. Used by the emergency-services scan in count_nearby_emergency_at_tmp.
@@ -1402,6 +1805,7 @@ commercial_apply_development_state:
         lda #0
         sta zad_changed
         jsr precompute_emergency_total
+        jsr precompute_traffic_penalty
 
         ; Distance bonus: zad_distance << 3 as 16-bit -- same shape as R.
         lda #0
@@ -1452,6 +1856,7 @@ _cad_no_road_bonus:
         ; applied AFTER the road halving so the bonus is meaningful even when
         ; the road already halved the threshold.
         #EMERGENCY_BONUS_SUB zad_eff_h_lo, zad_eff_h_hi
+        #TRAFFIC_PENALTY_ADD zad_eff_h_lo, zad_eff_h_hi
 
         lda zad_pop_hi
         cmp zad_eff_h_hi
@@ -1914,6 +2319,28 @@ zad_nearby_emergency:           ; # of emergency-service HQs (police + fire)
                                 ; once per zone in each monthly tick; consumed
                                 ; by *_apply_development_state to subtract a
                                 ; bonus from each cell's effective threshold.
+zad_zone_traffic:               ; perceived traffic level (0..TRAFFIC_LEVEL_MAX)
+        .byte 0                 ; on roads adjacent to the current zone.
+                                ; Populated by count_zone_traffic_at_tmp;
+                                ; consumed by *_apply_development_state for
+                                ; the threshold penalty + *_grow_x for decay
+                                ; when the level exceeds TRAFFIC_DECAY_LEVEL.
+zad_traffic_penalty_lo:         ; zad_zone_traffic * TRAFFIC_PENALTY_STEP,
+        .byte 0                 ; precomputed once per zone for cheap per-cell
+zad_traffic_penalty_hi:         ; adds to eff_h / eff_a thresholds.
+        .byte 0
+ctr_x:                          ; traffic_recompute scratch -- inner loop cursor
+        .byte 0
+ctr_y:
+        .byte 0
+ctr_level:                      ; running traffic level for the cell being scored
+        .byte 0
+czt_dx:                         ; count_zone_traffic_at_tmp cell-offset scratch
+        .byte 0
+czt_dy:
+        .byte 0
+czt_level:                      ; running max over the perimeter scan
+        .byte 0
 zad_emergency_total_lo:         ; zad_nearby_emergency * EMERGENCY_BONUS_STEP,
         .byte 0                 ; precomputed once per zone so the per-cell
 zad_emergency_total_hi:         ; loop subtracts a single 16-bit value

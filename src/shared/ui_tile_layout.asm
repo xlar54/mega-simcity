@@ -180,13 +180,21 @@ COM_HEAVY_CHAR_BASE     = IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT
 ; dispatch as park / police.
 FIRESTATION_CHAR_BASE   = COM_HEAVY_CHAR_BASE + COM_HEAVY_CELL_COUNT
 
+; Traffic road animation chars. Display-only variants for plain straight roads:
+; the map still stores ROAD_CELL_H / ROAD_CELL_V, and render.asm substitutes one
+; of these chars based on the animation phase and world coordinate.
+TRAFFIC_ROAD_PHASE_COUNT = 4
+TRAFFIC_ROAD_CHAR_COUNT = TRAFFIC_ROAD_PHASE_COUNT * 2
+TRAFFIC_ROAD_H_BASE     = FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT
+TRAFFIC_ROAD_V_BASE     = TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_PHASE_COUNT
+
 ; Speed button chars: 4 bitmaps for the 2x2 top-strip SPEED icon. Lives in the
 ; toolbar-art zone, stamped from inline bitmaps in assets.asm at boot. SPEED
 ; is a one-shot popup trigger (like DISK after the inset fix), so we render
 ; only the idle (raised) state -- both the idle and selected base entries in
 ; top_btn_base_*_lo/hi point at this same block, since selected_tile never
 ; latches TILE_SPEED.
-SPEED_CHAR_BASE         = FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT
+SPEED_CHAR_BASE         = TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_CHAR_COUNT
 
 ; Checkbox glyphs for the speed popup: 1 char each for "empty" (just an
 ; outline) and "checked" (outline with checkmark). Used by speed_popup.asm
@@ -239,12 +247,13 @@ TOP_BTN_H               = 2
         .cerror IND_HEAVY_CHAR_BASE + IND_HEAVY_CELL_COUNT > 1024, "industrial-heavy chars exceed resident char-bank window"
         .cerror COM_HEAVY_CHAR_BASE + COM_HEAVY_CELL_COUNT > 1024, "commercial-heavy chars exceed resident char-bank window"
         .cerror FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT > 1024, "fire station chars exceed resident char-bank window"
+        .cerror TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_CHAR_COUNT > 1024, "traffic road chars exceed resident char-bank window"
         .cerror SPEED_CHAR_BASE + 4 > 1024, "SPEED top-strip button chars exceed resident char-bank window"
         .cerror CHECKBOX_CHECKED_CHAR + 1 > 1024, "checkbox chars exceed resident char-bank window"
         .cerror BORDER_BR_CHAR + 1 > 1024, "popup border chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
         .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
-        .cerror TILESET_ASSET_CHARS != FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT, "TILESET_ASSET_CHARS must cover every map-viewport char"
+        .cerror TILESET_ASSET_CHARS != TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_CHAR_COUNT, "TILESET_ASSET_CHARS must cover every map-viewport char"
         ; popup.asm overlay_draw_ok stamps the OK chars with set_fcm_char (8-bit),
         ; so every BTN_OK_*_CHAR must fit in a byte. BK is the only one that
         ; floats (anchored to POWER_BRIDGE_CHAR_BASE + COUNT), so cap it explicitly

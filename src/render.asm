@@ -267,7 +267,8 @@ _rdt_stamp_char:
         rts
 
 ; A = cell value, X = parity (0-3) -> A = char-id low byte, ctc_char_hi = high byte.
-;   ROAD_CELL_FIRST..LAST       -> road; the value IS the char (no arithmetic)
+;   ROAD_CELL_H/V               -> animated traffic road chars on sparse phases
+;   other ROAD_CELL_FIRST..LAST -> road; the value IS the char (no arithmetic)
 ;   POWERLINE_CELL_FIRST..LAST  -> power line; the value IS the char
 ;   TREE_CELL_FIRST..LAST       -> tree;        char = TREE_CHAR_BASE + (value - TREE_CELL_FIRST)
 ;   WATER_SHORE_CELL_FIRST..LAST -> shoreline;  char = WATER_SHORE_CHAR_BASE + (value - WATER_SHORE_CELL_FIRST)
@@ -283,7 +284,9 @@ _rdt_stamp_char:
 ; half of the base = the full 16-bit char id. ctc_char_hi defaults to 0 (cleared
 ; at entry) for the no-translate paths (road, power line, base-type), which
 ; encode their char id in the 8-bit cell value itself -- those ranges are
-; capped at 255 by the cell-encoding budget. Any future 1x1 paint tool whose
+; capped at 255 by the cell-encoding budget. The road traffic animation is a
+; display-only exception: ROAD_CELL_H/V still live in the 8-bit map range, but
+; can render as alternate chars above 255. Any future 1x1 paint tool whose
 ; art may live above char 255 should use a translated range
 ; (FIRST..LAST -> CHAR_BASE + offset) the same way trees/zones do, NOT the
 ; road/powerline "value is the char" shortcut.
@@ -292,6 +295,10 @@ cell_to_char:
         lda #0
         sta ctc_char_hi
         pla
+        cmp #ROAD_CELL_H
+        beq _ctc_traffic_h
+        cmp #ROAD_CELL_V
+        beq _ctc_traffic_v
         cmp #ROAD_CELL_FIRST
         bcc _ctc_type
         cmp #ROAD_CELL_LAST+1
@@ -313,6 +320,81 @@ cell_to_char:
         adc #0
         sta ctc_char_hi
         pla
+        rts
+_ctc_traffic_h:
+        jsr _ctc_load_traffic_threshold
+        lda traffic_anim_step
+        clc
+        adc city_ptr_x
+        sta ctc_phase
+        txa
+        and #1                      ; TR/BR are one cell to the right
+        clc
+        adc ctc_phase
+        and #$07                    ; phase 0..7
+        cmp ctc_traffic_threshold   ; per-cell threshold from Attic
+        bcs _ctc_traffic_h_base
+        clc
+        adc #<TRAFFIC_ROAD_H_BASE
+        pha
+        lda #>TRAFFIC_ROAD_H_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_traffic_h_base:
+        lda #ROAD_CELL_H
+        rts
+_ctc_traffic_v:
+        jsr _ctc_load_traffic_threshold
+        lda traffic_anim_step
+        clc
+        adc city_ptr_y
+        sta ctc_phase
+        txa
+        lsr                         ; BL/BR are one cell down
+        and #1
+        clc
+        adc ctc_phase
+        and #$07
+        cmp ctc_traffic_threshold
+        bcs _ctc_traffic_v_base
+        clc
+        adc #<TRAFFIC_ROAD_V_BASE
+        pha
+        lda #>TRAFFIC_ROAD_V_BASE
+        adc #0
+        sta ctc_char_hi
+        pla
+        rts
+_ctc_traffic_v_base:
+        lda #ROAD_CELL_V
+        rts
+
+; Read the Attic traffic_level for the cell currently being processed by
+; cell_to_char and stash it in ctc_traffic_threshold. The caller (render_
+; draw_tile) has set MAP_PTR at the tile's TL cell and loaded the current
+; quadrant's value via [MAP_PTR],z with z = 0 / 1 / CELL_COLS / CELL_COLS+1
+; just before calling us; that same z still sits in Z here. We mirror the
+; cell base offset into PTR (= ATTIC_TRAFFIC_PHYS + city_ptr_lo/hi) and
+; reuse Z to land on this quadrant's traffic entry. MAP_PTR is untouched
+; so render_draw_tile's next [MAP_PTR],z read still hits the map.
+_ctc_load_traffic_threshold:
+        clc
+        lda #<ATTIC_TRAFFIC_PHYS
+        adc city_ptr_lo
+        sta PTR
+        lda #>ATTIC_TRAFFIC_PHYS
+        adc city_ptr_hi
+        sta PTR+1
+        lda #`ATTIC_TRAFFIC_PHYS
+        adc #0
+        sta PTR+2
+        lda #(ATTIC_TRAFFIC_PHYS >> 24)
+        adc #0
+        sta PTR+3
+        lda [PTR],z
+        sta ctc_traffic_threshold
         rts
 _ctc_check_water_shore:
         cmp #WATER_SHORE_CELL_FIRST
@@ -559,6 +641,10 @@ render_char_base:
         .byte 0
 ctc_value:                  ; cell_to_char: saved cell value across the struct loop
         .byte 0
+ctc_phase:                  ; cell_to_char: temporary traffic phase
+        .byte 0
+ctc_traffic_threshold:      ; cell_to_char: per-cell traffic level (0..4)
+        .byte 0             ; read from Attic by ctc_load_traffic_threshold
 ctc_char_hi:                ; cell_to_char: high byte of the 16-bit char id (A holds low)
         .byte 0
 render_screen_col:

@@ -547,7 +547,7 @@ TILESET_BODY_SIZE       = CITY_TILE_TYPE_COUNT * CITY_CHARS_PER_TILE * 64
 TILESET_ZONE_SIZE       = ZONE_CELL_CHAR_COUNT * 64
 TILESET_COALPP_SIZE     = COALPP_CELL_COUNT * 64
 TILESET_NUCLEARPP_SIZE  = NUCLEARPP_CELL_COUNT * 64
-TILESET_ASSET_CHARS     = 338    ; 329 (through COM_HEAVY) + 9 (fire station)
+TILESET_ASSET_CHARS     = 346    ; 329 (through COM_HEAVY) + 9 fire station + 8 traffic road
 TILESET_ASSET_SIZE      = TILESET_ASSET_CHARS * 64
 
 ; Boot staging buffer: KERNAL-LOAD lands here in chip RAM, then DMA to Attic.
@@ -609,8 +609,15 @@ ATTIC_OVR_DISK_MB        = $85
 ATTIC_OVR_DISK_BANK      = $00
 ATTIC_OVR_DISK_ADDR      = $0000
 ATTIC_OVR_DISK_PHYS      = $8500000
-; MB $86 freed (was ATTIC_OVR_LOAD_*) -- consolidated into the single disk
-; overlay above. Available for the next overlay that needs an attic slot.
+; Traffic-level array, 1 byte per cell. Populated by traffic_recompute
+; in population.asm at the monthly tick (counts R/C/I origins within
+; TRAFFIC_RADIUS of each road cell, clamped at TRAFFIC_LEVEL_MAX). Read
+; by cell_to_char in render.asm to vary the per-cell phase threshold so
+; busy corridors animate more cars than rural roads.
+ATTIC_TRAFFIC_MB         = $86
+ATTIC_TRAFFIC_BANK       = $00
+ATTIC_TRAFFIC_ADDR       = $0000
+ATTIC_TRAFFIC_PHYS       = $8600000
 ATTIC_OVR_INSPECTOR_MB   = $87
 ATTIC_OVR_INSPECTOR_BANK = $00
 ATTIC_OVR_INSPECTOR_ADDR = $0000

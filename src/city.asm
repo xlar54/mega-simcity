@@ -25,6 +25,7 @@ city_init:
         lda #0
         sta sim_tick
         sta sim_tick+1
+        sta traffic_anim_step
 
         jsr city_fill_ground
         jsr city_seed_terrain
@@ -32,6 +33,10 @@ city_init:
         jsr funds_init
         jsr clock_init
         jsr population_init
+        ; Zero the per-cell traffic-level array so the first frame renders
+        ; plain (no-car) roads before traffic_recompute populates real
+        ; levels on the first monthly tick.
+        jsr traffic_init
         ; Filename for ovr-disk -- starts empty (no save/load yet this session).
         lda #0
         sta current_city_filename_len
@@ -137,10 +142,22 @@ _gai_right:
         jmp render_mark_view_dirty
 
 game_tick:
+        ; Pause gate: while a popup is open, the sim halts and so does the
+        ; traffic animation. Matches clock_tick's overlay gate, so cars,
+        ; clock, and zone development all freeze together for the player.
+        lda overlay_active
+        bne _gt_done
         inc sim_tick
-        bne +
+        bne _gt_check_traffic
         inc sim_tick+1
-+       rts
+_gt_check_traffic:
+        lda sim_tick
+        and #$07
+        bne _gt_done
+        inc traffic_anim_step
+        jsr render_mark_view_dirty
+_gt_done:
+        rts
 
 city_paint_selected:
         lda selected_tile
@@ -1577,6 +1594,8 @@ selected_tool:
         .byte 0
 sim_tick:
         .word 0
+traffic_anim_step:
+        .byte 0
 
 ; The filename of the city last loaded or saved (if any). Used by the disk
 ; overlay to pre-populate the Save panel's filename field. Maintained by the

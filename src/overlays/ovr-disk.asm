@@ -23,8 +23,30 @@
 ;   menu Load -> LOAD_FILENAME -> [open + read map] -> RESULT(loaded/error)
 ;                                                  -> close
 ;
-; Save / load file format is identical to the previous ovr-save / ovr-load
-; (16B header + 4B funds + 3B clock + 32B*3 plant origins + 48000B map).
+; Save / load file format (current = v3):
+;   16  header (magic "MEGASIM\0" + version + 7 reserved)
+;    4  funds
+;    3  clock (sim_month, sim_year_lo, sim_year_hi)
+;    1  plant_origin_count
+;   32  plant_origin_x[32]
+;   32  plant_origin_y[32]
+;   32  plant_origin_struct[32]
+;   --- v3 additions ---
+;   32  plant_origin_years_left[32]
+;    1  sim_speed
+;    1+128*5  residential registry (count + org_x/y, pop_lo/hi, rand)
+;    1+128*5  commercial registry  (count + org_x/y, dev_lo/hi, rand)
+;    1+128*5  industrial registry  (count + org_x/y, dev_lo/hi, rand)
+;    1+128*2  police registry      (count + org_x/y)
+;    1+128*2  firestation registry (count + org_x/y)
+;   --- end v3 ---
+;48000  map (CELL_COLS * CELL_ROWS bytes via chunked DMA <-> CHROUT/CHRIN)
+;
+; Older saves still load:
+;   v1: skip the plant + v3 blocks, zero those arrays.
+;   v2: skip the v3 block, zero plant_origin_years_left + sim_speed and
+;       reset the per-zone registries (the v2 city has zone CELLS in the
+;       map but no live registry entries, same as it always did).
 ;
 ; Existence check uses OPEN-for-read, one CHRIN, then reads KERNAL status
 ; byte $90. Non-zero ST after the first read = file not found (or some other
@@ -43,6 +65,38 @@
 ;---------------------------------------------------------------------------------------
 ODV_FILENAME_MAX = CITY_FILENAME_MAX        ; 12, same as the main-game scratch
 MAP_IO_SIZE      = CELL_COLS * CELL_ROWS    ; 48000
+
+; Save/load helper macros so the long array-serialisation blocks stay readable.
+; All operate on 8-bit-indexed arrays (length <= 256) and use X as the cursor.
+; Channel 1 must already be the active CHROUT/CHRIN target.
+SAVE_ARRAY .macro arr, len
+        ldx #0
+-       lda \arr, x
+        jsr KERNAL_CHROUT
+        inx
+        cpx #\len
+        bne -
+.endmacro
+
+LOAD_ARRAY .macro arr, len
+        ldx #0
+-       jsr KERNAL_CHRIN
+        sta \arr, x
+        inx
+        cpx #\len
+        bne -
+.endmacro
+
+; Zero a byte-indexed array of length <= 256. Used by v1/v2 LOAD paths to
+; wipe v3-only fields so the loaded city starts from a clean baseline.
+ZERO_ARRAY .macro arr, len
+        lda #0
+        ldx #0
+-       sta \arr, x
+        inx
+        cpx #\len
+        bne -
+.endmacro
 
 ; State machine codes (stored in odv_state).
 STATE_MENU          = 0
@@ -708,6 +762,44 @@ _odv_save_ps:
         inx
         cpx #PLANT_MAX
         bne _odv_save_ps
+        ; --- v3 block: plant ages + sim_speed + full per-zone registries ---
+        #SAVE_ARRAY plant_origin_years_left, PLANT_MAX
+        lda sim_speed
+        jsr KERNAL_CHROUT
+        ; Residential
+        lda zone_org_count
+        jsr KERNAL_CHROUT
+        #SAVE_ARRAY zone_org_x_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY zone_org_y_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY zone_pop_lo_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY zone_pop_hi_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY zone_rand_arr, ZONE_POP_MAX_COUNT
+        ; Commercial
+        lda commercial_count
+        jsr KERNAL_CHROUT
+        #SAVE_ARRAY commercial_org_x_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY commercial_org_y_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY commercial_dev_lo_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY commercial_dev_hi_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY commercial_rand_arr, ZONE_POP_MAX_COUNT
+        ; Industrial
+        lda industrial_count
+        jsr KERNAL_CHROUT
+        #SAVE_ARRAY industrial_org_x_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY industrial_org_y_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY industrial_dev_lo_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY industrial_dev_hi_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY industrial_rand_arr, ZONE_POP_MAX_COUNT
+        ; Police
+        lda police_count
+        jsr KERNAL_CHROUT
+        #SAVE_ARRAY police_org_x_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY police_org_y_arr, ZONE_POP_MAX_COUNT
+        ; Fire department
+        lda firestation_count
+        jsr KERNAL_CHROUT
+        #SAVE_ARRAY firestation_org_x_arr, ZONE_POP_MAX_COUNT
+        #SAVE_ARRAY firestation_org_y_arr, ZONE_POP_MAX_COUNT
         ; --- map (48000 bytes via chunked DMA -> CHROUT) ---
         lda #<MAP_IO_SIZE
         sta odv_remaining
@@ -831,11 +923,14 @@ _odv_load_magic:
         inx
         cpx #7
         bne _odv_load_magic
-        ; Version: accept $01 (legacy) or $02 (with plant block).
+        ; Version: accept $01 (legacy), $02 (with plant block), or $03 (with
+        ; per-zone registries + plant ages + sim_speed).
         lda odv_save_header+8
         cmp #$01
         beq _odv_load_ver_ok
         cmp #$02
+        beq _odv_load_ver_ok
+        cmp #$03
         bne _odv_load_err_close
 _odv_load_ver_ok:
         sta odv_load_version
@@ -887,6 +982,61 @@ _odv_load_skip_plants:
         lda #0
         sta plant_origin_count
 _odv_load_after_plants:
+        ; --- v3 block: plant ages + sim_speed + per-zone registries ---
+        ; v1/v2 saves don't have this block, so zero everything (counts=0
+        ; means no live zones to grow; matches the legacy load behaviour).
+        lda odv_load_version
+        cmp #$03
+        bcs _odv_load_v3_full
+        ; --- v1/v2: zero the v3-only fields ---
+        #ZERO_ARRAY plant_origin_years_left, PLANT_MAX
+        lda #0
+        sta sim_speed
+        sta zone_org_count
+        sta commercial_count
+        sta industrial_count
+        sta police_count
+        sta firestation_count
+        bra _odv_load_after_v3
+_odv_load_v3_full:
+        #LOAD_ARRAY plant_origin_years_left, PLANT_MAX
+        jsr KERNAL_CHRIN
+        sta sim_speed
+        ; Residential
+        jsr KERNAL_CHRIN
+        sta zone_org_count
+        #LOAD_ARRAY zone_org_x_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY zone_org_y_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY zone_pop_lo_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY zone_pop_hi_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY zone_rand_arr, ZONE_POP_MAX_COUNT
+        ; Commercial
+        jsr KERNAL_CHRIN
+        sta commercial_count
+        #LOAD_ARRAY commercial_org_x_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY commercial_org_y_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY commercial_dev_lo_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY commercial_dev_hi_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY commercial_rand_arr, ZONE_POP_MAX_COUNT
+        ; Industrial
+        jsr KERNAL_CHRIN
+        sta industrial_count
+        #LOAD_ARRAY industrial_org_x_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY industrial_org_y_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY industrial_dev_lo_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY industrial_dev_hi_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY industrial_rand_arr, ZONE_POP_MAX_COUNT
+        ; Police
+        jsr KERNAL_CHRIN
+        sta police_count
+        #LOAD_ARRAY police_org_x_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY police_org_y_arr, ZONE_POP_MAX_COUNT
+        ; Fire department
+        jsr KERNAL_CHRIN
+        sta firestation_count
+        #LOAD_ARRAY firestation_org_x_arr, ZONE_POP_MAX_COUNT
+        #LOAD_ARRAY firestation_org_y_arr, ZONE_POP_MAX_COUNT
+_odv_load_after_v3:
         ; --- map (48000 bytes via CHRIN -> chunk_buf -> DMA to Attic) ---
         lda #<MAP_IO_SIZE
         sta odv_remaining
@@ -968,6 +1118,19 @@ _odv_load_ok_close:
         lda #1
         jsr KERNAL_CLOSE
         jsr KERNAL_CLRCHN
+        ; Re-sum the total population from the freshly-loaded zone_pop_*
+        ; arrays. v1/v2 saves load with zero zones registered, so this just
+        ; resets the readout to 0; v3 saves restore the actual total. Also
+        ; flags pop_display_dirty so the next frame redraws the readout.
+        jsr population_recompute_total
+        lda #1
+        sta pop_display_dirty
+        ; The traffic-level array in Attic still contains the previous
+        ; session's data. Zero it so road animation paints plain roads on
+        ; the first frame, then recompute against the freshly-loaded zone
+        ; registries so the next render shows the correct density.
+        jsr traffic_init
+        jsr traffic_recompute
         ; Mark display caches dirty so the gameplay screen repaints.
         lda #1
         sta funds_dirty
@@ -1501,9 +1664,13 @@ odv_msg_load_err:
         .byte UI_TEXT_L, UI_TEXT_O, UI_TEXT_A, UI_TEXT_D, UI_TILE_PANEL, UI_TEXT_E, UI_TEXT_R, UI_TEXT_R, UI_TEXT_O, UI_TEXT_R
 odv_msg_load_err_len = * - odv_msg_load_err
 
-; 16-byte save file header.
+; 16-byte save file header. Version byte is at offset 8:
+;   $01 -- legacy (no plant block, no per-zone registries, no plant ages)
+;   $02 -- adds plant origin x/y/struct (32 bytes each)
+;   $03 -- adds plant_origin_years_left (32 bytes), sim_speed (1 byte),
+;          and the full per-zone registries (R/C/I/police/firestation)
 odv_save_header:
-        .byte $4D, $45, $47, $41, $53, $49, $4D, $00, $02, $00, $00, $00, $00, $00, $00, $00
+        .byte $4D, $45, $47, $41, $53, $49, $4D, $00, $03, $00, $00, $00, $00, $00, $00, $00
 
 odv_magic_expected:
         .byte $4D, $45, $47, $41, $53, $49, $4D

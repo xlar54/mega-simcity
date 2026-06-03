@@ -2144,5 +2144,86 @@ tileset_firestation:
 tileset_firestation_end:
         .cerror tileset_firestation_end - tileset_firestation != FIRESTATION_CELL_COUNT * 64, "fire station chars must match FIRESTATION_CELL_COUNT"
 
+;=======================================================================================
+; Traffic road animation: display-only variants for plain straight roads.
+;=======================================================================================
+tileset_traffic_roads:
+        .cerror tileset_traffic_roads - tileset_start != TRAFFIC_ROAD_H_BASE * 64, "traffic road chars must start at TRAFFIC_ROAD_H_BASE"
+        ; TRAFFIC_ROAD_H_BASE + 0: horizontal road, black car at x 0-1
+        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$21,$21,$21,$21,$20,$20
+        .byte $00,$00,$20,$20,$20,$20,$20,$20
+        .byte $00,$00,$20,$20,$20,$20,$20,$20
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$23,$23,$23,$23,$23,$23,$23
+        ; TRAFFIC_ROAD_H_BASE + 1: horizontal road, black car at x 2-3
+        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$21,$21,$21,$21,$20,$20
+        .byte $20,$20,$00,$00,$20,$20,$20,$20
+        .byte $20,$20,$00,$00,$20,$20,$20,$20
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$23,$23,$23,$23,$23,$23,$23
+        ; TRAFFIC_ROAD_H_BASE + 2: horizontal road, black car at x 4-5
+        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$21,$21,$21,$21,$20,$20
+        .byte $20,$20,$20,$20,$00,$00,$20,$20
+        .byte $20,$20,$20,$20,$00,$00,$20,$20
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$23,$23,$23,$23,$23,$23,$23
+        ; TRAFFIC_ROAD_H_BASE + 3: horizontal road, black car at x 6-7
+        .byte $1F,$1F,$1F,$1F,$1F,$1F,$1F,$1F
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$20,$20
+        .byte $20,$20,$21,$21,$21,$21,$20,$20
+        .byte $20,$20,$20,$20,$20,$20,$00,$00
+        .byte $20,$20,$20,$20,$20,$20,$00,$00
+        .byte $22,$22,$22,$22,$22,$22,$22,$22
+        .byte $23,$23,$23,$23,$23,$23,$23,$23
+
+        ; TRAFFIC_ROAD_V_BASE + 0: vertical road, black car at y 0-1
+        .byte $23,$22,$00,$00,$20,$20,$20,$1F
+        .byte $23,$22,$00,$00,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        ; TRAFFIC_ROAD_V_BASE + 1: vertical road, black car at y 2-3
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$00,$00,$21,$20,$20,$1F
+        .byte $23,$22,$00,$00,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        ; TRAFFIC_ROAD_V_BASE + 2: vertical road, black car at y 4-5
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$00,$00,$21,$20,$20,$1F
+        .byte $23,$22,$00,$00,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        ; TRAFFIC_ROAD_V_BASE + 3: vertical road, black car at y 6-7
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$20,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$20,$20,$21,$20,$20,$1F
+        .byte $23,$22,$00,$00,$20,$20,$20,$1F
+        .byte $23,$22,$00,$00,$20,$20,$20,$1F
+tileset_traffic_roads_end:
+        .cerror tileset_traffic_roads_end - tileset_traffic_roads != TRAFFIC_ROAD_CHAR_COUNT * 64, "traffic road chars must match TRAFFIC_ROAD_CHAR_COUNT"
+
 tileset_end:
         .cerror tileset_end - tileset_start != TILESET_ASSET_SIZE, "tileset asset must match TILESET_ASSET_SIZE"
