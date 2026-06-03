@@ -29,7 +29,7 @@ POPUP_OK_H              = 2     ; cells down (16 px)
 POPUP_OK_PIXEL_W        = POPUP_OK_W * 8
 POPUP_OK_PIXEL_H        = POPUP_OK_H * 8
 POPUP_TITLE_COL_LOCAL   = 1
-POPUP_TITLE_ROW_LOCAL   = 0
+POPUP_TITLE_ROW_LOCAL   = 1     ; row 0 is the border top; title sits just inside
 POPUP_DEFAULT_W         = 16
 POPUP_DEFAULT_H         = 8
 POPUP_DEFAULT_L         = (VIEW_COLS - POPUP_DEFAULT_W) / 2     ; 12
@@ -169,25 +169,33 @@ _ohc_done:
         rts
 
 ;---------------------------------------------------------------------------------------
-; Fill the popup footprint: row 0 with the dark UI_TILE_MENU title bar,
-; rows 1..popup_h-1 with the lighter UI_TILE_PANEL body. The title text and
-; OK glyphs are stamped on top by the two helpers below.
+; Fill the popup footprint. The outermost ring of cells gets the BORDER_*
+; chars (raised bezel: white top + left, black right + bottom, matching the
+; toolbar buttons); the interior is UI_TILE_PANEL. Title text and OK glyphs
+; are stamped on top by the two helpers below; both now sit INSIDE the
+; border (title at row 1, OK button derived from popup_h - POPUP_OK_H - 1
+; which already lands above the bottom border row).
 ;---------------------------------------------------------------------------------------
 overlay_draw_panel:
+        ; Cache popup_h - 1 and popup_w - 1 for edge tests in the inner loop.
+        sec
+        lda popup_h
+        sbc #1
+        sta odp_max_row
+        sec
+        lda popup_w
+        sbc #1
+        sta odp_max_col
+
         lda #0
         sta overlay_row_idx
 _odp_row:
         lda #0
         sta overlay_col_idx
 _odp_col:
-        lda overlay_row_idx
-        bne _odp_body
-        lda #UI_TILE_MENU
-        bra _odp_have_tile
-_odp_body:
-        lda #UI_TILE_PANEL
-_odp_have_tile:
-        pha
+        jsr odp_pick_char_for_cell      ; A = char_lo, X = char_hi
+        sta odp_char_lo
+        stx odp_char_hi
         clc
         lda overlay_col_idx
         adc popup_l
@@ -196,8 +204,10 @@ _odp_have_tile:
         lda overlay_row_idx
         adc popup_t
         tay
-        pla
-        jsr set_fcm_char
+        lda odp_char_hi
+        sta snc_char_hi
+        lda odp_char_lo
+        jsr set_fcm_char16
         inc overlay_col_idx
         lda overlay_col_idx
         cmp popup_w
@@ -206,6 +216,65 @@ _odp_have_tile:
         lda overlay_row_idx
         cmp popup_h
         bne _odp_row
+        rts
+
+; Pick the char for the cell at (overlay_col_idx, overlay_row_idx). Returns
+; A = low byte, X = high byte. Border chars all live above id 255 so X is
+; nonzero for edge cells; interior cells return UI_TILE_PANEL with X = 0.
+odp_pick_char_for_cell:
+        lda overlay_row_idx
+        beq _opc_top
+        cmp odp_max_row
+        beq _opc_bottom
+        ; Middle row -- only edges of the row are bordered.
+        lda overlay_col_idx
+        beq _opc_left_edge
+        cmp odp_max_col
+        beq _opc_right_edge
+        lda #UI_TILE_PANEL
+        ldx #0
+        rts
+_opc_left_edge:
+        lda #<BORDER_L_CHAR
+        ldx #>BORDER_L_CHAR
+        rts
+_opc_right_edge:
+        lda #<BORDER_R_CHAR
+        ldx #>BORDER_R_CHAR
+        rts
+_opc_top:
+        ; Row 0: TL / T / TR
+        lda overlay_col_idx
+        beq _opc_tl
+        cmp odp_max_col
+        beq _opc_tr
+        lda #<BORDER_T_CHAR
+        ldx #>BORDER_T_CHAR
+        rts
+_opc_tl:
+        lda #<BORDER_TL_CHAR
+        ldx #>BORDER_TL_CHAR
+        rts
+_opc_tr:
+        lda #<BORDER_TR_CHAR
+        ldx #>BORDER_TR_CHAR
+        rts
+_opc_bottom:
+        ; Row popup_h-1: BL / B / BR
+        lda overlay_col_idx
+        beq _opc_bl
+        cmp odp_max_col
+        beq _opc_br
+        lda #<BORDER_B_CHAR
+        ldx #>BORDER_B_CHAR
+        rts
+_opc_bl:
+        lda #<BORDER_BL_CHAR
+        ldx #>BORDER_BL_CHAR
+        rts
+_opc_br:
+        lda #<BORDER_BR_CHAR
+        ldx #>BORDER_BR_CHAR
         rts
 
 ;---------------------------------------------------------------------------------------
@@ -318,3 +387,9 @@ overlay_col_idx:                .byte 0
 ; doesn't fire across popup boundaries. Hook should rts (not jmp); it may
 ; redraw whatever popup state changed.
 popup_body_click_hook:          .word 0
+
+; overlay_draw_panel scratch.
+odp_char_lo:                    .byte 0
+odp_char_hi:                    .byte 0
+odp_max_row:                    .byte 0   ; popup_h - 1, cached for the inner loop
+odp_max_col:                    .byte 0   ; popup_w - 1, cached for the inner loop

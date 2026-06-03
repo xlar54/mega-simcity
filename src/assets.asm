@@ -314,6 +314,18 @@ tiles_load_top_buttons:
         ; --- Checkbox glyphs for the speed popup body ---
         #STAMP_CHAR CHECKBOX_EMPTY_CHAR,   fcm_checkbox_empty
         #STAMP_CHAR CHECKBOX_CHECKED_CHAR, fcm_checkbox_checked
+
+        ; --- Popup border ring: 4 corners + 4 edges. Each is a panel-tinted
+        ; cell with a 1-pixel line on the indicated edge. overlay_draw_panel
+        ; stamps these on the outermost ring of every popup. ---
+        #STAMP_CHAR BORDER_TL_CHAR, fcm_border_tl
+        #STAMP_CHAR BORDER_T_CHAR,  fcm_border_t
+        #STAMP_CHAR BORDER_TR_CHAR, fcm_border_tr
+        #STAMP_CHAR BORDER_L_CHAR,  fcm_border_l
+        #STAMP_CHAR BORDER_R_CHAR,  fcm_border_r
+        #STAMP_CHAR BORDER_BL_CHAR, fcm_border_bl
+        #STAMP_CHAR BORDER_B_CHAR,  fcm_border_b
+        #STAMP_CHAR BORDER_BR_CHAR, fcm_border_br
         rts
 
 fcm_inspect_tl:
@@ -591,6 +603,91 @@ fcm_checkbox_checked:
         .byte $0C,$0F,$0C,$00,$0C,$0C,$0F,$0C
         .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+; --- Popup border glyphs. Each is a 1-cell tile (8x8) with a 1-pixel border
+; line on the indicated edge(s) -- white ($0F) at top + left, black ($00) at
+; right + bottom, matching the toolbar-button chrome. Corners follow the
+; toolbar convention where the top edge wins at TL/TR and the bottom edge
+; wins at BL/BR. Rest is panel background ($0C). ---
+fcm_border_tl:                          ; top-left corner
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+fcm_border_t:                           ; top edge (between corners)
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+fcm_border_tr:                          ; top-right corner (top wins)
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+
+fcm_border_l:                           ; left edge (between corners)
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+
+fcm_border_r:                           ; right edge (between corners)
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+
+fcm_border_bl:                          ; bottom-left corner (bottom wins)
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+fcm_border_b:                           ; bottom edge (between corners)
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+fcm_border_br:                          ; bottom-right corner (both agree)
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
 
 UI_TILE_DMA .macro index, size, offset
         lda #$00

@@ -48,7 +48,14 @@ clock_init:
 
 ; Called every frame. Increments the frame counter; on rollover (>=FRAMES_PER_MONTH)
 ; advances sim_month/sim_year and marks the readout dirty.
+;
+; Pause gate: while a popup is open, the clock freezes -- no frame counter
+; advance, no month/year rollover, no population/plant ticks. The popup's
+; modal feel becomes a true sim pause so the player can read without time
+; sliding underneath them.
 clock_tick:
+        lda overlay_active
+        bne _ct_paused
         inc clock_frames
         bne +
         inc clock_frames+1
@@ -85,6 +92,7 @@ _ct_dirty:
         lda #1
         sta clock_dirty
 _ct_done:
+_ct_paused:
         rts
 
 ; Called once per frame. Redraws if clock_dirty.

@@ -144,9 +144,9 @@ odv_menu_enter:
         ; panel tiles -- this state has its own buttons drawn as text.
         jsr odv_blank_ok
         ; Border lines around each button row. The buttons sit on rows 2/4/6
-        ; with HLINE rows at 1/3/5/7 -- adjacent buttons share their border.
-        lda #1
-        jsr odv_draw_hline_row
+        ; with HLINE rows at 3/5/7 -- adjacent buttons share their border. The
+        ; old hline at row 1 is dropped because the popup's title now sits
+        ; there (POPUP_TITLE_ROW_LOCAL = 1, just inside the popup top border).
         lda #3
         jsr odv_draw_hline_row
         lda #5
@@ -1313,11 +1313,15 @@ odv_draw_hline_row:
         clc
         adc popup_t
         sta odv_tmp+1                     ; absolute row
-        lda #0
-        sta odv_dcl_idx                   ; col idx reused as the column counter
+        ; Skip the popup's vertical border columns (col 0 and col popup_w-1)
+        ; so the divider line sits cleanly between the side borders instead
+        ; of overwriting them.
+        lda #1
+        sta odv_dcl_idx
 _odv_dhr_loop:
         ldx odv_dcl_idx
-        cpx popup_w
+        inx
+        cpx popup_w                       ; stop before col popup_w - 1
         bcs _odv_dhr_done
         lda popup_l
         clc

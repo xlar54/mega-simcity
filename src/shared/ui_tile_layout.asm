@@ -194,6 +194,21 @@ SPEED_CHAR_BASE         = FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT
 CHECKBOX_EMPTY_CHAR     = SPEED_CHAR_BASE + 4
 CHECKBOX_CHECKED_CHAR   = CHECKBOX_EMPTY_CHAR + 1
 
+; Popup border glyphs (8 chars). Each is a panel-coloured ($0C) 8x8 cell with
+; a 1-pixel line on the indicated edge(s). overlay_draw_panel stamps these
+; on the outermost ring of cells so every popup gets a raised-bezel frame
+; matching the toolbar buttons (white top + left, black right + bottom).
+; All eight live above char id 255, so the panel drawer must route through
+; set_fcm_char16 with snc_char_hi.
+BORDER_TL_CHAR          = CHECKBOX_CHECKED_CHAR + 1
+BORDER_T_CHAR           = BORDER_TL_CHAR + 1
+BORDER_TR_CHAR          = BORDER_T_CHAR + 1
+BORDER_L_CHAR           = BORDER_TR_CHAR + 1
+BORDER_R_CHAR           = BORDER_L_CHAR + 1
+BORDER_BL_CHAR          = BORDER_R_CHAR + 1
+BORDER_B_CHAR           = BORDER_BL_CHAR + 1
+BORDER_BR_CHAR          = BORDER_B_CHAR + 1
+
 INSPECT_ICON_COL        = 0
 INSPECT_ICON_ROW        = 1
 DISK_ICON_COL           = 2
@@ -226,6 +241,7 @@ TOP_BTN_H               = 2
         .cerror FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT > 1024, "fire station chars exceed resident char-bank window"
         .cerror SPEED_CHAR_BASE + 4 > 1024, "SPEED top-strip button chars exceed resident char-bank window"
         .cerror CHECKBOX_CHECKED_CHAR + 1 > 1024, "checkbox chars exceed resident char-bank window"
+        .cerror BORDER_BR_CHAR + 1 > 1024, "popup border chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"
         .cerror RAIL_CHAR_BASE + RAIL_CELL_COUNT > 1024, "rail chars exceed resident char-bank window"
         .cerror TILESET_ASSET_CHARS != FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT, "TILESET_ASSET_CHARS must cover every map-viewport char"
