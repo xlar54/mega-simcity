@@ -196,10 +196,19 @@ TRAFFIC_ROAD_V_BASE     = TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_PHASE_COUNT
 ; latches TILE_SPEED.
 SPEED_CHAR_BASE         = TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_CHAR_COUNT
 
-; Checkbox glyphs for the speed popup: 1 char each for "empty" (just an
+; Budget button chars: 4 bitmaps for the 2x2 top-strip dollar-sign icon.
+; One-shot like SPEED, so it only needs an idle/raised bitmap.
+BUDGET_CHAR_BASE        = SPEED_CHAR_BASE + 4
+
+; Disaster button chars: 4 bitmaps for the 2x2 top-strip fire icon. One-shot
+; like SPEED / BUDGET, so it only needs an idle/raised bitmap.
+DISASTER_CHAR_BASE      = BUDGET_CHAR_BASE + 4
+
+; Checkbox glyphs for radio-list popups: 1 char each for "empty" (just an
 ; outline) and "checked" (outline with checkmark). Used by speed_popup.asm
-; to render the radio list and updated in place when the user clicks a row.
-CHECKBOX_EMPTY_CHAR     = SPEED_CHAR_BASE + 4
+; and ovr-disaster.asm to render radio lists and update them in place when
+; the user clicks a row.
+CHECKBOX_EMPTY_CHAR     = DISASTER_CHAR_BASE + 4
 CHECKBOX_CHECKED_CHAR   = CHECKBOX_EMPTY_CHAR + 1
 
 ; Popup border glyphs (8 chars). Each is a panel-coloured ($0C) 8x8 cell with
@@ -223,6 +232,10 @@ DISK_ICON_COL           = 2
 DISK_ICON_ROW           = 1
 SPEED_ICON_COL          = 4
 SPEED_ICON_ROW          = 1
+BUDGET_ICON_COL         = 6
+BUDGET_ICON_ROW         = 1
+DISASTER_ICON_COL       = 8
+DISASTER_ICON_ROW       = 1
 TOP_BTN_W               = 2     ; all top buttons are 2x2 cells
 TOP_BTN_H               = 2
 
@@ -249,6 +262,8 @@ TOP_BTN_H               = 2
         .cerror FIRESTATION_CHAR_BASE + FIRESTATION_CELL_COUNT > 1024, "fire station chars exceed resident char-bank window"
         .cerror TRAFFIC_ROAD_H_BASE + TRAFFIC_ROAD_CHAR_COUNT > 1024, "traffic road chars exceed resident char-bank window"
         .cerror SPEED_CHAR_BASE + 4 > 1024, "SPEED top-strip button chars exceed resident char-bank window"
+        .cerror BUDGET_CHAR_BASE + 4 > 1024, "BUDGET top-strip button chars exceed resident char-bank window"
+        .cerror DISASTER_CHAR_BASE + 4 > 1024, "DISASTER top-strip button chars exceed resident char-bank window"
         .cerror CHECKBOX_CHECKED_CHAR + 1 > 1024, "checkbox chars exceed resident char-bank window"
         .cerror BORDER_BR_CHAR + 1 > 1024, "popup border chars exceed resident char-bank window"
         .cerror BTN_OK_BK_CHAR + 1 > 1024, "popup OK button BK char exceeds resident char-bank window"

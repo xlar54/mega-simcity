@@ -452,6 +452,19 @@ _pu_go:
 _pu_done:
         rts
 
+; Monthly simulation needs a current power map. If an edit is still inside the
+; frame debounce window, force the recompute now so growth/finance do not run
+; against stale connectivity for a whole month.
+power_flush_if_dirty:
+        lda power_dirty
+        beq _pfid_done
+        lda #0
+        sta power_dirty
+        sta power_settle
+        jmp power_recompute
+_pfid_done:
+        rts
+
 ; Mark the power network dirty and (re)arm the debounce timer. Called from every
 ; placement / bulldoze that can affect connectivity (see city.asm, roads.asm).
 power_mark_dirty:

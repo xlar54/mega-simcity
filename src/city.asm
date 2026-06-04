@@ -33,6 +33,7 @@ city_init:
         jsr funds_init
         jsr clock_init
         jsr population_init
+        jsr finance_init
         ; Zero the per-cell traffic-level array so the first frame renders
         ; plain (no-car) roads before traffic_recompute populates real
         ; levels on the first monthly tick.

@@ -167,6 +167,8 @@ _md_main:
         lda mouse_buttons
         and #MOUSE_BUTTON_LEFT
         beq _md_done
+        lda mouse_ignore_left_until_release
+        bne _md_done
         lda #INPUT_PAINT
         sta input_action
 _md_done:
@@ -274,6 +276,8 @@ ovr_inspect_invoke:
         .include "networks/powerlines.asm"
         .include "power.asm"
         .include "cost-management.asm"
+        .include "finance.asm"
+        .include "disaster.asm"
         .include "structures.asm"
         .include "clock.asm"
         .include "population.asm"

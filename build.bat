@@ -16,6 +16,8 @@ del target\uitiles 2>nul
 del target\palette 2>nul
 del target\ovr-disk 2>nul
 del target\ovr-inspect 2>nul
+del target\ovr-budget 2>nul
+del target\ovr-disaster 2>nul
 
 REM One disk for both platforms: the program detects Xemu vs real hardware at
 REM boot ($D60F bit 5) and applies the sprite-X correction at runtime.
@@ -41,6 +43,12 @@ if errorlevel 1 exit /b 1
 .\64tass.exe --cbm-prg -a src\overlays\ovr-inspect.asm -L target\ovr-inspect.lst -o target\ovr-inspect
 if errorlevel 1 exit /b 1
 
+.\64tass.exe --cbm-prg -a src\overlays\ovr-budget.asm -L target\ovr-budget.lst -o target\ovr-budget
+if errorlevel 1 exit /b 1
+
+.\64tass.exe --cbm-prg -a src\overlays\ovr-disaster.asm -L target\ovr-disaster.lst -o target\ovr-disaster
+if errorlevel 1 exit /b 1
+
 REM Boot loader. Imports main's .lbl to resolve main_entry, so it must build
 REM AFTER main. Phase 1: loader runs on SYS, stages assets, trampoline-loads
 REM mega-simcity.prg, JMPs main_entry. Main is unchanged in Phase 1.
@@ -62,6 +70,10 @@ if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-disk ovr-disk
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write ovr-inspect ovr-inspect
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write ovr-budget ovr-budget
+if errorlevel 1 exit /b 1
+..\c1541.exe -attach mega-simcity.d81 -write ovr-disaster ovr-disaster
 if errorlevel 1 exit /b 1
 ..\c1541.exe -attach mega-simcity.d81 -write tileset tileset
 if errorlevel 1 exit /b 1

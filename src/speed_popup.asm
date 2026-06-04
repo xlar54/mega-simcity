@@ -13,7 +13,7 @@
 ;
 ;   col:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 ;   row2: .  .  []  .  S  L  O  W  .  .  .  .  .  .  .  .
-;   row3: .  .  []  .  M  E  D  I  U  M  .  .  .  .  .  .
+;   row3: .  .  []  .  N  O  R  M  A  L  .  .  .  .  .  .
 ;   row4: .  .  []  .  F  A  S  T  .  .  .  .  .  .  .  .
 ;
 ; (Checkbox occupies popup_l + 2; label starts at popup_l + 4 with a single
@@ -213,18 +213,18 @@ str_speed_slow:
         .byte UI_TEXT_S, UI_TEXT_L, UI_TEXT_O, UI_TEXT_W
 STR_SPEED_SLOW_LEN = * - str_speed_slow
 
-str_speed_medium:
-        .byte UI_TEXT_M, UI_TEXT_E, UI_TEXT_D, UI_TEXT_I, UI_TEXT_U, UI_TEXT_M
-STR_SPEED_MEDIUM_LEN = * - str_speed_medium
+str_speed_normal:
+        .byte UI_TEXT_N, UI_TEXT_O, UI_TEXT_R, UI_TEXT_M, UI_TEXT_A, UI_TEXT_L
+STR_SPEED_NORMAL_LEN = * - str_speed_normal
 
 str_speed_fast:
         .byte UI_TEXT_F, UI_TEXT_A, UI_TEXT_S, UI_TEXT_T
 STR_SPEED_FAST_LEN = * - str_speed_fast
 
 ; Parallel arrays indexed by sim_speed (0..2) -> pointer to the row label.
-speed_label_lo:  .byte <str_speed_slow, <str_speed_medium, <str_speed_fast
-speed_label_hi:  .byte >str_speed_slow, >str_speed_medium, >str_speed_fast
-speed_label_len: .byte STR_SPEED_SLOW_LEN, STR_SPEED_MEDIUM_LEN, STR_SPEED_FAST_LEN
+speed_label_lo:  .byte <str_speed_slow, <str_speed_normal, <str_speed_fast
+speed_label_hi:  .byte >str_speed_slow, >str_speed_normal, >str_speed_fast
+speed_label_len: .byte STR_SPEED_SLOW_LEN, STR_SPEED_NORMAL_LEN, STR_SPEED_FAST_LEN
 
 ;---------------------------------------------------------------------------------------
 ; Scratch

@@ -8,7 +8,8 @@
 ;     Rendered by toolbar_render; click dispatch in _thc_row maps mouse to slot
 ;     and moves the yellow selector sprite (sprite 2) via sprite_position_selector.
 ;
-;   * Top strip -- the small menu icons under MEGACITY (inspect / load / save).
+;   * Top strip -- the small menu icons under MEGACITY
+;     (inspect / disk / speed / budget / disasters).
 ;     Rendered by render_top_buttons; click dispatch in _thc_check_top runs a
 ;     table-driven hit test. No selector sprite; the active button shows its
 ;     SELECTED (pressed) char bitmap instead.
@@ -128,32 +129,32 @@ btn_stamp_2x2:
         rts
 
 ;---------------------------------------------------------------------------------------
-; Top-strip menu buttons (inspect / load / save). Table-driven so adding a button
+; Top-strip menu buttons (inspect / disk / speed / budget / disasters). Table-driven so adding a button
 ; is a one-line append below + new IDLE/SELECTED char bases and bitmaps. Each
 ; button is 2x2 cells. The same table feeds the click hit-test in
 ; _thc_check_top further down.
 ;---------------------------------------------------------------------------------------
-TOP_BTN_COUNT = 3
+TOP_BTN_COUNT = 5
 
 top_btn_col:
-        .byte INSPECT_ICON_COL, DISK_ICON_COL, SPEED_ICON_COL
+        .byte INSPECT_ICON_COL, DISK_ICON_COL, SPEED_ICON_COL, BUDGET_ICON_COL, DISASTER_ICON_COL
 top_btn_row:
-        .byte INSPECT_ICON_ROW, DISK_ICON_ROW, SPEED_ICON_ROW
+        .byte INSPECT_ICON_ROW, DISK_ICON_ROW, SPEED_ICON_ROW, BUDGET_ICON_ROW, DISASTER_ICON_ROW
 top_btn_tile:
-        .byte TILE_INSPECT, TILE_DISK, TILE_SPEED
+        .byte TILE_INSPECT, TILE_DISK, TILE_SPEED, TILE_BUDGET, TILE_DISASTER
 ; Char bases are split into lo/hi parallel arrays so any base can exceed 255
 ; without silently truncating the high byte. Add a row = one entry in each.
-; SPEED is a one-shot popup trigger -- selected_tile never latches TILE_SPEED,
-; so the sel base for that row points at the same idle bitmap (the SELECTED
-; path is unreachable for it).
+; SPEED, BUDGET, and DISASTER are one-shot popup triggers -- selected_tile never latches
+; them, so their sel bases point at the same idle bitmap (the SELECTED path is
+; unreachable for those rows).
 top_btn_base_idle_lo:
-        .byte <INSPECT_CHAR_BASE, <DISK_CHAR_BASE, <SPEED_CHAR_BASE
+        .byte <INSPECT_CHAR_BASE, <DISK_CHAR_BASE, <SPEED_CHAR_BASE, <BUDGET_CHAR_BASE, <DISASTER_CHAR_BASE
 top_btn_base_idle_hi:
-        .byte >INSPECT_CHAR_BASE, >DISK_CHAR_BASE, >SPEED_CHAR_BASE
+        .byte >INSPECT_CHAR_BASE, >DISK_CHAR_BASE, >SPEED_CHAR_BASE, >BUDGET_CHAR_BASE, >DISASTER_CHAR_BASE
 top_btn_base_sel_lo:
-        .byte <INSPECT_INSET_CHAR_BASE, <DISK_INSET_CHAR_BASE, <SPEED_CHAR_BASE
+        .byte <INSPECT_INSET_CHAR_BASE, <DISK_INSET_CHAR_BASE, <SPEED_CHAR_BASE, <BUDGET_CHAR_BASE, <DISASTER_CHAR_BASE
 top_btn_base_sel_hi:
-        .byte >INSPECT_INSET_CHAR_BASE, >DISK_INSET_CHAR_BASE, >SPEED_CHAR_BASE
+        .byte >INSPECT_INSET_CHAR_BASE, >DISK_INSET_CHAR_BASE, >SPEED_CHAR_BASE, >BUDGET_CHAR_BASE, >DISASTER_CHAR_BASE
 
 ; Redraw every top-strip button. The button whose tile id matches selected_tile
 ; gets its SELECTED (pressed) chars; the rest get IDLE (raised). Called from
@@ -248,7 +249,7 @@ _thct_loop:
         bcc _thct_next              ; row < button row
         cmp #TOP_BTN_H
         bcs _thct_next              ; row >= button row + H
-        ; hit. DISK and SPEED are one-shot popup triggers, not persistent
+        ; hit. DISK, SPEED, BUDGET, and DISASTER are one-shot popup triggers, not persistent
         ; selections -- don't write their tile id to selected_tile, or the
         ; button would stay rendered in the SELECTED/pressed state after the
         ; popup closes. Other top-strip buttons (inspect) DO persist.
@@ -257,6 +258,10 @@ _thct_loop:
         beq _thct_disk_oneshot
         cmp #TILE_SPEED
         beq _thct_speed_oneshot
+        cmp #TILE_BUDGET
+        beq _thct_budget_oneshot
+        cmp #TILE_DISASTER
+        beq _thct_disaster_oneshot
         sta selected_tile
         jsr audio_click
         jmp render_top_buttons      ; flip idle <-> selected for the new state
@@ -267,6 +272,14 @@ _thct_disk_oneshot:
 _thct_speed_oneshot:
         jsr audio_click
         jsr speed_invoke
+        jmp render_top_buttons
+_thct_budget_oneshot:
+        jsr audio_click
+        jsr finance_invoke_budget_adjust
+        jmp render_top_buttons
+_thct_disaster_oneshot:
+        jsr audio_click
+        jsr disaster_invoke
         jmp render_top_buttons
 _thct_next:
         iny

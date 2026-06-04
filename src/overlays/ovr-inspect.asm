@@ -1,6 +1,6 @@
 ;=======================================================================================
-; Inspect overlay (PRG, compiles to $A000 -- shared CPU window with ovr-save
-; and ovr-load).
+; Inspect overlay (PRG, compiles to $A000 -- shared CPU window with the other
+; modal overlays).
 ;
 ; Loaded from disk at boot into Attic ($87.0000) by boot_load_ovr_inspect; on
 ; INSPECT click the main game DMAs this overlay from Attic to $A000 and enters

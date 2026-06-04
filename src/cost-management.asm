@@ -1,14 +1,14 @@
 ;=======================================================================================
 ; Funds / cost management.
 ;
-; The player starts with FUNDS_INITIAL ($500,000) and each successful placement
+; The player starts with FUNDS_INITIAL ($20,000) and each successful placement
 ; deducts the per-tile cost from docs/TILE_RULES.md. Each placement path calls
 ; funds_can_afford up front (skips silently if too poor) and funds_subtract after
 ; commit. Setting funds_dirty asks funds_update (called from the game loop) to
 ; redraw the FUNDS readout on the top menu bar.
 ;
 ; The readout is "$XXXXXXX" rendered at row 0 starting at column 30, right-
-; aligned with leading-zero suppression (so $500,000 reads as "  500000" in the
+; aligned with leading-zero suppression (so $20,000 reads as "   20000" in the
 ; 7-digit field). The DATE field sits to the left at cols 20..27.
 ;=======================================================================================
 
@@ -25,7 +25,7 @@ COST_FIRESTATION = 700
 COST_COALPP     = 3000
 COST_NUCLEARPP  = 5000
 
-FUNDS_INITIAL   = 500000
+FUNDS_INITIAL   = 20000
 
 ; Menu-bar layout (row 0) for the "$XXXXXXX" field. No commas; leading zeros
 ; are blanked so a value below 1,000,000 doesn't look like it has padding zeros.

@@ -142,6 +142,8 @@ sprites_refresh:
         jsr mouse_use_pointer_shape
         jsr mouse_position_pointer_sprite
 
+        lda overlay_active
+        bne _sr_hide_cursors
         lda mouse_over_main
         beq _sr_hide_cursors
         lda selected_tile

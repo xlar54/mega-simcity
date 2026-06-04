@@ -240,16 +240,17 @@ TILE_PARK               = 13    ; tool id for the small park (4x4 cells = 2x2 ti
 TILE_POLICE             = 14    ; tool id for the police department (4x4 cells = 2x2 tiles, see POLICE_CELL_*)
 TILE_FIRESTATION        = 15    ; tool id for the fire department (3x3 cells, see FIRESTATION_CELL_*)
 TILE_SPEED              = 16    ; tool id for the speed-picker top-strip button (popup-only, no map cells)
+TILE_BUDGET             = 17    ; menu action: open the annual-budget popup for tax-rate adjustment
+TILE_DISASTER           = 18    ; menu action: open the disaster picker popup
 
 ; Game speed enum (sim_speed) + per-speed frames-per-month. The clock uses
-; these to pick the rollover threshold. Slow = current default; Medium = half
-; the time; Fast = quarter.
+; these to pick the rollover threshold. Lower frame counts mean faster months.
 SPEED_SLOW              = 0
-SPEED_MEDIUM            = 1
+SPEED_NORMAL            = 1
 SPEED_FAST              = 2
-FPM_SLOW                = 4500
-FPM_MEDIUM              = 2250
-FPM_FAST                = 1125
+FPM_SLOW                = 2250
+FPM_NORMAL              = 1125
+FPM_FAST                = 563
 ; TILE_RESIDENTIAL/COMMERCIAL/INDUSTRIAL are tool ids; on the map a zone is a
 ; 3x3 block of zone cells (see ZONE_CELL_* below).
 ZONE_SIZE               = 3      ; 3x3 cells
@@ -622,6 +623,17 @@ ATTIC_OVR_INSPECTOR_MB   = $87
 ATTIC_OVR_INSPECTOR_BANK = $00
 ATTIC_OVR_INSPECTOR_ADDR = $0000
 ATTIC_OVR_INSPECTOR_PHYS = $8700000
+; Budget overlay lives in the otherwise-unused second asset-library MB. Keep
+; it below $88 so real 8 MB Attic systems never DMA from outside RAM. Small
+; overlays after it share the same MB at 4 KB-aligned offsets.
+ATTIC_OVR_BUDGET_MB      = $81
+ATTIC_OVR_BUDGET_BANK    = $00
+ATTIC_OVR_BUDGET_ADDR    = $0000
+ATTIC_OVR_BUDGET_PHYS    = $8100000
+ATTIC_OVR_DISASTER_MB    = $81
+ATTIC_OVR_DISASTER_BANK  = $00
+ATTIC_OVR_DISASTER_ADDR  = $1000
+ATTIC_OVR_DISASTER_PHYS  = $8101000
 
 UI_TOOL_COL_LEFT        = 0      ; left button column (cells 0-1)
 UI_TOOL_COL_RIGHT       = 2      ; right button column (cells 2-3)

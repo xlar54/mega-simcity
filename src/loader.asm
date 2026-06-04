@@ -3,8 +3,8 @@
 ;
 ; Built as its own PRG. BASIC SYS bootstraps INTO HERE, not into mega-simcity.prg
 ; directly. Job:
-;   1. KERNAL_LOAD every disk asset (tileset, uitiles, ovr-save, ovr-load,
-;      ovr-inspect) into its Attic slot.
+;   1. KERNAL_LOAD every disk asset (tileset, uitiles, ovr-disk, ovr-inspect,
+;      ovr-budget, ovr-disaster) into its Attic slot.
 ;   2. Init the palette and DMA every char bitmap into char RAM. Display mode
 ;      is left at the C65 BASIC default; main owns display-state changes.
 ;   3. Hop to a tail trampoline parked at TRAMP_DEST ($1600) that KERNAL_LOADs
@@ -70,6 +70,8 @@ loader_entry:
         jsr boot_load_ui_tiles               ; -> ATTIC_UI_TILE_*
         jsr boot_load_ovr_disk               ; -> ATTIC_OVR_DISK_*
         jsr boot_load_ovr_inspect            ; -> ATTIC_OVR_INSPECTOR_*
+        jsr boot_load_ovr_budget             ; -> ATTIC_OVR_BUDGET_*
+        jsr boot_load_ovr_disaster           ; -> ATTIC_OVR_DISASTER_*
 
         ; --- Stage 2: char RAM ---------------------------------------------------------
         ; Display mode stays at the C65 BASIC default (text). Palette writes

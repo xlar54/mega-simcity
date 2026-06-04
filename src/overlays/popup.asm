@@ -131,6 +131,13 @@ overlay_close:
         ; keep dispatching clicks after it closed.
         sta popup_body_click_hook
         sta popup_body_click_hook+1
+        sta popup_ok_click_hook
+        sta popup_ok_click_hook+1
+        sta mouse_left_click
+        lda #2
+        sta mouse_left_debounce
+        lda #1
+        sta mouse_ignore_left_until_release
         jmp render_mark_view_dirty
 
 ;---------------------------------------------------------------------------------------
@@ -153,6 +160,11 @@ overlay_handle_click:
         bcc _ohc_body
         cmp popup_ok_y_pixel_end
         bcs _ohc_body
+        lda popup_ok_click_hook
+        ora popup_ok_click_hook+1
+        beq _ohc_default_ok
+        jmp (popup_ok_click_hook)
+_ohc_default_ok:
         jsr audio_click
         jsr overlay_close
         rts
@@ -387,6 +399,7 @@ overlay_col_idx:                .byte 0
 ; doesn't fire across popup boundaries. Hook should rts (not jmp); it may
 ; redraw whatever popup state changed.
 popup_body_click_hook:          .word 0
+popup_ok_click_hook:            .word 0
 
 ; overlay_draw_panel scratch.
 odp_char_lo:                    .byte 0

@@ -55,6 +55,13 @@ COM_GROWTH_PER_MONTH    = 20    ; dev added per commercial zone per growing mont
 COM_DEV_MAX             = 1000
 MIN_POP_FOR_COMMERCIAL  = 50    ; total city pop required before C zones grow
 
+; --- Tax-rate growth pressure ---
+; Classic SimCity's easy/neutral baseline is 7%. Rates below that should pull
+; more R/C growth into the city; rates above it should slow growth. Keep the
+; per-point effect modest so 9% slows without flatlining a healthy town.
+TAX_NEUTRAL_RATE        = 7
+TAX_GROWTH_STEP         = 2
+
 ; --- Emergency-services bonus (police + fire) ---
 ; Each police HQ or fire-department HQ within EMERGENCY_RADIUS Manhattan
 ; cells of a zone subtracts EMERGENCY_BONUS_STEP from that cell's effective
@@ -81,13 +88,13 @@ POLICE_BONUS_STEP       = EMERGENCY_BONUS_STEP
 ; Zones perceive their local traffic by sampling the road cells immediately
 ; adjacent to their footprint -- a 3x3 zone with all 4 cardinal road sides
 ; busy "feels" max traffic. zad_zone_traffic in [0..TRAFFIC_LEVEL_MAX]
-; folds into both a per-cell threshold penalty (slower zone development)
-; and a per-zone decay above TRAFFIC_DECAY_LEVEL (people / dev actually
-; pack up and leave -- "urban decay").
+; folds into a per-cell threshold penalty (slower zone development). Active
+; population/dev decay is left disabled for now by setting the decay threshold
+; equal to the visual max; compact starter cities saturate level 4 too easily.
 TRAFFIC_RADIUS          = 8     ; Manhattan; each in-range origin adds 1 to level
 TRAFFIC_LEVEL_MAX       = 4     ; matches TRAFFIC_ROAD_PHASE_COUNT in the renderer
-TRAFFIC_PENALTY_STEP    = 60    ; threshold add per zone-traffic level
-TRAFFIC_DECAY_LEVEL     = 3     ; perceived level at which growth flips to decay
+TRAFFIC_PENALTY_STEP    = 15    ; threshold add per zone-traffic level
+TRAFFIC_DECAY_LEVEL     = TRAFFIC_LEVEL_MAX ; decay only above current max (disabled)
 POP_DECAY_PER_MONTH     = 25    ; pop lost per month for an over-trafficked R zone
 COM_DECAY_PER_MONTH     = 30    ; dev lost per month for an over-trafficked C zone
 IND_DECAY_PER_MONTH     = 30    ; dev lost per month for an over-trafficked I zone
@@ -868,9 +875,10 @@ EMERGENCY_BONUS_SUB .macro lo_addr, hi_addr
 +
 .endmacro
 
-; Grow zone X by POP_GROWTH_PER_MONTH (clamped at ZONE_POP_MAX), then run the
-; per-cell development pass. X must be preserved by caller. zad_road_mask is
-; expected to be set (the monthly tick calls compute_road_side_mask first).
+; Grow zone X by POP_GROWTH_PER_MONTH adjusted by the residential tax rate
+; (clamped at ZONE_POP_MAX), then run the per-cell development pass. X must be
+; preserved by caller. zad_road_mask is expected to be set (the monthly tick
+; calls compute_road_side_mask first).
 ; Above TRAFFIC_DECAY_LEVEL the zone DECAYS instead -- POP_DECAY_PER_MONTH
 ; subtracted (clamped at 0) so people gradually leave the over-trafficked
 ; block. The display dirty flag is set in either case so the readout
@@ -879,12 +887,16 @@ zone_grow_x:
         lda zad_zone_traffic
         cmp #TRAFFIC_DECAY_LEVEL+1
         bcs _zg_decay
+        lda #POP_GROWTH_PER_MONTH
+        ldy finance_res_tax_rate
+        jsr tax_adjust_growth_amount
+        sta pop_tax_growth_amount
         clc
         lda zone_pop_lo_arr,x
-        adc #<POP_GROWTH_PER_MONTH
+        adc pop_tax_growth_amount
         sta pop_tmp
         lda zone_pop_hi_arr,x
-        adc #>POP_GROWTH_PER_MONTH
+        adc #0
         sta pop_tmp+1
         ; Cap at ZONE_POP_MAX
         lda pop_tmp+1
@@ -922,6 +934,47 @@ _zg_store:
         sta zone_pop_hi_arr,x
         jmp zone_apply_development_state
 
+; Return a tax-adjusted monthly growth amount.
+;
+; In:  A = neutral/base growth amount, Y = tax rate.
+; Out: A = adjusted growth amount, clamped at 0..255.
+; Clobbers Y and pop_tax_growth_amount; preserves X.
+tax_adjust_growth_amount:
+        sta pop_tax_growth_amount
+        cpy #TAX_NEUTRAL_RATE
+        beq _tag_done
+        bcc _tag_boost
+_tag_slow:
+        lda pop_tax_growth_amount
+        beq _tag_done
+        cmp #TAX_GROWTH_STEP
+        bcs _tag_sub_step
+        lda #0
+        sta pop_tax_growth_amount
+        bra _tag_done
+_tag_sub_step:
+        sec
+        sbc #TAX_GROWTH_STEP
+        sta pop_tax_growth_amount
+        dey
+        cpy #TAX_NEUTRAL_RATE
+        bne _tag_slow
+        bra _tag_done
+_tag_boost:
+        clc
+        lda pop_tax_growth_amount
+        adc #TAX_GROWTH_STEP
+        bcc _tag_boost_store
+        lda #$FF
+_tag_boost_store:
+        sta pop_tax_growth_amount
+        iny
+        cpy #TAX_NEUTRAL_RATE
+        bne _tag_boost
+_tag_done:
+        lda pop_tax_growth_amount
+        rts
+
 ;---------------------------------------------------------------------------------------
 ; Per-cell development pass for zone X.
 ;
@@ -950,6 +1003,7 @@ zone_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        sta zad_built
         jsr precompute_emergency_total
         jsr precompute_traffic_penalty
 
@@ -1085,9 +1139,11 @@ _zad_pick_house:
         cmp zad_eff_h_lo
         bcc _zad_pick_empty
 _zad_pick_house_yes:
+        inc zad_built                ; at least one cell got a roof this pass
         lda #RES_HOUSE_CELL_FIRST
         bra _zad_have_target
 _zad_pick_apt:
+        inc zad_built
         lda #APT_CELL_FIRST
         bra _zad_have_target
 _zad_pick_empty:
@@ -1122,6 +1178,28 @@ _zad_next:
         bra _zad_loop
 
 _zad_loop_done:
+        ; Seed-house guarantee: if nobody crossed the house threshold this
+        ; pass but the zone has at least one resident, force the NW corner
+        ; (offset 0 -- the lowest base threshold) into a starter house. Without
+        ; this, a zone far from any C/I origin sits with hundreds of residents
+        ; and zero rendered buildings because distance bonus * jitter pushes
+        ; every cell's effective threshold past the current zone pop.
+        lda zad_built
+        bne _zad_seed_done
+        lda zad_pop_lo
+        ora zad_pop_hi
+        beq _zad_seed_done
+        ldx pop_tmp_idx
+        lda zone_org_x_arr,x
+        sta city_ptr_x
+        lda zone_org_y_arr,x
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda #RES_HOUSE_CELL_FIRST
+        sta [MAP_PTR],z
+        inc zad_changed
+_zad_seed_done:
         lda zad_changed
         beq _zad_render_done
         ; Redraw the 4 tiles covering the 3x3 footprint, by hitting the 4
@@ -1180,6 +1258,7 @@ industrial_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        sta zad_built
         jsr precompute_emergency_total
         jsr precompute_traffic_penalty
 
@@ -1343,20 +1422,24 @@ _cmt_next:
 _cmt_done:
         rts
 
-; Grow commercial zone X by COM_GROWTH_PER_MONTH (clamped at COM_DEV_MAX),
-; then run the per-cell development pass. Decays by COM_DECAY_PER_MONTH
+; Grow commercial zone X by COM_GROWTH_PER_MONTH adjusted by the commercial tax
+; rate (clamped at COM_DEV_MAX), then run the per-cell development pass. Decays by COM_DECAY_PER_MONTH
 ; (clamped at 0) when zad_zone_traffic exceeds TRAFFIC_DECAY_LEVEL --
 ; shops shutter when their street gets too congested for foot traffic.
 commercial_grow_x:
         lda zad_zone_traffic
         cmp #TRAFFIC_DECAY_LEVEL+1
         bcs _cg_decay
+        lda #COM_GROWTH_PER_MONTH
+        ldy finance_com_tax_rate
+        jsr tax_adjust_growth_amount
+        sta pop_tax_growth_amount
         clc
         lda commercial_dev_lo_arr,x
-        adc #<COM_GROWTH_PER_MONTH
+        adc pop_tax_growth_amount
         sta pop_tmp
         lda commercial_dev_hi_arr,x
-        adc #>COM_GROWTH_PER_MONTH
+        adc #0
         sta pop_tmp+1
         lda pop_tmp+1
         cmp #>COM_DEV_MAX
@@ -1590,11 +1673,19 @@ _trr_write:
 ; Each ctr_score_* routine adds +1 to ctr_level for every origin of its zone
 ; type within TRAFFIC_RADIUS of (pop_tmp_cx, pop_tmp_cy). Cap is applied at
 ; the call site after all three run.
+; Traffic-scoring activity gate: a zone only generates traffic if it has
+; someone there to move. Residential checks zone_pop > 0 (at least one
+; resident), commercial/industrial check their development counter > 0.
+; Without this, freshly-placed zones produced traffic before anyone moved
+; in, so the user saw cars on the roads at pop=0 in month 1.
 ctr_score_residential:
         ldy zone_org_count
         beq _ctrr_done
 _ctrr_loop:
         dey
+        lda zone_pop_lo_arr,y       ; activity gate: skip if no residents yet
+        ora zone_pop_hi_arr,y
+        beq _ctrr_far
         lda zone_org_x_arr,y
         sta cdw_dx
         lda zone_org_y_arr,y
@@ -1615,6 +1706,9 @@ ctr_score_commercial:
         beq _ctrc_done
 _ctrc_loop:
         dey
+        lda commercial_dev_lo_arr,y ; activity gate: skip if shop hasn't opened
+        ora commercial_dev_hi_arr,y
+        beq _ctrc_far
         lda commercial_org_x_arr,y
         sta cdw_dx
         lda commercial_org_y_arr,y
@@ -1635,6 +1729,9 @@ ctr_score_industrial:
         beq _ctri_done
 _ctri_loop:
         dey
+        lda industrial_dev_lo_arr,y ; activity gate: skip if factory is empty
+        ora industrial_dev_hi_arr,y
+        beq _ctri_far
         lda industrial_org_x_arr,y
         sta cdw_dx
         lda industrial_org_y_arr,y
@@ -1681,18 +1778,20 @@ _czt_col:
         ; (dx,dy) both 0..2 -> inside the zone, skip.
         bra _czt_next
 _czt_outside:
-        ; Build absolute cell coords. Skip if off map (any underflow / overflow).
+        ; Build absolute cell coords. Skip if off map. czt_dx/dy are -1..3
+        ; with -1 encoded as $FF, so the only underflow case is base=0+$FF=$FF;
+        ; that lands as A=255, which the bcs CELL_COLS test below already
+        ; rejects. Don't gate on the post-ADC carry -- a normal in-bounds add
+        ; like base+0 leaves carry clear and that previously skipped the cell.
         clc
         lda pop_tmp_cx
         adc czt_dx
-        bcc _czt_next_no_carry      ; underflow (dx was $FF and pop_tmp_cx == 0)
         cmp #CELL_COLS
-        bcs _czt_next               ; off east edge
+        bcs _czt_next               ; off east edge (or -1 underflow from x=0)
         sta city_ptr_x
         clc
         lda pop_tmp_cy
         adc czt_dy
-        bcc _czt_next_no_carry
         cmp #CELL_ROWS
         bcs _czt_next
         sta city_ptr_y
@@ -1705,7 +1804,6 @@ _czt_outside:
         bcc _czt_next               ; not higher than current max
         sta czt_level
 _czt_next:
-_czt_next_no_carry:
         inc czt_dx
         lda czt_dx
         cmp #4                       ; dx range: -1, 0, 1, 2, 3 -- 5 values
@@ -1804,6 +1902,7 @@ commercial_apply_development_state:
         sta zad_rand
         lda #0
         sta zad_changed
+        sta zad_built
         jsr precompute_emergency_total
         jsr precompute_traffic_penalty
 
@@ -1866,6 +1965,7 @@ _cad_no_road_bonus:
         cmp zad_eff_h_lo
         bcc _cad_pick_empty
 _cad_pick_heavy:
+        inc zad_built
         lda #COM_HEAVY_CELL_FIRST
         bra _cad_have_target
 _cad_pick_empty:
@@ -1901,6 +2001,27 @@ _cad_next:
         bra _cad_loop
 
 _cad_loop_done:
+        ; Starter-shop guarantee: if a C zone has begun accumulating
+        ; development but traffic/distance penalties keep every cell below its
+        ; threshold, show the NW corner as a first small shop. This mirrors the
+        ; residential starter-house path so low-tax commercial areas don't look
+        ; completely inert for months.
+        lda zad_built
+        bne _cad_seed_done
+        lda zad_pop_lo
+        ora zad_pop_hi
+        beq _cad_seed_done
+        ldx pop_tmp_idx
+        lda commercial_org_x_arr,x
+        sta city_ptr_x
+        lda commercial_org_y_arr,x
+        sta city_ptr_y
+        jsr city_cell_ptr
+        ldz #0
+        lda #COM_HEAVY_CELL_FIRST
+        sta [MAP_PTR],z
+        inc zad_changed
+_cad_seed_done:
         lda zad_changed
         beq _cad_render_done
         ldx pop_tmp_idx
@@ -2258,6 +2379,8 @@ firestation_org_y_arr:
 ; --- scratch ---
 pop_tmp:                        ; 16-bit clamp scratch (zone_grow_x)
         .byte 0, 0
+pop_tax_growth_amount:          ; tax-adjusted monthly R/C growth amount
+        .byte 0
 pop_tmp_idx:                    ; saved zone index across helper calls
         .byte 0
 pop_tmp_cx:                     ; current zone's origin (monthly tick)
@@ -2281,6 +2404,10 @@ zad_rand:                       ; cached zone_rand for the current zone
         .byte 0
 zad_changed:                    ; nonzero -> at least one cell changed; redraw
         .byte 0
+zad_built:                      ; nonzero -> at least one cell ended up as
+        .byte 0                 ; a house/apt this pass; if pop > 0 and this
+                                ; stays 0 the apply path force-seeds the NW
+                                ; corner so the very first resident has a roof
 zad_offset:                     ; current cell offset 0..8 in the 3x3 loop
         .byte 0
 zad_jitter:                     ; per-cell threshold perturbation (0..31)

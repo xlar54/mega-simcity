@@ -24,6 +24,7 @@ mouse_init:
         sta mouse_prev_buttons
         sta mouse_left_click
         sta mouse_left_debounce
+        sta mouse_ignore_left_until_release
         sta mouse_over_main
         sta mouse_scroll_tick
         sta mouse_scroll_bits
@@ -265,6 +266,7 @@ _muc_store:
 _muc_release:
         lda #0                  ; STZ stores Z on 45GS02; force a real zero
         sta mouse_left_debounce
+        sta mouse_ignore_left_until_release
         bra _muc_store
 
 
@@ -517,6 +519,8 @@ mouse_prev_buttons:
 mouse_left_click:
         .byte 0
 mouse_left_debounce:
+        .byte 0
+mouse_ignore_left_until_release:
         .byte 0
 mouse_over_main:
         .byte 0

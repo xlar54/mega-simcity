@@ -79,6 +79,22 @@ ovr_inspect_name:
         .text "ovr-inspect"
 ovr_inspect_name_end:
 
+boot_load_ovr_budget:
+        #LOAD_ASSET ovr_budget_name, ovr_budget_name_end - ovr_budget_name, OVR_ASSET_SIZE, ATTIC_OVR_BUDGET_MB, ATTIC_OVR_BUDGET_ADDR, ATTIC_OVR_BUDGET_BANK
+        rts
+
+ovr_budget_name:
+        .text "ovr-budget"
+ovr_budget_name_end:
+
+boot_load_ovr_disaster:
+        #LOAD_ASSET ovr_disaster_name, ovr_disaster_name_end - ovr_disaster_name, OVR_ASSET_SIZE, ATTIC_OVR_DISASTER_MB, ATTIC_OVR_DISASTER_ADDR, ATTIC_OVR_DISASTER_BANK
+        rts
+
+ovr_disaster_name:
+        .text "ovr-disaster"
+ovr_disaster_name_end:
+
 ;---------------------------------------------------------------------------------------
 ; Palette (shared by both tilesets)
 ;
@@ -311,7 +327,19 @@ tiles_load_top_buttons:
         #STAMP_CHAR SPEED_CHAR_BASE+2, fcm_speed_bl
         #STAMP_CHAR SPEED_CHAR_BASE+3, fcm_speed_br
 
-        ; --- Checkbox glyphs for the speed popup body ---
+        ; --- BUDGET button (single icon: idle only; never latches selected) ---
+        #STAMP_CHAR BUDGET_CHAR_BASE,   fcm_budget_tl
+        #STAMP_CHAR BUDGET_CHAR_BASE+1, fcm_budget_tr
+        #STAMP_CHAR BUDGET_CHAR_BASE+2, fcm_budget_bl
+        #STAMP_CHAR BUDGET_CHAR_BASE+3, fcm_budget_br
+
+        ; --- DISASTER button (single icon: idle only; never latches selected) ---
+        #STAMP_CHAR DISASTER_CHAR_BASE,   fcm_disaster_tl
+        #STAMP_CHAR DISASTER_CHAR_BASE+1, fcm_disaster_tr
+        #STAMP_CHAR DISASTER_CHAR_BASE+2, fcm_disaster_bl
+        #STAMP_CHAR DISASTER_CHAR_BASE+3, fcm_disaster_br
+
+        ; --- Checkbox glyphs for radio-list popup bodies ---
         #STAMP_CHAR CHECKBOX_EMPTY_CHAR,   fcm_checkbox_empty
         #STAMP_CHAR CHECKBOX_CHECKED_CHAR, fcm_checkbox_checked
 
@@ -580,10 +608,91 @@ fcm_speed_br:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00   ; row 14
         .byte $00,$00,$00,$00,$00,$00,$00,$00   ; row 15: bottom shadow
 
-; --- Checkbox glyphs for the speed popup body. 8x8 each. White ($0F) box
+; --- BUDGET button icon: black dollar sign on the standard raised chrome. ---
+fcm_budget_tl:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$00,$00,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$00,$0C,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$00,$0C,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$00,$00,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
+
+fcm_budget_tr:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$00
+        .byte $00,$0C,$00,$0C,$0C,$0C,$0C,$00
+
+fcm_budget_bl:
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$00,$00,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+fcm_budget_br:
+        .byte $00,$0C,$00,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$0C,$0C,$0C,$0C,$00
+        .byte $00,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+; --- DISASTER button icon: red/yellow flame on the standard raised chrome. ---
+fcm_disaster_tl:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0D
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0D,$0D
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0D,$0D
+        .byte $0F,$0C,$0C,$0C,$0C,$0D,$0D,$06
+        .byte $0F,$0C,$0C,$0C,$0D,$0D,$06,$06
+
+fcm_disaster_tr:
+        .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0D,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0D,$0D,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $0D,$0D,$0D,$0C,$0C,$0C,$0C,$00
+        .byte $06,$06,$0D,$0D,$0C,$0C,$0C,$00
+        .byte $06,$06,$0D,$0D,$0C,$0C,$0C,$00
+        .byte $06,$06,$06,$0D,$0D,$0C,$0C,$00
+
+fcm_disaster_bl:
+        .byte $0F,$0C,$0C,$0C,$0D,$0D,$06,$06
+        .byte $0F,$0C,$0C,$0D,$0D,$06,$06,$06
+        .byte $0F,$0C,$0C,$0D,$0D,$06,$06,$06
+        .byte $0F,$0C,$0C,$0C,$0D,$0D,$06,$06
+        .byte $0F,$0C,$0C,$0C,$0C,$0D,$0D,$06
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0D,$0D
+        .byte $0F,$0C,$0C,$0C,$0C,$0C,$0C,$0C
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+fcm_disaster_br:
+        .byte $06,$06,$06,$06,$0D,$0D,$0C,$00
+        .byte $06,$06,$06,$0D,$0D,$0D,$0C,$00
+        .byte $06,$06,$06,$06,$0D,$0D,$0C,$00
+        .byte $06,$06,$06,$0D,$0D,$0C,$0C,$00
+        .byte $06,$06,$0D,$0D,$0C,$0C,$0C,$00
+        .byte $06,$0D,$0D,$0C,$0C,$0C,$0C,$00
+        .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$00
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+
+; --- Checkbox glyphs for radio-list popup bodies. 8x8 each. White ($0F) box
 ; outline on the popup-panel background ($0C), with either an empty interior
-; or a black ($00) checkmark inside. speed_popup.asm stamps one or the other
-; on each of the 3 rows depending on sim_speed.
+; or a black ($00) checkmark inside.
 fcm_checkbox_empty:
         .byte $0C,$0C,$0C,$0C,$0C,$0C,$0C,$0C
         .byte $0C,$0F,$0F,$0F,$0F,$0F,$0F,$0C
